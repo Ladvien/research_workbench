@@ -324,3 +324,58 @@ pub struct ConversationTreeResponse {
     pub branches: Vec<BranchInfo>,
     pub active_thread: Vec<Uuid>,
 }
+
+// Search-related DTOs
+#[derive(Debug, Deserialize, Validate)]
+pub struct SearchRequest {
+    #[validate(length(min = 1, max = 500))]
+    pub query: String,
+    pub limit: Option<i64>,
+    pub similarity_threshold: Option<f32>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SearchResponse {
+    pub query: String,
+    pub results: Vec<SearchResultResponse>,
+    pub total_found: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SearchResultResponse {
+    pub message_id: Uuid,
+    pub content: String,
+    pub role: MessageRole,
+    pub created_at: DateTime<Utc>,
+    pub conversation_id: Uuid,
+    pub conversation_title: Option<String>,
+    pub similarity: f32,
+    pub preview: String,
+}
+
+impl SearchResultResponse {
+    pub fn from_search_result(result: crate::repositories::embedding::SearchResult) -> Self {
+        let preview = if result.content.len() > 150 {
+            format!("{}...", &result.content[..150])
+        } else {
+            result.content.clone()
+        };
+
+        Self {
+            message_id: result.message_id,
+            content: result.content,
+            role: result.role,
+            created_at: result.created_at,
+            conversation_id: result.conversation_id,
+            conversation_title: result.conversation_title,
+            similarity: result.similarity,
+            preview,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct EmbeddingJobResponse {
+    pub processed_count: usize,
+    pub success: bool,
+}

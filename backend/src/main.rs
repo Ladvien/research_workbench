@@ -1,4 +1,5 @@
 use axum::{
+    middleware as axum_middleware,
     routing::get,
     Router,
 };
@@ -9,6 +10,7 @@ mod config;
 mod database;
 mod error;
 mod handlers;
+mod llm;
 mod middleware;
 mod models;
 mod openai;
@@ -18,6 +20,7 @@ mod services;
 use app_state::AppState;
 use config::AppConfig;
 use database::Database;
+use middleware::rate_limit::{api_rate_limit_middleware, upload_rate_limit_middleware};
 use services::{DataAccessLayer, auth::AuthService};
 use tower_sessions::{SessionManagerLayer, Expiry, MemoryStore};
 use time::Duration;
@@ -68,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Starting Workbench Server on {}", config.bind_address);
 
     // Build the application with all routes
-    let app = create_app(app_state, session_layer).await?;
+    let app = create_app(app_state, session_layer, &config).await?;
 
     // Create listener
     let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;
@@ -82,6 +85,7 @@ async fn main() -> anyhow::Result<()> {
 async fn create_app(
     app_state: AppState,
     session_layer: SessionManagerLayer<MemoryStore>,
+    config: &AppConfig,
 ) -> anyhow::Result<Router> {
     // Build router with authentication endpoints
     let app = Router::new()
@@ -113,6 +117,13 @@ async fn create_app(
         .route("/api/conversations/:id/tree", axum::routing::get(handlers::message::get_conversation_tree))
         .route("/api/conversations/:id/switch-branch", axum::routing::post(handlers::message::switch_branch))
 
+        // Search endpoints (protected)
+        .route("/api/search", axum::routing::get(handlers::search::search_messages))
+        .route("/api/search", axum::routing::post(handlers::search::search_messages_post))
+        .route("/api/search/health", axum::routing::get(handlers::search::search_health))
+        .route("/api/search/stats", axum::routing::get(handlers::search::search_stats))
+        .route("/api/search/embedding-job", axum::routing::post(handlers::search::trigger_embedding_job))
+
         // File attachment endpoints (temporarily disabled)
         // .route("/api/upload", axum::routing::post(handlers::file::upload_file))
         // .route("/api/files/:id", axum::routing::get(handlers::file::download_file))
@@ -130,6 +141,9 @@ async fn create_app(
 
         // Add session middleware
         .layer(session_layer)
+
+        // Add API rate limiting middleware (applied to all routes)
+        .layer(axum_middleware::from_fn_with_state(app_state.clone(), api_rate_limit_middleware))
 
         // Add CORS middleware
         .layer(

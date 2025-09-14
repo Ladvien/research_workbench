@@ -6,3 +6,5 @@ pub mod conversation;
 // pub mod file;    // Temporarily disabled - needs additional imports
 pub mod health;
 pub mod message;
+pub mod models;
+pub mod search;

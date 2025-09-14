@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod chat;
 pub mod conversation;
+pub mod embedding;
 // pub mod file;  // Temporarily disabled
 
 use crate::{database::Database, repositories::RepositoryManager};
@@ -33,5 +34,9 @@ impl DataAccessLayer {
 
     pub fn attachments(&self) -> &crate::repositories::attachment::AttachmentRepository {
         &self.repositories.attachments
+    }
+
+    pub fn embeddings(&self) -> &crate::repositories::embedding::EmbeddingRepository {
+        &self.repositories.embeddings
     }
 }

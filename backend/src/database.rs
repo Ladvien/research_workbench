@@ -33,6 +33,10 @@ impl Database {
         sqlx::query("SELECT 1").fetch_one(&self.pool).await?;
         Ok(())
     }
+
+    pub fn pool(&self) -> Pool<Postgres> {
+        self.pool.clone()
+    }
 }
 
 // Database configuration struct

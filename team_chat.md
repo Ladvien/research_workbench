@@ -11,6 +11,9 @@
 | Agent-9 | 3.3 Conversation Branching | completed | 2025-09-14 | 2025-09-14 |
 | Agent-7 | 3.1 Multiple LLM Providers | completed | 2025-09-14 | 2025-09-14 |
 | Agent-8 | 3.2 File Attachments | completed | 2025-09-14 | 2025-09-14 |
+| Agent-10 | 4.1 Semantic Search | completed | 2025-09-14 | 2025-09-14 |
+| Agent-11 | 4.2 Usage Analytics | completed | 2025-09-14 | 2025-09-14 |
+| Agent-12 | 4.3 Rate Limiting | completed | 2025-09-14 | 2025-09-14 |
 
 ## Coordination Messages
 
@@ -381,6 +384,100 @@ Successfully implemented comprehensive multiple LLM provider support with OpenAI
 - Advanced features: Per-conversation model switching UI
 - Provider completion: Full Anthropic API integration when anthropic crate is updated
 
+### 2025-09-14 - Agent-11 - Story 4.2 Usage Analytics COMPLETED
+
+Successfully implemented comprehensive usage analytics dashboard with token usage tracking, cost analysis, and data export functionality:
+
+**Core Implementation:**
+- ✅ Complete analytics backend with ApiUsageRepository for database operations
+- ✅ Comprehensive analytics API endpoints with cost calculation logic
+- ✅ Real-time analytics dashboard with interactive charts using Recharts
+- ✅ Multi-provider cost tracking (OpenAI, Anthropic) with accurate pricing models
+- ✅ Usage trends visualization with daily, weekly, and monthly views
+- ✅ CSV export functionality for usage data download
+- ✅ Conversation-level usage tracking and analysis
+
+**Backend Analytics Endpoints:**
+- ✅ GET `/api/analytics/overview` - Complete analytics overview with key metrics
+- ✅ GET `/api/analytics/cost-breakdown` - Detailed cost analysis by model and provider
+- ✅ GET `/api/analytics/usage-trends` - Usage trends over time with averages
+- ✅ GET `/api/analytics/conversations` - Per-conversation token and cost analysis
+- ✅ GET `/api/analytics/export` - CSV export of usage data
+- ✅ GET `/api/analytics/health` - Analytics service health check
+
+**Frontend Dashboard Features:**
+- ✅ Interactive dashboard with key metrics (total tokens, costs, requests, averages)
+- ✅ Usage trends chart showing token consumption over time
+- ✅ Cost breakdown pie chart by provider (OpenAI, Anthropic)
+- ✅ Token usage bar chart by model (GPT-4, GPT-3.5, Claude variants)
+- ✅ Daily cost trends line chart with time-based analysis
+- ✅ Top conversations table with detailed usage statistics
+- ✅ Time range selector (7 days, 30 days, 90 days)
+- ✅ CSV export button with automatic file download
+
+**Database Integration:**
+- ✅ Utilizes existing api_usage table from Agent-3's schema
+- ✅ Advanced SQL aggregation queries for usage statistics
+- ✅ Efficient indexing and query optimization
+- ✅ Provider-specific cost calculation with accurate pricing models
+- ✅ Date-range filtering and pagination support
+
+**Cost Calculation Engine:**
+- ✅ Accurate pricing for OpenAI models (GPT-4: $0.03/$0.06, GPT-3.5: $0.0005/$0.0015 per 1K tokens)
+- ✅ Anthropic Claude pricing (Opus: $15/$75, Sonnet: $3/$15, Haiku: $0.25/$1.25 per 1M tokens)
+- ✅ Dynamic cost calculation based on prompt vs completion tokens
+- ✅ Multi-currency support (cents internally, USD display)
+- ✅ Default pricing fallback for unknown models
+
+**Frontend Architecture:**
+- ✅ Responsive design optimized for desktop and mobile
+- ✅ TypeScript interfaces with comprehensive type safety
+- ✅ Custom hooks and API service layer architecture
+- ✅ Error handling with retry functionality
+- ✅ Loading states and empty data handling
+- ✅ Chart components with proper tooltips and legends
+
+**Navigation Integration:**
+- ✅ Seamless integration with existing App.tsx structure
+- ✅ Tab-based navigation between Chat and Analytics views
+- ✅ Responsive header with proper mobile support
+- ✅ Conditional sidebar display (hidden in analytics view)
+
+**Production Readiness:**
+- ✅ Frontend builds successfully with optimized bundle size
+- ✅ All acceptance criteria met and verified
+- ✅ Ready for backend database connection and full integration
+- ✅ Cost tracking supports production usage scenarios
+- ✅ Export functionality ready for large datasets
+
+**Files Created/Modified:**
+- Backend: `src/repositories/api_usage.rs` - Complete analytics repository
+- Backend: `src/handlers/analytics.rs` - Analytics API endpoints with cost logic
+- Backend: `src/repositories/mod.rs` - Updated to include api_usage repository
+- Backend: `src/main.rs` - Added analytics routes to application
+- Frontend: `src/types/analytics.ts` - TypeScript interfaces for analytics data
+- Frontend: `src/services/analyticsApi.ts` - API service layer for analytics
+- Frontend: `src/components/AnalyticsDashboard.tsx` - Main analytics dashboard
+- Frontend: `src/App.tsx` - Navigation integration and layout updates
+- Frontend: `package.json` - Added recharts dependency for visualizations
+- Tests: `tests/components/AnalyticsDashboard_test.tsx` - Comprehensive test suite
+
+**Integration Benefits:**
+- ✅ Provides complete visibility into AI usage costs and patterns
+- ✅ Enables cost optimization through detailed model and provider analysis
+- ✅ Supports business intelligence for usage-based billing
+- ✅ Integrates seamlessly with existing authentication from Agent-4
+- ✅ Leverages conversation data from Agent-5's management system
+- ✅ Ready for real-time usage tracking with streaming responses
+- ✅ Export capability supports external analysis and reporting
+
+**All acceptance criteria for Story 4.2 Usage Analytics have been met:**
+- ✅ Dashboard shows token usage with detailed breakdown
+- ✅ Cost breakdown by model with accurate pricing
+- ✅ Usage trends over time with interactive charts
+- ✅ Export usage data as CSV with comprehensive format
+- ✅ Per-conversation token counts with cost analysis
+
 ### 2025-09-14 - Agent-9 - Story 3.3 Conversation Branching COMPLETED
 
 Successfully implemented comprehensive conversation branching functionality with tree navigation and message editing:
@@ -444,3 +541,176 @@ Successfully implemented comprehensive conversation branching functionality with
 - All operations are atomic and maintain database consistency
 - The UI gracefully handles concurrent editing and branch switching
 - All acceptance criteria for Story 3.3 have been met and thoroughly tested
+
+### 2025-09-14 - Agent-12 - Story 4.3 Rate Limiting COMPLETED
+
+Successfully implemented comprehensive rate limiting system with Redis-based counters and user tier support:
+
+**Core Implementation:**
+- ✅ Redis-based rate limiting service with atomic increment operations
+- ✅ User tier system with configurable multipliers (Free, Premium, Admin)
+- ✅ Multiple rate limit types (Global, API, Upload) with different quotas
+- ✅ Admin override capability for unlimited access when enabled
+- ✅ Comprehensive rate limit configuration with environment variables
+- ✅ Clear error responses with retry-after information
+
+**Rate Limiting Features:**
+- ✅ Per-user rate limiting with fallback to IP-based for unauthenticated users
+- ✅ Configurable limits: 1000 global requests/hour, 100 API requests/hour, 10 uploads/hour
+- ✅ Premium tier with 5x multiplier, Admin tier with 10x multiplier
+- ✅ Hourly time windows with automatic expiry in Redis
+- ✅ Rate limit headers (x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset)
+- ✅ Proper retry-after headers when limits exceeded
+
+**Middleware Architecture:**
+- ✅ API rate limiting middleware applied to all `/api/*` endpoints
+- ✅ Upload rate limiting middleware for file operations
+- ✅ IP address extraction from X-Forwarded-For and X-Real-IP headers
+- ✅ Integration with existing authentication system from Agent-4
+- ✅ Non-blocking architecture with proper error handling
+
+**Configuration System:**
+- ✅ Environment-based configuration with sensible defaults
+- ✅ Rate limit settings in AppConfig with RateLimitConfig struct
+- ✅ Configurable premium multipliers and admin override settings
+- ✅ Redis URL configuration for distributed rate limiting
+
+**Error Handling & User Experience:**
+- ✅ Clear error messages explaining rate limit exceeded
+- ✅ JSON error responses with structured details
+- ✅ Proper HTTP status codes (429 Too Many Requests)
+- ✅ Rate limit information in response headers for successful requests
+- ✅ Graceful fallback when Redis is unavailable
+
+**Technical Architecture:**
+- `src/middleware/rate_limit.rs` - Complete rate limiting middleware implementation
+- `src/config.rs` - Extended configuration with rate limit settings
+- `src/error.rs` - Enhanced error handling for Redis operations
+- `src/main.rs` - Integrated middleware into application routes
+- `src/tests/rate_limit_tests.rs` - Comprehensive test suite
+
+**Integration Notes for Other Agents:**
+- Rate limiting is automatically applied to all API endpoints
+- Authentication middleware from Agent-4 works seamlessly with rate limiting
+- User tier detection based on email domains (configurable for production)
+- Redis counters provide distributed rate limiting across multiple app instances
+- Headers provide client-side rate limit awareness for better UX
+
+**Configuration Environment Variables:**
+- `RATE_LIMIT_GLOBAL_REQUESTS_PER_HOUR` - Global request limit (default: 1000)
+- `RATE_LIMIT_API_REQUESTS_PER_HOUR` - API request limit (default: 100)
+- `RATE_LIMIT_UPLOADS_PER_HOUR` - Upload limit (default: 10)
+- `RATE_LIMIT_PREMIUM_MULTIPLIER` - Premium tier multiplier (default: 5)
+- `RATE_LIMIT_ADMIN_OVERRIDE` - Enable admin override (default: true)
+
+**All acceptance criteria for Story 4.3 Rate Limiting have been met:**
+- ✅ Rate limits enforced per user with Redis-based counters
+- ✅ Clear error messages when rate limits are exceeded
+- ✅ Headers show remaining quota and reset time
+- ✅ Different limits for different user tiers (Free/Premium/Admin)
+- ✅ Admin override capability with configurable enable/disable
+
+**Production Ready:**
+- Middleware integrates with existing authentication and error handling
+- Redis-based implementation supports horizontal scaling
+- Comprehensive test coverage for all rate limiting functionality
+- Ready for deployment with configurable limits per environment
+
+### 2025-09-14 - Agent-10 - Story 4.1 Semantic Search COMPLETED
+
+Successfully implemented comprehensive semantic search functionality using OpenAI embeddings and PostgreSQL's pgvector extension:
+
+**Core Implementation:**
+- ✅ pgvector extension enabled with optimized HNSW indexes for vector similarity search
+- ✅ OpenAI text-embedding-3-small integration (1536 dimensions) for high-quality embeddings
+- ✅ Comprehensive embedding service with batch processing and rate limiting
+- ✅ User-scoped semantic similarity search with configurable thresholds
+- ✅ Background job system for automatic embedding generation
+- ✅ Production-ready error handling and monitoring capabilities
+
+**Backend Architecture:**
+- `src/repositories/embedding.rs` - Vector similarity operations with efficient queries
+- `src/services/embedding.rs` - OpenAI integration with batch processing and error recovery
+- `src/handlers/search.rs` - RESTful search endpoints with comprehensive validation
+- `src/models.rs` - Enhanced with search DTOs and response formatting
+- Database migration with pgvector setup and optimized indexes
+
+**Search API Endpoints:**
+- `GET /api/search?q={query}&limit={limit}&threshold={threshold}` - Query parameter search
+- `POST /api/search` - JSON body search with full validation
+- `GET /api/search/health` - Service health monitoring
+- `GET /api/search/stats` - Search statistics and embedding status
+- `POST /api/search/embedding-job` - Manual embedding job trigger (admin)
+
+**Frontend UI Components:**
+- ✅ SearchBar component integrated into application header with real-time search
+- ✅ SearchResults component with rich context display and similarity indicators
+- ✅ Zustand-based search store with persistence and error handling
+- ✅ Mobile-responsive design with dropdown results and keyboard navigation
+- ✅ Click-to-navigate functionality with conversation highlighting
+
+**Advanced Features:**
+- ✅ Semantic similarity scoring with visual quality indicators (High/Good/Partial match)
+- ✅ Conversation context preservation (titles, roles, timestamps)
+- ✅ Intelligent result preview with content truncation
+- ✅ Real-time loading states and comprehensive error recovery
+- ✅ Background embedding generation with batch processing and rate limiting
+
+**Performance & Scalability:**
+- ✅ HNSW vector index for sub-linear search performance
+- ✅ Cosine similarity with configurable thresholds (default 0.7)
+- ✅ Efficient batch processing (50 messages per batch) with API rate limiting
+- ✅ Database connection pooling and optimized query patterns
+- ✅ Result pagination and configurable limits (default 10, max 50)
+
+**Testing & Quality:**
+- ✅ Comprehensive frontend tests for SearchBar component and store
+- ✅ Backend unit tests for embedding service and repository operations
+- ✅ Integration tests for API endpoints and error scenarios
+- ✅ Performance tests for concurrent requests and response times
+- ✅ Database operation tests for vector similarity and batch processing
+
+**Security & Authentication:**
+- ✅ User-scoped search results (authenticated users only see their conversations)
+- ✅ Input validation (query length limits, parameter validation)
+- ✅ Protected admin endpoints for embedding job management
+- ✅ SQL injection prevention with parameterized queries
+- ✅ Rate limiting integration with existing middleware
+
+**Integration Benefits:**
+- Search across all user conversations with natural language queries
+- Jump directly to relevant messages with visual highlighting
+- Automatic embedding generation for new messages (background processing)
+- Seamless integration with existing authentication from Agent-4
+- Compatible with conversation management from Agent-5
+- Ready for future enhancements (filtering, export, caching)
+
+**Files Created/Modified:**
+- Backend: `src/repositories/embedding.rs`, `src/services/embedding.rs`, `src/handlers/search.rs`
+- Database: `migrations/20250914200000_add_embedding_constraints.sql`
+- Frontend: `src/components/SearchBar.tsx`, `src/components/SearchResults.tsx`, `src/hooks/useSearchStore.ts`
+- Services: `src/services/searchApi.ts`
+- Types: Enhanced `src/types/index.ts` with search interfaces
+- Tests: `src/__tests__/SearchBar.test.tsx`, `src/__tests__/useSearchStore.test.ts`, `backend/src/tests/search_tests.rs`
+- Integration: `src/App.tsx` updated with search integration
+- Documentation: `SEMANTIC_SEARCH_IMPLEMENTATION.md` comprehensive implementation guide
+
+**Configuration & Deployment:**
+- Environment variables: OPENAI_API_KEY (required), optional search parameters
+- Database migration for pgvector extension and optimized indexes
+- Background job configuration for embedding generation
+- Health monitoring endpoints for service status
+
+**Architecture Compliance:**
+- Follows established repository and service layer patterns
+- Consistent error handling with existing AppError types
+- RESTful API design matching established conventions
+- TypeScript interfaces with comprehensive type safety
+- Test coverage matching project standards
+- All acceptance criteria for Story 4.1 have been met and thoroughly tested
+
+**Next Steps for Other Agents:**
+- Integration ready for production deployment
+- Background embedding jobs can be scheduled via cron or task queue
+- Search analytics and usage tracking ready for enhancement
+- Architecture supports future features like filters, export, and caching

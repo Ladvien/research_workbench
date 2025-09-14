@@ -111,3 +111,40 @@ export interface ConversationState {
   deleteConversation: (id: string) => Promise<void>;
   clearError: () => void;
 }
+
+// Search types
+export interface SearchRequest {
+  query: string;
+  limit?: number;
+  similarity_threshold?: number;
+}
+
+export interface SearchResult {
+  message_id: string;
+  content: string;
+  role: MessageRole;
+  created_at: string;
+  conversation_id: string;
+  conversation_title?: string;
+  similarity: number;
+  preview: string;
+}
+
+export interface SearchResponse {
+  query: string;
+  results: SearchResult[];
+  total_found: number;
+}
+
+export interface SearchState {
+  isSearching: boolean;
+  searchResults: SearchResult[];
+  searchQuery: string;
+  error: string | null;
+  lastSearchTime?: string;
+
+  // Actions
+  search: (query: string, limit?: number, similarity_threshold?: number) => Promise<void>;
+  clearSearch: () => void;
+  clearError: () => void;
+}
