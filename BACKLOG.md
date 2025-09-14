@@ -54,25 +54,6 @@ This document outlines the MVP (Minimum Viable Product) development phases for t
 - Implement error handling middleware
 - Add environment variable configuration
 
-##### 1.3 Message Persistence
-**As a** user  
-**I want to** have my conversations saved  
-**So that** I can continue them later  
-
-**Acceptance Criteria:**
-- [ ] Messages are saved to PostgreSQL
-- [ ] Conversations persist across page refreshes
-- [ ] Database schema supports conversations and messages
-- [ ] Timestamps are recorded for all messages
-- [ ] Token usage is tracked per message
-
-**Technical Tasks:**
-- Set up PostgreSQL 17 connection with sqlx
-- Create initial database migrations
-- Implement message repository pattern
-- Add conversation ID to frontend state
-- Create data access layer
-
 ---
 
 ## Phase 2: User Management & Enhanced UX (Week 3-4)
