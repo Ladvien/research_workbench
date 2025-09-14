@@ -20,6 +20,7 @@ pub struct Conversation {
     pub user_id: Uuid,
     pub title: Option<String>,
     pub model: String,
+    pub provider: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub metadata: serde_json::Value,
@@ -98,6 +99,7 @@ pub struct ApiUsage {
     pub id: Uuid,
     pub user_id: Uuid,
     pub model: String,
+    pub provider: String,
     pub tokens_prompt: Option<i32>,
     pub tokens_completion: Option<i32>,
     pub cost_cents: Option<i32>,
@@ -120,6 +122,7 @@ pub struct CreateConversationRequest {
     pub title: Option<String>,
     #[validate(length(min = 1))]
     pub model: String,
+    pub provider: Option<String>,
     pub metadata: Option<serde_json::Value>,
 }
 
@@ -221,4 +224,103 @@ pub struct RegisterRequest {
 pub struct RegisterResponse {
     pub user: UserResponse,
     pub access_token: String,
+}
+
+// File attachment DTOs
+#[derive(Debug, Deserialize, Validate)]
+pub struct FileUploadRequest {
+    pub message_id: Uuid,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FileUploadResponse {
+    pub id: Uuid,
+    pub message_id: Uuid,
+    pub filename: String,
+    pub content_type: Option<String>,
+    pub size_bytes: Option<i64>,
+    pub upload_url: String,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<Attachment> for FileUploadResponse {
+    fn from(attachment: Attachment) -> Self {
+        Self {
+            id: attachment.id,
+            message_id: attachment.message_id,
+            filename: attachment.filename,
+            content_type: attachment.content_type,
+            size_bytes: attachment.size_bytes,
+            upload_url: format!("/api/files/{}", attachment.id),
+            created_at: attachment.created_at,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct AttachmentResponse {
+    pub id: Uuid,
+    pub filename: String,
+    pub content_type: Option<String>,
+    pub size_bytes: Option<i64>,
+    pub download_url: String,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<Attachment> for AttachmentResponse {
+    fn from(attachment: Attachment) -> Self {
+        Self {
+            id: attachment.id,
+            filename: attachment.filename,
+            content_type: attachment.content_type,
+            size_bytes: attachment.size_bytes,
+            download_url: format!("/api/files/{}", attachment.id),
+            created_at: attachment.created_at,
+        }
+    }
+}
+
+// Branching-related DTOs
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BranchInfo {
+    pub parent_id: Uuid,
+    pub branch_count: u32,
+    pub branches: Vec<BranchOption>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BranchOption {
+    pub id: Uuid,
+    pub preview: String,
+    pub is_active: bool,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct EditMessageRequest {
+    #[validate(length(min = 1))]
+    pub content: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct EditMessageResponse {
+    pub message: Message,
+    pub affected_messages: Vec<Uuid>, // Messages that were deactivated
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SwitchBranchRequest {
+    pub target_message_id: Uuid,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SwitchBranchResponse {
+    pub active_messages: Vec<Message>,
+    pub success: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConversationTreeResponse {
+    pub messages: Vec<Message>,
+    pub branches: Vec<BranchInfo>,
+    pub active_thread: Vec<Uuid>,
 }

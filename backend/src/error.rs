@@ -14,6 +14,9 @@ pub enum AppError {
     #[error("OpenAI API error: {0}")]
     OpenAI(String),
 
+    #[error("Anthropic API error: {0}")]
+    Anthropic(String),
+
     #[error("Invalid request: {0}")]
     BadRequest(String),
 
@@ -25,6 +28,9 @@ pub enum AppError {
 
     #[error("Resource not found: {0}")]
     NotFound(String),
+
+    #[error("Access forbidden: {0}")]
+    Forbidden(String),
 
     #[error("Database error: {0}")]
     Database(String),
@@ -53,10 +59,15 @@ impl IntoResponse for AppError {
                 tracing::error!("OpenAI error: {}", msg);
                 (StatusCode::BAD_GATEWAY, msg.as_str())
             }
+            AppError::Anthropic(ref msg) => {
+                tracing::error!("Anthropic error: {}", msg);
+                (StatusCode::BAD_GATEWAY, msg.as_str())
+            }
             AppError::BadRequest(ref msg) => (StatusCode::BAD_REQUEST, msg.as_str()),
             AppError::RateLimit => (StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded"),
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "Authentication required"),
             AppError::NotFound(ref msg) => (StatusCode::NOT_FOUND, msg.as_str()),
+            AppError::Forbidden(ref msg) => (StatusCode::FORBIDDEN, msg.as_str()),
             AppError::Database(ref msg) => {
                 tracing::error!("Database error: {}", msg);
                 (StatusCode::INTERNAL_SERVER_ERROR, "Database error occurred")
@@ -108,5 +119,23 @@ impl From<sqlx::Error> for AppError {
 impl From<argon2::password_hash::Error> for AppError {
     fn from(err: argon2::password_hash::Error) -> Self {
         AppError::Internal(anyhow::anyhow!("Password hashing error: {}", err))
+    }
+}
+
+impl From<std::io::Error> for AppError {
+    fn from(err: std::io::Error) -> Self {
+        AppError::Internal(anyhow::anyhow!("IO error: {}", err))
+    }
+}
+
+impl From<axum::http::Error> for AppError {
+    fn from(err: axum::http::Error) -> Self {
+        AppError::Internal(anyhow::anyhow!("HTTP error: {}", err))
+    }
+}
+
+impl From<axum::http::header::InvalidHeaderValue> for AppError {
+    fn from(err: axum::http::header::InvalidHeaderValue) -> Self {
+        AppError::BadRequest(format!("Invalid header value: {}", err))
     }
 }

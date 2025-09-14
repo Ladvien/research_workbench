@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod chat;
 pub mod conversation;
+// pub mod file;  // Temporarily disabled
 
 use crate::{database::Database, repositories::RepositoryManager};
 use std::sync::Arc;
@@ -28,5 +29,9 @@ impl DataAccessLayer {
 
     pub fn users(&self) -> &crate::repositories::user::UserRepository {
         &self.repositories.users
+    }
+
+    pub fn attachments(&self) -> &crate::repositories::attachment::AttachmentRepository {
+        &self.repositories.attachments
     }
 }

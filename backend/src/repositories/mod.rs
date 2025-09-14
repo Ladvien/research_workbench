@@ -1,3 +1,4 @@
+pub mod attachment;
 pub mod conversation;
 pub mod message;
 pub mod user;
@@ -18,6 +19,7 @@ pub trait Repository<T, ID> {
 // Repository factory to create repository instances
 #[derive(Debug)]
 pub struct RepositoryManager {
+    pub attachments: attachment::AttachmentRepository,
     pub conversations: conversation::ConversationRepository,
     pub messages: message::MessageRepository,
     pub users: user::UserRepository,
@@ -26,6 +28,7 @@ pub struct RepositoryManager {
 impl RepositoryManager {
     pub fn new(database: Database) -> Self {
         Self {
+            attachments: attachment::AttachmentRepository::new(database.clone()),
             conversations: conversation::ConversationRepository::new(database.clone()),
             messages: message::MessageRepository::new(database.clone()),
             users: user::UserRepository::new(database),

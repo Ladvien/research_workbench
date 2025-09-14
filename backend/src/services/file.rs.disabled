@@ -1,0 +1,165 @@
+use crate::models::{Attachment, AttachmentResponse, FileUploadResponse};
+use crate::repositories::attachment::{AttachmentRepository, CreateAttachment};
+use anyhow::{anyhow, Context, Result};
+use axum_typed_multipart::{FieldData, TryFromMultipart};
+use bytes::Bytes;
+use mime_guess::MimeGuess;
+use std::path::Path;
+use tempfile::NamedTempFile;
+use tokio::fs;
+use uuid::Uuid;
+
+const MAX_FILE_SIZE: usize = 10 * 1024 * 1024; // 10MB
+const ALLOWED_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "pdf", "txt", "md", "doc", "docx"];
+
+#[derive(Debug, Clone)]
+pub struct FileService {
+    pub attachment_repo: AttachmentRepository,
+    pub storage_path: String,
+}
+
+impl FileService {
+    pub fn new(attachment_repo: AttachmentRepository, storage_path: String) -> Self {
+        Self {
+            attachment_repo,
+            storage_path,
+        }
+    }
+
+    pub async fn upload_file(
+        &self,
+        message_id: Uuid,
+        file_data: FieldData<NamedTempFile>,
+    ) -> Result<FileUploadResponse> {
+        // Validate file size
+        let file_size = file_data.contents.as_file().metadata()?.len();
+        if file_size > MAX_FILE_SIZE as u64 {
+            return Err(anyhow!(
+                "File size {} bytes exceeds maximum allowed size {} bytes",
+                file_size,
+                MAX_FILE_SIZE
+            ));
+        }
+
+        // Extract and validate filename
+        let filename = file_data
+            .metadata
+            .file_name
+            .as_ref()
+            .ok_or_else(|| anyhow!("No filename provided"))?;
+
+        self.validate_file_extension(filename)?;
+
+        // Determine MIME type
+        let content_type = MimeGuess::from_path(filename).first().map(|mime| mime.to_string());
+
+        // Create unique storage path
+        let file_id = Uuid::new_v4();
+        let extension = Path::new(filename)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or("");
+        let stored_filename = if extension.is_empty() {
+            file_id.to_string()
+        } else {
+            format!("{}.{}", file_id, extension)
+        };
+
+        let storage_dir = Path::new(&self.storage_path).join("attachments");
+        fs::create_dir_all(&storage_dir)
+            .await
+            .context("Failed to create storage directory")?;
+
+        let file_path = storage_dir.join(&stored_filename);
+
+        // Copy file to permanent storage
+        let temp_path = file_data.contents.path();
+        fs::copy(temp_path, &file_path)
+            .await
+            .context("Failed to save file to storage")?;
+
+        // Create attachment record
+        let attachment = self
+            .attachment_repo
+            .create(CreateAttachment {
+                message_id,
+                filename: filename.clone(),
+                content_type,
+                size_bytes: Some(file_size as i64),
+                storage_path: file_path.to_string_lossy().to_string(),
+            })
+            .await?;
+
+        Ok(attachment.into())
+    }
+
+    pub async fn get_file(&self, attachment_id: Uuid) -> Result<(Attachment, Bytes)> {
+        let attachment = self
+            .attachment_repo
+            .find_by_id(attachment_id)
+            .await?
+            .ok_or_else(|| anyhow!("Attachment not found"))?;
+
+        let file_content = fs::read(&attachment.storage_path)
+            .await
+            .context("Failed to read file from storage")?;
+
+        Ok((attachment, Bytes::from(file_content)))
+    }
+
+    pub async fn delete_file(&self, attachment_id: Uuid) -> Result<bool> {
+        let attachment = self
+            .attachment_repo
+            .find_by_id(attachment_id)
+            .await?
+            .ok_or_else(|| anyhow!("Attachment not found"))?;
+
+        // Remove file from filesystem
+        if let Err(e) = fs::remove_file(&attachment.storage_path).await {
+            tracing::warn!(
+                "Failed to remove file from storage: {} - {}",
+                attachment.storage_path,
+                e
+            );
+            // Continue with database deletion even if file removal fails
+        }
+
+        // Remove attachment record from database
+        self.attachment_repo.delete(attachment_id).await
+    }
+
+    pub async fn get_message_attachments(&self, message_id: Uuid) -> Result<Vec<AttachmentResponse>> {
+        let attachments = self.attachment_repo.find_by_message_id(message_id).await?;
+        Ok(attachments.into_iter().map(|att| att.into()).collect())
+    }
+
+    pub async fn get_user_storage_usage(&self, user_id: Uuid) -> Result<i64> {
+        self.attachment_repo.get_total_user_storage_size(user_id).await
+    }
+
+    fn validate_file_extension(&self, filename: &str) -> Result<()> {
+        let extension = Path::new(filename)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .ok_or_else(|| anyhow!("File has no extension"))?
+            .to_lowercase();
+
+        if !ALLOWED_EXTENSIONS.contains(&extension.as_str()) {
+            return Err(anyhow!(
+                "File extension '{}' is not allowed. Allowed extensions: {}",
+                extension,
+                ALLOWED_EXTENSIONS.join(", ")
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+// Multipart form data structure for file upload
+#[derive(TryFromMultipart)]
+pub struct FileUploadForm {
+    #[form_data(limit = "10MB")]
+    pub file: FieldData<NamedTempFile>,
+    pub message_id: String, // Will be parsed to UUID
+}

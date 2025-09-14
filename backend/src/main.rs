@@ -63,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
     let chat_service = handlers::chat_persistent::create_chat_service(dal.clone());
 
     // Create shared app state
-    let app_state = AppState::new(auth_service, conversation_service, chat_service, dal);
+    let app_state = AppState::new(auth_service, conversation_service, chat_service, dal, config.clone());
 
     tracing::info!("Starting Workbench Server on {}", config.bind_address);
 
@@ -97,6 +97,33 @@ async fn create_app(
 
         // Legacy chat endpoint (for backward compatibility)
         .route("/api/chat", axum::routing::post(handlers::chat::send_message))
+
+        // Conversation endpoints (protected)
+        .route("/api/conversations", axum::routing::get(handlers::conversation::get_user_conversations))
+        .route("/api/conversations", axum::routing::post(handlers::conversation::create_conversation))
+        .route("/api/conversations/:id", axum::routing::get(handlers::conversation::get_conversation))
+        .route("/api/conversations/:id", axum::routing::delete(handlers::conversation::delete_conversation))
+        .route("/api/conversations/:id", axum::routing::patch(handlers::conversation::update_conversation_title))
+        .route("/api/conversations/:id/stats", axum::routing::get(handlers::conversation::get_conversation_stats))
+
+        // Message branching endpoints (protected)
+        .route("/api/messages/:id", axum::routing::patch(handlers::message::edit_message))
+        .route("/api/messages/:id", axum::routing::delete(handlers::message::delete_message))
+        .route("/api/messages/:id/branches", axum::routing::get(handlers::message::get_message_branches))
+        .route("/api/conversations/:id/tree", axum::routing::get(handlers::message::get_conversation_tree))
+        .route("/api/conversations/:id/switch-branch", axum::routing::post(handlers::message::switch_branch))
+
+        // File attachment endpoints (temporarily disabled)
+        // .route("/api/upload", axum::routing::post(handlers::file::upload_file))
+        // .route("/api/files/:id", axum::routing::get(handlers::file::download_file))
+        // .route("/api/files/:id", axum::routing::delete(handlers::file::delete_file))
+        // .route("/api/messages/:id/attachments", axum::routing::get(handlers::file::get_message_attachments))
+
+        // Model endpoints (temporarily disabled)
+        // .route("/api/models", get(handlers::models::get_models))
+        // .route("/api/models/health", get(handlers::models::models_health))
+        // .route("/api/models/:provider", get(handlers::models::get_models_by_provider))
+        // .route("/api/models/config/:model_id", get(handlers::models::get_model_config))
 
         // Add application state
         .with_state(app_state)
