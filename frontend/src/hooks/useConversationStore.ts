@@ -3,8 +3,40 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
-import { ConversationState } from '../types';
+import { ConversationState, StreamingMessage } from '../types';
 import { apiClient } from '../services/api';
+
+// Helper function to generate conversation title from first message
+const generateTitleFromMessage = (content: string): string => {
+  // Remove extra whitespace and line breaks
+  const cleanContent = content.trim().replace(/\s+/g, ' ');
+
+  // If content is very short, use it as is
+  if (cleanContent.length <= 30) {
+    return cleanContent;
+  }
+
+  // Try to extract the first sentence
+  const firstSentence = cleanContent.split(/[.!?]/)[0];
+
+  if (firstSentence.length > 0 && firstSentence.length <= 50) {
+    return firstSentence.trim();
+  }
+
+  // If first sentence is too long, truncate at word boundary
+  const words = cleanContent.split(' ');
+  let title = '';
+
+  for (const word of words) {
+    const testTitle = title + (title ? ' ' : '') + word;
+    if (testTitle.length > 40) {
+      break;
+    }
+    title = testTitle;
+  }
+
+  return title || cleanContent.substring(0, 40) + '...';
+};
 
 export const useConversationStore = create<ConversationState>()(
   persist(
@@ -12,7 +44,9 @@ export const useConversationStore = create<ConversationState>()(
       currentConversationId: null,
       conversations: [],
       currentMessages: [],
+      streamingMessage: null,
       isLoading: false,
+      isStreaming: false,
       error: null,
 
       setCurrentConversation: (id: string) => {
@@ -110,10 +144,11 @@ export const useConversationStore = create<ConversationState>()(
         const { currentConversationId } = get();
 
         if (!currentConversationId) {
-          // Create a new conversation first
+          // Create a new conversation first with title generated from first message
           try {
+            const generatedTitle = generateTitleFromMessage(content);
             const conversationId = await get().createConversation({
-              title: content.substring(0, 50) + (content.length > 50 ? '...' : ''),
+              title: generatedTitle,
               model: 'gpt-4',
             });
 
@@ -164,6 +199,194 @@ export const useConversationStore = create<ConversationState>()(
             error: error instanceof Error ? error.message : 'Failed to send message',
             isLoading: false
           });
+        }
+      },
+
+      sendStreamingMessage: async (content: string) => {
+        const { currentConversationId } = get();
+
+        if (!currentConversationId) {
+          // Create a new conversation first with title generated from first message
+          try {
+            const generatedTitle = generateTitleFromMessage(content);
+            const conversationId = await get().createConversation({
+              title: generatedTitle,
+              model: 'gpt-4',
+            });
+
+            // Now send the streaming message to the new conversation
+            await get().sendStreamingMessage(content);
+            return;
+          } catch (error) {
+            set({ error: 'Failed to create new conversation' });
+            return;
+          }
+        }
+
+        set({ isStreaming: true, error: null, streamingMessage: null });
+
+        try {
+          // Optimistically add the user message to the current messages
+          const userMessage = {
+            id: uuidv4(),
+            conversation_id: currentConversationId,
+            role: 'user' as const,
+            content,
+            created_at: new Date().toISOString(),
+            is_active: true,
+            metadata: {},
+          };
+
+          set(state => ({
+            currentMessages: [...state.currentMessages, userMessage],
+          }));
+
+          // Create initial streaming message
+          const streamingMessageId = uuidv4();
+          const initialStreamingMessage: StreamingMessage = {
+            id: streamingMessageId,
+            conversation_id: currentConversationId,
+            role: 'assistant',
+            content: '',
+            created_at: new Date().toISOString(),
+            isStreaming: true,
+          };
+
+          set({ streamingMessage: initialStreamingMessage });
+
+          // Start streaming
+          await apiClient.streamMessage(
+            currentConversationId,
+            content,
+            // onToken callback
+            (token: string) => {
+              set(state => {
+                if (state.streamingMessage) {
+                  return {
+                    streamingMessage: {
+                      ...state.streamingMessage,
+                      content: state.streamingMessage.content + token
+                    }
+                  };
+                }
+                return state;
+              });
+            },
+            // onError callback
+            (error: string) => {
+              set({
+                error,
+                isStreaming: false,
+                streamingMessage: null
+              });
+            },
+            // onComplete callback
+            (messageId?: string) => {
+              const { streamingMessage } = get();
+              if (streamingMessage) {
+                // Convert streaming message to regular message
+                const completedMessage = {
+                  id: messageId || streamingMessage.id,
+                  conversation_id: streamingMessage.conversation_id,
+                  parent_id: undefined,
+                  role: streamingMessage.role,
+                  content: streamingMessage.content,
+                  tokens_used: undefined,
+                  created_at: streamingMessage.created_at,
+                  is_active: true,
+                  metadata: {},
+                };
+
+                set(state => ({
+                  currentMessages: [...state.currentMessages, completedMessage],
+                  streamingMessage: null,
+                  isStreaming: false,
+                }));
+              } else {
+                set({ isStreaming: false, streamingMessage: null });
+              }
+            }
+          );
+
+        } catch (error) {
+          set({
+            error: error instanceof Error ? error.message : 'Failed to send streaming message',
+            isStreaming: false,
+            streamingMessage: null
+          });
+        }
+      },
+
+      stopStreaming: () => {
+        // TODO: Implement abort functionality
+        set({
+          isStreaming: false,
+          streamingMessage: null
+        });
+      },
+
+      updateConversationTitle: async (id: string, title: string) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const response = await apiClient.updateConversationTitle(id, title);
+
+          if (response.error) {
+            set({ error: response.error, isLoading: false });
+            throw new Error(response.error);
+          }
+
+          // Update the conversation in the local state
+          set(state => ({
+            conversations: state.conversations.map(conv =>
+              conv.id === id ? { ...conv, title, updated_at: new Date().toISOString() } : conv
+            ),
+            isLoading: false,
+            error: null
+          }));
+
+        } catch (error) {
+          set({
+            error: error instanceof Error ? error.message : 'Failed to update conversation title',
+            isLoading: false
+          });
+          throw error;
+        }
+      },
+
+      deleteConversation: async (id: string) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const response = await apiClient.deleteConversation(id);
+
+          if (response.error) {
+            set({ error: response.error, isLoading: false });
+            throw new Error(response.error);
+          }
+
+          // Remove the conversation from local state
+          set(state => {
+            const updatedConversations = state.conversations.filter(conv => conv.id !== id);
+            const newCurrentId = state.currentConversationId === id
+              ? (updatedConversations.length > 0 ? updatedConversations[0].id : null)
+              : state.currentConversationId;
+
+            return {
+              conversations: updatedConversations,
+              currentConversationId: newCurrentId,
+              currentMessages: state.currentConversationId === id ? [] : state.currentMessages,
+              isLoading: false,
+              error: null
+            };
+          });
+
+        } catch (error) {
+          set({
+            error: error instanceof Error ? error.message : 'Failed to delete conversation',
+            isLoading: false
+          });
+          throw error;
         }
       },
 

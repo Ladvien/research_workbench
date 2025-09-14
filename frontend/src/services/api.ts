@@ -102,6 +102,82 @@ class ApiClient {
     });
   }
 
+  // Streaming message endpoint using Server-Sent Events
+  async streamMessage(
+    conversationId: string,
+    content: string,
+    onToken: (token: string) => void,
+    onError: (error: string) => void,
+    onComplete: (messageId?: string) => void
+  ): Promise<void> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/conversations/${conversationId}/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+        },
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      if (!response.body) {
+        throw new Error('Response body is null');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) {
+            break;
+          }
+
+          // Decode the chunk and add to buffer
+          buffer += decoder.decode(value, { stream: true });
+
+          // Process complete SSE messages
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+
+                if (data.type === 'token' && data.data?.content) {
+                  onToken(data.data.content);
+                } else if (data.type === 'done') {
+                  onComplete(data.data?.messageId);
+                  return;
+                } else if (data.type === 'error') {
+                  onError(data.data?.message || 'Unknown error');
+                  return;
+                }
+              } catch (parseError) {
+                console.warn('Failed to parse SSE data:', line);
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+      onComplete();
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Stream failed');
+    }
+  }
+
   async createMessageBranch(
     conversationId: string,
     parentId: string,

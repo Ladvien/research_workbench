@@ -62,12 +62,24 @@ export interface ApiResponse<T> {
   status: number;
 }
 
+// Streaming message type for partial responses
+export interface StreamingMessage {
+  id: string;
+  conversation_id: string;
+  role: MessageRole;
+  content: string; // Accumulating content as tokens arrive
+  created_at: string;
+  isStreaming: boolean;
+}
+
 // Zustand store types
 export interface ConversationState {
   currentConversationId: string | null;
   conversations: Conversation[];
   currentMessages: Message[];
+  streamingMessage: StreamingMessage | null; // Current streaming message
   isLoading: boolean;
+  isStreaming: boolean; // Track streaming state separately
   error: string | null;
 
   // Actions
@@ -76,5 +88,9 @@ export interface ConversationState {
   loadConversation: (id: string) => Promise<void>;
   createConversation: (request: CreateConversationRequest) => Promise<string>;
   sendMessage: (content: string) => Promise<void>;
+  sendStreamingMessage: (content: string) => Promise<void>;
+  stopStreaming: () => void;
+  updateConversationTitle: (id: string, title: string) => Promise<void>;
+  deleteConversation: (id: string) => Promise<void>;
   clearError: () => void;
 }
