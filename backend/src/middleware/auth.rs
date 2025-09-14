@@ -5,11 +5,7 @@ use axum::{
 };
 use tower_sessions::Session;
 
-use crate::{
-    app_state::AppState,
-    error::AppError,
-    models::UserResponse,
-};
+use crate::{app_state::AppState, error::AppError, models::UserResponse};
 
 // Auth middleware extractor that provides the current user
 // This will automatically extract the user from the JWT token in cookies
@@ -24,7 +20,9 @@ impl FromRequestParts<AppState> for UserResponse {
         // Try to get the token from cookies first
         let token = extract_token_from_cookies(parts)
             .or_else(|| extract_token_from_header(parts))
-            .ok_or_else(|| AppError::AuthenticationError("No authentication token found".to_string()))?;
+            .ok_or_else(|| {
+                AppError::AuthenticationError("No authentication token found".to_string())
+            })?;
 
         // Validate the token and get user information
         let user = state.auth_service.get_current_user(&token).await?;
@@ -93,10 +91,13 @@ impl FromRequestParts<AppState> for SessionUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let session = Session::from_request_parts(parts, &()).await
+        let session = Session::from_request_parts(parts, &())
+            .await
             .map_err(|_| AppError::AuthenticationError("Session not available".to_string()))?;
 
-        let user_id_str: Option<String> = session.get("user_id").await
+        let user_id_str: Option<String> = session
+            .get("user_id")
+            .await
             .map_err(|e| AppError::InternalServerError(format!("Session error: {}", e)))?;
 
         let user_id_str = user_id_str
@@ -105,7 +106,10 @@ impl FromRequestParts<AppState> for SessionUser {
         let user_id = uuid::Uuid::parse_str(&user_id_str)
             .map_err(|_| AppError::AuthenticationError("Invalid user ID in session".to_string()))?;
 
-        let user = state.auth_service.get_user_by_id(user_id).await?
+        let user = state
+            .auth_service
+            .get_user_by_id(user_id)
+            .await?
             .ok_or_else(|| AppError::AuthenticationError("User not found".to_string()))?;
 
         Ok(SessionUser(user.into()))

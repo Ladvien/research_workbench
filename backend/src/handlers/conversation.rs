@@ -73,7 +73,9 @@ pub async fn delete_conversation(
     Path(conversation_id): Path<Uuid>,
     user: UserResponse, // This comes from our auth middleware
 ) -> Result<StatusCode, AppError> {
-    let deleted = service.delete_conversation(conversation_id, user.id).await?;
+    let deleted = service
+        .delete_conversation(conversation_id, user.id)
+        .await?;
 
     if deleted {
         Ok(StatusCode::NO_CONTENT)
@@ -88,7 +90,9 @@ pub async fn get_conversation_stats(
     Path(conversation_id): Path<Uuid>,
     user: UserResponse, // This comes from our auth middleware
 ) -> Result<Json<Value>, AppError> {
-    let stats = service.get_conversation_stats(conversation_id, user.id).await?;
+    let stats = service
+        .get_conversation_stats(conversation_id, user.id)
+        .await?;
     Ok(Json(serde_json::to_value(stats)?))
 }
 

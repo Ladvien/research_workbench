@@ -11,7 +11,9 @@ use futures::Stream;
 use std::pin::Pin;
 use tokio_stream::StreamExt;
 
-use super::{ChatRequest, ChatResponse, LLMService, ModelInfo, Provider, StreamEvent, StreamEventType, Usage};
+use super::{
+    ChatRequest, ChatResponse, LLMService, ModelInfo, Provider, StreamEvent, StreamEventType, Usage,
+};
 use crate::{config::AppConfig, error::AppError};
 
 #[derive(Debug, Clone)]
@@ -22,60 +24,61 @@ pub struct OpenAIService {
 
 impl OpenAIService {
     pub fn new(config: AppConfig) -> Result<Self, AppError> {
-        let openai_config = async_openai::config::OpenAIConfig::new()
-            .with_api_key(&config.openai_api_key);
+        let openai_config =
+            async_openai::config::OpenAIConfig::new().with_api_key(&config.openai_api_key);
 
         let client = OpenAIClient::with_config(openai_config);
 
         Ok(Self { client, config })
     }
 
-    fn convert_messages(&self, messages: Vec<super::ChatMessage>) -> Result<Vec<ChatCompletionRequestMessage>, AppError> {
+    fn convert_messages(
+        &self,
+        messages: Vec<super::ChatMessage>,
+    ) -> Result<Vec<ChatCompletionRequestMessage>, AppError> {
         messages
             .into_iter()
-            .map(|msg| {
-                match msg.role.as_str() {
-                    "system" => Ok(ChatCompletionRequestMessage::System(
-                        ChatCompletionRequestSystemMessage {
-                            content: msg.content.clone().into(),
-                            role: async_openai::types::Role::System,
-                            name: None,
-                        }
-                    )),
-                    "user" => Ok(ChatCompletionRequestMessage::User(
-                        ChatCompletionRequestUserMessage {
-                            content: msg.content.clone().into(),
-                            role: async_openai::types::Role::User,
-                            name: None,
-                        }
-                    )),
-                    "assistant" => Ok(ChatCompletionRequestMessage::Assistant(
-                        async_openai::types::ChatCompletionRequestAssistantMessage {
-                            content: Some(msg.content.clone()),
-                            role: async_openai::types::Role::Assistant,
-                            name: None,
-                            tool_calls: None,
-                            function_call: None,
-                        }
-                    )),
-                    _ => Err(AppError::BadRequest(format!("Invalid role: {}", msg.role)))
-                }
+            .map(|msg| match msg.role.as_str() {
+                "system" => Ok(ChatCompletionRequestMessage::System(
+                    ChatCompletionRequestSystemMessage {
+                        content: msg.content.clone().into(),
+                        role: async_openai::types::Role::System,
+                        name: None,
+                    },
+                )),
+                "user" => Ok(ChatCompletionRequestMessage::User(
+                    ChatCompletionRequestUserMessage {
+                        content: msg.content.clone().into(),
+                        role: async_openai::types::Role::User,
+                        name: None,
+                    },
+                )),
+                "assistant" => Ok(ChatCompletionRequestMessage::Assistant(
+                    async_openai::types::ChatCompletionRequestAssistantMessage {
+                        content: Some(msg.content.clone()),
+                        role: async_openai::types::Role::Assistant,
+                        name: None,
+                        tool_calls: None,
+                        function_call: None,
+                    },
+                )),
+                _ => Err(AppError::BadRequest(format!("Invalid role: {}", msg.role))),
             })
             .collect()
     }
 
-    fn extract_response(&self, response: CreateChatCompletionResponse, model: &str) -> Result<ChatResponse, AppError> {
+    fn extract_response(
+        &self,
+        response: CreateChatCompletionResponse,
+        model: &str,
+    ) -> Result<ChatResponse, AppError> {
         let choice = response
             .choices
             .first()
             .ok_or_else(|| AppError::OpenAI("No choices in OpenAI response".to_string()))?;
 
         let message = &choice.message;
-        let content = message
-            .content
-            .as_ref()
-            .unwrap_or(&String::new())
-            .clone();
+        let content = message.content.as_ref().unwrap_or(&String::new()).clone();
 
         let usage = response.usage.map(|u| Usage {
             prompt_tokens: u.prompt_tokens,
@@ -123,14 +126,21 @@ impl LLMService for OpenAIService {
     }
 
     async fn chat_completion(&self, request: ChatRequest) -> Result<ChatResponse, AppError> {
-        tracing::info!("Sending chat completion request to OpenAI for model: {}", request.model);
+        tracing::info!(
+            "Sending chat completion request to OpenAI for model: {}",
+            request.model
+        );
 
         let messages = self.convert_messages(request.messages)?;
 
         let openai_request = CreateChatCompletionRequest {
             model: request.model.clone(),
             messages,
-            temperature: Some(request.temperature.unwrap_or(self.config.openai_temperature)),
+            temperature: Some(
+                request
+                    .temperature
+                    .unwrap_or(self.config.openai_temperature),
+            ),
             max_tokens: Some(request.max_tokens.unwrap_or(self.config.openai_max_tokens) as u16),
             ..Default::default()
         };
@@ -149,7 +159,10 @@ impl LLMService for OpenAIService {
         &self,
         request: ChatRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamEvent, AppError>> + Send>>, AppError> {
-        tracing::info!("Sending streaming chat completion request to OpenAI for model: {}", request.model);
+        tracing::info!(
+            "Sending streaming chat completion request to OpenAI for model: {}",
+            request.model
+        );
 
         let messages = self.convert_messages(request.messages)?;
         let model = request.model.clone();
@@ -157,7 +170,11 @@ impl LLMService for OpenAIService {
         let openai_request = CreateChatCompletionRequest {
             model: model.clone(),
             messages,
-            temperature: Some(request.temperature.unwrap_or(self.config.openai_temperature)),
+            temperature: Some(
+                request
+                    .temperature
+                    .unwrap_or(self.config.openai_temperature),
+            ),
             max_tokens: Some(request.max_tokens.unwrap_or(self.config.openai_max_tokens) as u16),
             stream: Some(true),
             ..Default::default()
@@ -208,7 +225,7 @@ impl LLMService for OpenAIService {
                     usage: None,
                     model: Some(model.clone()),
                     provider: Some("openai".to_string()),
-                })
+                }),
             }
         }));
 

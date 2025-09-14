@@ -1,12 +1,8 @@
 #[cfg(test)]
 mod rate_limit_tests {
-    use crate::middleware::rate_limit::*;
     use crate::config::RateLimitConfig;
-    use axum::{
-        body::Body,
-        extract::Request,
-        http::Method,
-    };
+    use crate::middleware::rate_limit::*;
+    use axum::{body::Body, extract::Request, http::Method};
 
     fn create_test_config() -> RateLimitConfig {
         RateLimitConfig {
@@ -153,7 +149,8 @@ mod rate_limit_tests {
             ..create_test_config()
         };
 
-        let service_no_override = RateLimitService::new("redis://localhost:6379", config_no_override).unwrap();
+        let service_no_override =
+            RateLimitService::new("redis://localhost:6379", config_no_override).unwrap();
         assert!(!service_no_override.is_admin_override_allowed(&UserTier::Admin));
     }
 
@@ -215,7 +212,9 @@ mod rate_limit_tests {
         let user_tier = UserTier::Free;
 
         // First request should succeed
-        let result1 = service.check_rate_limit(key, RateLimitType::Api, user_tier.clone()).await;
+        let result1 = service
+            .check_rate_limit(key, RateLimitType::Api, user_tier.clone())
+            .await;
         match result1 {
             Ok(info) => {
                 assert!(info.remaining > 0);
@@ -229,11 +228,15 @@ mod rate_limit_tests {
 
         // Make many requests to hit the limit
         for _ in 0..100 {
-            let _ = service.check_rate_limit(key, RateLimitType::Api, user_tier.clone()).await;
+            let _ = service
+                .check_rate_limit(key, RateLimitType::Api, user_tier.clone())
+                .await;
         }
 
         // Should be at or near the limit
-        let result_final = service.check_rate_limit(key, RateLimitType::Api, user_tier).await;
+        let result_final = service
+            .check_rate_limit(key, RateLimitType::Api, user_tier)
+            .await;
         if let Ok(info) = result_final {
             assert!(info.remaining <= 1);
         }

@@ -507,6 +507,66 @@
 
 ---
 
+### 3.2 File Attachments - **COMPLETED**
+**Completed by**: Agent-8
+**Date**: 2025-09-14
+
+**As a** user
+**I want to** attach files to my messages
+**So that** I can get help with documents and images
+
+**Acceptance Criteria:** ALL COMPLETED
+- ✅ Drag-and-drop file upload
+- ✅ Support for images, PDFs, and text files
+- ✅ Files stored on NAS at .103 (simulated with local filesystem)
+- ✅ Preview for uploaded files
+- ✅ File size limits enforced (10MB)
+
+**Technical Implementation:**
+- ✅ Create file upload endpoint with comprehensive validation
+- ✅ Implement NFS storage integration (configurable for development/production)
+- ✅ Add file attachment UI component with drag-and-drop functionality
+- ✅ Create file preview modal for different file types
+- ✅ Implement file type validation (client and server-side)
+
+**Core Features:**
+- Complete file upload system with drag-and-drop interface and visual feedback
+- Multi-format support for images (PNG, JPG, GIF), PDFs, text files (TXT, MD), documents (DOC, DOCX)
+- File preview functionality with modal previews for all supported formats
+- Storage quota management (100MB per user) with configurable limits
+- File management operations (upload, download, delete, list)
+- Comprehensive error handling and user permission checks
+
+**Backend Architecture:**
+- `AttachmentRepository` - Database operations for file metadata management
+- File upload API endpoints with REST design (upload, download, delete, list)
+- `FileService` - Core business logic with validation, security, and quota management
+- Storage abstraction layer supporting local filesystem and NFS
+- User permission checks and ownership validation
+
+**Frontend Components:**
+- `FileAttachment` - Main upload component with drag-and-drop and progress indication
+- `FilePreviewModal` - Preview modal supporting images, PDFs, and text files
+- `FileAttachmentDemo` - Comprehensive demonstration component
+- `FileService` - API client for file operations with error handling
+- Responsive design with accessibility features and mobile support
+
+**Files Created/Modified:**
+- Backend: `src/handlers/attachment.rs`, `src/handlers/file.rs`, file service components
+- Frontend: `src/components/FileAttachment.tsx`, `src/components/FilePreviewModal.tsx`, `src/components/FileAttachmentDemo.tsx`, `src/services/fileService.ts`
+- Database: Enhanced models with attachment support
+- Tests: Component tests and validation tests
+- Documentation: Comprehensive implementation and integration guide
+
+**Integration Ready:**
+- Compatible with existing conversation system from Agent-5
+- Integrates with authentication system from Agent-4
+- Ready for message attachment workflows
+- Production deployment guide provided
+- Comprehensive error handling and user feedback
+
+---
+
 ## Phase 4: Production Readiness
 
 ### 4.2 Usage Analytics - **COMPLETED**
@@ -674,3 +734,352 @@
 - Comprehensive test coverage for all rate limiting functionality
 - Ready for deployment with configurable limits per environment
 - Supports cost control and system protection in production scenarios
+
+# MVP User Stories
+## Workbench LLM Chat Application
+
+---
+
+## Overview
+
+This document outlines the MVP (Minimum Viable Product) development phases for the Workbench LLM chat application. Each phase builds upon the previous one, delivering incremental value while maintaining a shippable product at each milestone.
+
+
+
+## Phase 1: Core Chat Functionality (Week 1-2)
+
+### Epic: Basic Chat Interface
+**Goal**: Establish a working chat interface with LLM integration
+
+#### User Stories
+
+##### 1.1 Basic Chat UI ✅ **COMPLETED**
+**As a** user
+**I want to** send messages in a chat interface
+**So that** I can interact with an AI assistant
+
+**Acceptance Criteria:**
+- [x] Chat interface displays with input field and send button
+- [x] Messages appear in conversation view with user/assistant distinction
+- [x] Markdown formatting is rendered correctly
+- [x] Code blocks have syntax highlighting
+- [x] Interface is responsive on mobile and desktop
+
+**Technical Tasks:**
+- ✅ Set up React project with TypeScript and Vite
+- ✅ Install and configure assistant-ui components
+- ✅ Implement basic chat layout with Tailwind CSS
+- ✅ Add react-markdown with syntax highlighting
+- ✅ Create message component with role-based styling
+
+**Status**: ✅ COMPLETED by Agent-1
+
+##### 1.2 OpenAI Integration
+**As a** user  
+**I want to** receive AI responses to my messages  
+**So that** I can have meaningful conversations  
+
+**Acceptance Criteria:**
+- [ ] Backend connects to OpenAI API
+- [ ] Messages are sent to GPT-4 model
+- [ ] Responses are returned and displayed
+- [ ] Error states are handled gracefully
+- [ ] Loading state shows while waiting for response
+
+**Technical Tasks:**
+- Set up Axum backend with basic routing
+- Integrate async-openai client
+- Create `/api/chat` endpoint
+- Implement error handling middleware
+- Add environment variable configuration
+
+---
+
+## Phase 2: User Management & Enhanced UX (Week 3-4)
+
+### Epic: Multi-User Support
+**Goal**: Add authentication and personal conversation management
+
+#### User Stories
+
+
+---
+
+## Phase 3: Advanced Features (Week 5-6)
+
+### Epic: Enhanced Capabilities
+**Goal**: Support multiple AI providers and rich interactions
+
+#### User Stories
+
+##### 3.1 Multiple LLM Providers ✅ **COMPLETED**
+**As a** user
+**I want to** choose between different AI models
+**So that** I can use the best model for my task
+
+**Acceptance Criteria:**
+- [x] Model selector in chat interface
+- [x] Support for OpenAI GPT-4 and GPT-3.5
+- [x] Support for Anthropic Claude models
+- [x] Model-specific parameters (temperature, max tokens)
+- [x] Per-conversation model selection
+
+**Technical Tasks:**
+- ✅ Add anthropic-rust integration
+- ✅ Create model abstraction layer
+- ✅ Implement model selector component
+- ✅ Add model configuration to conversation metadata
+- ✅ Update streaming to handle different providers
+
+**Status**: ✅ COMPLETED by Agent-7
+
+##### 3.2 File Attachments ✅ **COMPLETED**
+**As a** user
+**I want to** attach files to my messages
+**So that** I can get help with documents and images
+
+**Acceptance Criteria:**
+- [x] Drag-and-drop file upload
+- [x] Support for images, PDFs, and text files
+- [x] Files stored on NAS at .103 (simulated with local storage)
+- [x] Preview for uploaded files
+- [x] File size limits enforced (10MB)
+
+**Technical Tasks:**
+- ✅ Create file upload endpoint
+- ✅ Implement NFS storage integration
+- ✅ Add file attachment UI component
+- ✅ Create file preview modal
+- ✅ Implement file type validation
+
+**Status**: ✅ COMPLETED by Agent-8
+
+##### 3.3 Conversation Branching ✅ **COMPLETED**
+**As a** user
+**I want to** edit previous messages and explore alternatives
+**So that** I can try different conversation paths
+
+**Acceptance Criteria:**
+- [x] Can edit any user message
+- [x] Editing creates a new branch
+- [x] Can switch between branches
+- [x] Branch visualization in UI
+- [x] Original conversation preserved
+
+**Technical Tasks:**
+- ✅ Update database schema for parent-child relationships
+- ✅ Implement tree data structure for messages
+- ✅ Create branch switcher UI component
+- ✅ Add message edit functionality
+- ✅ Update message repository for branch queries
+
+**Status**: ✅ COMPLETED by Agent-9
+
+---
+
+## Phase 4: Production Readiness (Week 7-8)
+
+### Epic: Scale & Polish
+**Goal**: Add enterprise features for production deployment
+
+#### User Stories
+
+##### 4.1 Semantic Search ✅ **COMPLETED**
+**As a** user
+**I want to** search across all my conversations
+**So that** I can find previous discussions
+
+**Acceptance Criteria:**
+- [x] Search bar in application header
+- [x] Search returns relevant messages
+- [x] Results show conversation context
+- [x] Click to jump to conversation
+- [x] Search uses semantic similarity
+
+**Technical Tasks:**
+- ✅ Enable pgvector extension
+- ✅ Generate embeddings for messages
+- ✅ Create search endpoint with similarity query
+- ✅ Implement search results component
+- ✅ Add background job for embedding generation
+
+**Status**: ✅ COMPLETED by Agent-10
+
+##### 4.3 Rate Limiting ✅ **COMPLETED**
+**As a** system administrator
+**I want to** limit API usage per user
+**So that** costs are controlled and system is protected
+
+**Acceptance Criteria:**
+- [x] Rate limits enforced per user
+- [x] Clear error messages when limited
+- [x] Headers show remaining quota
+- [x] Different limits for different user tiers
+- [x] Admin override capability
+
+**Technical Tasks:**
+- ✅ Integrate tower-governor middleware
+- ✅ Add rate limit configuration
+- ✅ Create rate limit error responses
+- ✅ Add x-ratelimit headers
+- ✅ Implement Redis-based counters
+
+**Status**: ✅ COMPLETED by Agent-12
+
+---
+
+## Definition of Done
+
+For each user story to be considered complete:
+
+1. **Code Complete**
+   - [ ] Feature implemented and working
+   - [ ] Unit tests written (>80% coverage)
+   - [ ] Integration tests for API endpoints
+   - [ ] Code reviewed and approved
+
+2. **Documentation**
+   - [ ] API documentation updated
+   - [ ] README updated if needed
+   - [ ] Inline code comments added
+   - [ ] Architecture decision recorded
+
+3. **Quality Assurance**
+   - [ ] Manual testing completed
+   - [ ] No critical bugs remaining
+   - [ ] Performance acceptable (<200ms response)
+   - [ ] Security review passed
+
+4. **Deployment Ready**
+   - [ ] Database migrations tested
+   - [ ] Environment variables documented
+   - [ ] Systemd service files updated
+   - [ ] Monitoring alerts configured
+
+---
+
+## Technical Debt & Future Enhancements
+
+### Post-MVP Improvements
+
+1. **Performance Optimizations**
+   - Implement response caching
+   - Add database connection pooling
+   - Optimize embedding generation
+   - Implement lazy loading for conversations
+
+2. **Advanced Features**
+   - Voice input/output
+   - Real-time collaboration
+   - Custom system prompts
+   - Plugin architecture
+   - RAG (Retrieval Augmented Generation)
+
+3. **Infrastructure**
+   - Automated backups to NAS
+   - High availability setup
+   - Load balancing across .101 and .105
+   - Comprehensive monitoring with Grafana
+
+4. **Security Enhancements**
+   - Two-factor authentication
+   - API key management
+   - Audit logging
+   - End-to-end encryption for sensitive data
+
+---
+
+## Success Metrics
+
+### MVP Success Criteria
+
+- **Performance**: 95th percentile response time < 500ms
+- **Reliability**: 99.9% uptime
+- **Scalability**: Support 100 concurrent users
+- **User Experience**: Time to first message < 10 seconds
+- **Cost Efficiency**: < $0.10 per conversation average
+
+### Key Performance Indicators (KPIs)
+
+```mermaid
+graph LR
+    subgraph "Technical KPIs"
+        A[API Response Time]
+        B[Streaming Latency]
+        C[Database Query Time]
+        D[Cache Hit Rate]
+    end
+    
+    subgraph "User KPIs"
+        E[Daily Active Users]
+        F[Messages per Session]
+        G[Conversation Completion Rate]
+        H[User Retention]
+    end
+    
+    subgraph "Business KPIs"
+        I[Cost per User]
+        J[Token Efficiency]
+        K[Storage Usage]
+        L[API Error Rate]
+    end
+```
+
+---
+
+## Risk Mitigation
+
+### Identified Risks & Mitigations
+
+| Risk | Probability | Impact | Mitigation |
+|------|------------|--------|------------|
+| OpenAI API Outage | Medium | High | Implement fallback to local models |
+| Database Corruption | Low | Critical | Daily backups to NAS |
+| Rate Limit Exceeded | High | Medium | Implement queueing system |
+| NFS Mount Failure | Low | High | Local cache fallback |
+| Memory Leak in Rust | Low | High | Monitoring and auto-restart |
+
+---
+
+## Development Workflow
+
+### Git Branch Strategy
+
+```mermaid
+gitGraph
+    commit id: "main"
+    branch develop
+    checkout develop
+    commit id: "initial setup"
+    
+    branch feature/chat-ui
+    checkout feature/chat-ui
+    commit id: "add components"
+    commit id: "styling"
+    checkout develop
+    merge feature/chat-ui
+    
+    branch feature/openai
+    checkout feature/openai
+    commit id: "add client"
+    commit id: "streaming"
+    checkout develop
+    merge feature/openai
+    
+    checkout main
+    merge develop tag: "v1.0.0"
+```
+
+### Sprint Planning
+
+- **Sprint Length**: 1 week
+- **Story Points**: 1-8 scale
+- **Velocity Target**: 20-30 points per sprint
+- **Review Meeting**: End of each sprint
+- **Retrospective**: After each phase
+
+---
+
+## Conclusion
+
+This MVP plan provides a structured approach to building the Workbench LLM chat application. Each phase delivers working software that provides value, while building toward a comprehensive solution. The modular architecture and clear separation of concerns ensure that the application can evolve based on user feedback and changing requirements.

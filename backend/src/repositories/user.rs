@@ -1,15 +1,15 @@
 use crate::{
     database::Database,
-    models::{User, CreateUserRequest},
+    models::{CreateUserRequest, User},
     repositories::Repository,
 };
 use anyhow::Result;
-use async_trait::async_trait;
-use uuid::Uuid;
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
+use async_trait::async_trait;
+use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct UserRepository {
@@ -82,7 +82,9 @@ impl UserRepository {
         let parsed_hash = PasswordHash::new(&user.password_hash)?;
         let argon2 = Argon2::default();
 
-        Ok(argon2.verify_password(password.as_bytes(), &parsed_hash).is_ok())
+        Ok(argon2
+            .verify_password(password.as_bytes(), &parsed_hash)
+            .is_ok())
     }
 
     pub async fn update_password(&self, user_id: Uuid, new_password: &str) -> Result<bool> {
@@ -110,23 +112,19 @@ impl UserRepository {
     }
 
     pub async fn email_exists(&self, email: &str) -> Result<bool> {
-        let count = sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) FROM users WHERE email = $1"
-        )
-        .bind(email)
-        .fetch_one(&self.database.pool)
-        .await?;
+        let count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users WHERE email = $1")
+            .bind(email)
+            .fetch_one(&self.database.pool)
+            .await?;
 
         Ok(count > 0)
     }
 
     pub async fn username_exists(&self, username: &str) -> Result<bool> {
-        let count = sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) FROM users WHERE username = $1"
-        )
-        .bind(username)
-        .fetch_one(&self.database.pool)
-        .await?;
+        let count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users WHERE username = $1")
+            .bind(username)
+            .fetch_one(&self.database.pool)
+            .await?;
 
         Ok(count > 0)
     }

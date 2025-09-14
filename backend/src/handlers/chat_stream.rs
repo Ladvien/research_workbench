@@ -1,6 +1,6 @@
 use axum::{
     extract::Path,
-    response::{Sse, sse::Event},
+    response::{sse::Event, Sse},
 };
 use futures::{stream, Stream, StreamExt};
 use serde_json;
@@ -14,34 +14,40 @@ pub async fn stream_message(
     tracing::info!("Starting streaming for conversation {}", conversation_id);
 
     // Create a simple test stream that sends some mock data
-    let stream = stream::iter([
-        "Hello",
-        " ",
-        "world",
-        "!",
-        " This",
-        " is",
-        " a",
-        " streaming",
-        " response",
-        " for",
-        " testing",
-        "."
-    ].into_iter().enumerate())
+    let stream = stream::iter(
+        [
+            "Hello",
+            " ",
+            "world",
+            "!",
+            " This",
+            " is",
+            " a",
+            " streaming",
+            " response",
+            " for",
+            " testing",
+            ".",
+        ]
+        .into_iter()
+        .enumerate(),
+    )
     .map(move |(i, word)| {
         let event = if i == 0 {
-            Event::default()
-                .event("start")
-                .data(serde_json::json!({
+            Event::default().event("start").data(
+                serde_json::json!({
                     "conversationId": conversation_id,
                     "messageId": Uuid::new_v4()
-                }).to_string())
+                })
+                .to_string(),
+            )
         } else {
-            Event::default()
-                .event("token")
-                .data(serde_json::json!({
+            Event::default().event("token").data(
+                serde_json::json!({
                     "content": word
-                }).to_string())
+                })
+                .to_string(),
+            )
         };
 
         Ok::<Event, Infallible>(event)
@@ -50,7 +56,7 @@ pub async fn stream_message(
     Sse::new(stream).keep_alive(
         axum::response::sse::KeepAlive::new()
             .interval(Duration::from_secs(30))
-            .text("keep-alive")
+            .text("keep-alive"),
     )
 }
 

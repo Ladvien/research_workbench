@@ -8,7 +8,10 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     models::UserResponse,
-    services::{chat::{ChatService, SendMessageRequest}, DataAccessLayer},
+    services::{
+        chat::{ChatService, SendMessageRequest},
+        DataAccessLayer,
+    },
 };
 
 pub type ChatState = State<ChatService>;

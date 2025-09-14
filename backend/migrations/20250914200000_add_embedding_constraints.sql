@@ -24,21 +24,14 @@ ON message_embeddings
 USING hnsw (embedding vector_cosine_ops)
 WITH (m = 16, ef_construction = 64);
 
--- Add index for efficient lookup of messages without embeddings
-CREATE INDEX IF NOT EXISTS idx_messages_without_embeddings
+-- Add index for efficient lookup of active messages
+CREATE INDEX IF NOT EXISTS idx_messages_active_created
 ON messages (id, created_at)
-WHERE is_active = true
-AND NOT EXISTS (
-    SELECT 1 FROM message_embeddings me
-    WHERE me.message_id = messages.id
-);
+WHERE is_active = true;
 
--- Add index for user-specific searches (combining with conversations)
-CREATE INDEX IF NOT EXISTS idx_conversations_user_active
-ON conversations (user_id, created_at)
-WHERE id IN (
-    SELECT DISTINCT conversation_id FROM messages WHERE is_active = true
-);
+-- Add index for user-specific conversation searches
+CREATE INDEX IF NOT EXISTS idx_conversations_user_created
+ON conversations (user_id, created_at);
 
 -- Performance statistics
 ANALYZE message_embeddings;

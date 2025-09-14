@@ -65,8 +65,9 @@ impl Default for DatabaseConfig {
 
 impl DatabaseConfig {
     pub fn from_env() -> Result<Self> {
-        let url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgresql://workbench:password@localhost:5432/workbench".to_string());
+        let url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgresql://workbench:password@localhost:5432/workbench".to_string()
+        });
 
         Ok(Self {
             url,

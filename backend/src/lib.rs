@@ -16,5 +16,5 @@ pub use database::Database;
 pub use error::AppError;
 pub use services::DataAccessLayer;
 
-// #[cfg(test)]
-// pub mod tests;
+#[cfg(test)]
+pub mod tests;

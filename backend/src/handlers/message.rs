@@ -7,13 +7,13 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
+    app_state::AppState,
     error::AppError,
     models::{
-        EditMessageRequest, EditMessageResponse, SwitchBranchRequest, SwitchBranchResponse,
-        ConversationTreeResponse, UserResponse,
+        ConversationTreeResponse, EditMessageRequest, EditMessageResponse, SwitchBranchRequest,
+        SwitchBranchResponse, UserResponse,
     },
-    repositories::{Repository, message::MessageRepository},
-    app_state::AppState,
+    repositories::{message::MessageRepository, Repository},
 };
 
 /// Edit a message and create a new branch
@@ -28,11 +28,15 @@ pub async fn edit_message(
     let conversation_repo = app_state.dal.conversations();
 
     // Get the original message
-    let original_message = message_repo.find_by_id(message_id).await?
+    let original_message = message_repo
+        .find_by_id(message_id)
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".to_string()))?;
 
     // Verify user owns the conversation
-    let conversation = conversation_repo.find_by_id(original_message.conversation_id).await?
+    let conversation = conversation_repo
+        .find_by_id(original_message.conversation_id)
+        .await?
         .ok_or_else(|| AppError::NotFound("Conversation not found".to_string()))?;
 
     if conversation.user_id != user.id {
@@ -44,7 +48,9 @@ pub async fn edit_message(
     let affected_message_ids: Vec<Uuid> = downstream_messages.iter().map(|m| m.id).collect();
 
     // Perform the edit and branch creation
-    let edited_message = message_repo.edit_message_and_branch(message_id, request.content).await?;
+    let edited_message = message_repo
+        .edit_message_and_branch(message_id, request.content)
+        .await?;
 
     Ok(Json(EditMessageResponse {
         message: edited_message,
@@ -63,7 +69,9 @@ pub async fn switch_branch(
     let conversation_repo = app_state.dal.conversations();
 
     // Verify user owns the conversation
-    let conversation = conversation_repo.find_by_id(conversation_id).await?
+    let conversation = conversation_repo
+        .find_by_id(conversation_id)
+        .await?
         .ok_or_else(|| AppError::NotFound("Conversation not found".to_string()))?;
 
     if conversation.user_id != user.id {
@@ -71,7 +79,9 @@ pub async fn switch_branch(
     }
 
     // Switch to the target branch
-    let active_messages = message_repo.switch_to_branch(request.target_message_id).await?;
+    let active_messages = message_repo
+        .switch_to_branch(request.target_message_id)
+        .await?;
 
     Ok(Json(SwitchBranchResponse {
         active_messages,
@@ -89,7 +99,9 @@ pub async fn get_conversation_tree(
     let conversation_repo = app_state.dal.conversations();
 
     // Verify user owns the conversation
-    let conversation = conversation_repo.find_by_id(conversation_id).await?
+    let conversation = conversation_repo
+        .find_by_id(conversation_id)
+        .await?
         .ok_or_else(|| AppError::NotFound("Conversation not found".to_string()))?;
 
     if conversation.user_id != user.id {
@@ -100,10 +112,14 @@ pub async fn get_conversation_tree(
     let all_messages = message_repo.find_conversation_tree(conversation_id).await?;
 
     // Get branch information
-    let branches = message_repo.get_conversation_branches(conversation_id).await?;
+    let branches = message_repo
+        .get_conversation_branches(conversation_id)
+        .await?;
 
     // Get the current active thread
-    let active_thread = message_repo.find_active_conversation_thread(conversation_id).await?;
+    let active_thread = message_repo
+        .find_active_conversation_thread(conversation_id)
+        .await?;
     let active_thread_ids: Vec<Uuid> = active_thread.iter().map(|m| m.id).collect();
 
     Ok(Json(ConversationTreeResponse {
@@ -123,11 +139,15 @@ pub async fn get_message_branches(
     let conversation_repo = app_state.dal.conversations();
 
     // Get the message to verify conversation ownership
-    let message = message_repo.find_by_id(message_id).await?
+    let message = message_repo
+        .find_by_id(message_id)
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".to_string()))?;
 
     // Verify user owns the conversation
-    let conversation = conversation_repo.find_by_id(message.conversation_id).await?
+    let conversation = conversation_repo
+        .find_by_id(message.conversation_id)
+        .await?
         .ok_or_else(|| AppError::NotFound("Conversation not found".to_string()))?;
 
     if conversation.user_id != user.id {
@@ -150,11 +170,15 @@ pub async fn delete_message(
     let conversation_repo = app_state.dal.conversations();
 
     // Get the message to verify conversation ownership
-    let message = message_repo.find_by_id(message_id).await?
+    let message = message_repo
+        .find_by_id(message_id)
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".to_string()))?;
 
     // Verify user owns the conversation
-    let conversation = conversation_repo.find_by_id(message.conversation_id).await?
+    let conversation = conversation_repo
+        .find_by_id(message.conversation_id)
+        .await?
         .ok_or_else(|| AppError::NotFound("Conversation not found".to_string()))?;
 
     if conversation.user_id != user.id {
@@ -174,7 +198,7 @@ pub async fn delete_message(
 /// Helper function to get downstream messages (messages that will be affected by editing)
 async fn get_downstream_messages(
     message_repo: &MessageRepository,
-    message_id: Uuid
+    message_id: Uuid,
 ) -> Result<Vec<crate::models::Message>, AppError> {
     // This is a simplified version - in a real implementation, you'd want to
     // recursively find all child messages that would be deactivated

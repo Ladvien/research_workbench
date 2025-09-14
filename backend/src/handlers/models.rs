@@ -1,8 +1,4 @@
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::Json,
-};
+use axum::{extract::State, http::StatusCode, response::Json};
 use serde_json::{json, Value};
 
 use crate::{
@@ -12,9 +8,7 @@ use crate::{
 };
 
 /// Get all available models across all providers
-pub async fn get_models(
-    State(_app_state): State<AppState>,
-) -> Result<Json<Value>, AppError> {
+pub async fn get_models(State(_app_state): State<AppState>) -> Result<Json<Value>, AppError> {
     let models = LLMServiceFactory::available_models();
 
     let response = json!({
@@ -36,17 +30,18 @@ pub async fn get_models_by_provider(
 
     let filtered_models: Vec<_> = all_models
         .into_iter()
-        .filter(|model| {
-            match provider.as_str() {
-                "openai" => matches!(model.provider, Provider::OpenAI),
-                "anthropic" => matches!(model.provider, Provider::Anthropic),
-                _ => false,
-            }
+        .filter(|model| match provider.as_str() {
+            "openai" => matches!(model.provider, Provider::OpenAI),
+            "anthropic" => matches!(model.provider, Provider::Anthropic),
+            _ => false,
         })
         .collect();
 
     if filtered_models.is_empty() {
-        return Err(AppError::NotFound(format!("No models found for provider: {}", provider)));
+        return Err(AppError::NotFound(format!(
+            "No models found for provider: {}",
+            provider
+        )));
     }
 
     let response = json!({

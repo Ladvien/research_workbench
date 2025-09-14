@@ -74,18 +74,25 @@ impl IntoResponse for AppError {
             }
             AppError::Validation(ref msg) => (StatusCode::BAD_REQUEST, msg.as_str()),
             AppError::AuthenticationError(ref msg) => (StatusCode::UNAUTHORIZED, msg.as_str()),
-            AppError::ValidationError { ref field, ref message } => {
-                return (StatusCode::BAD_REQUEST, Json(json!({
-                    "error": "Validation failed",
-                    "field": field,
-                    "message": message,
-                    "status": 400,
-                }))).into_response()
-            },
+            AppError::ValidationError {
+                ref field,
+                ref message,
+            } => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": "Validation failed",
+                        "field": field,
+                        "message": message,
+                        "status": 400,
+                    })),
+                )
+                    .into_response()
+            }
             AppError::InternalServerError(ref msg) => {
                 tracing::error!("Internal server error: {}", msg);
                 (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
-            },
+            }
         };
 
         let body = Json(json!({
@@ -137,5 +144,11 @@ impl From<axum::http::Error> for AppError {
 impl From<axum::http::header::InvalidHeaderValue> for AppError {
     fn from(err: axum::http::header::InvalidHeaderValue) -> Self {
         AppError::BadRequest(format!("Invalid header value: {}", err))
+    }
+}
+
+impl From<redis::RedisError> for AppError {
+    fn from(err: redis::RedisError) -> Self {
+        AppError::Internal(anyhow::anyhow!("Redis error: {}", err))
     }
 }

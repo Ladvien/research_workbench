@@ -1,6 +1,6 @@
 use crate::{
     database::Database,
-    models::{Conversation, CreateConversationRequest, ConversationWithMessages, PaginationParams},
+    models::{Conversation, ConversationWithMessages, CreateConversationRequest, PaginationParams},
     repositories::Repository,
 };
 use anyhow::Result;
@@ -44,7 +44,11 @@ impl ConversationRepository {
         Ok(conversations)
     }
 
-    pub async fn find_with_messages(&self, id: Uuid, user_id: Uuid) -> Result<Option<ConversationWithMessages>> {
+    pub async fn find_with_messages(
+        &self,
+        id: Uuid,
+        user_id: Uuid,
+    ) -> Result<Option<ConversationWithMessages>> {
         // First get the conversation
         let conversation = sqlx::query_as::<_, Conversation>(
             r#"

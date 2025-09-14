@@ -23,11 +23,7 @@ impl ChatService {
         content: String,
     ) -> Result<CreateMessageResponse> {
         // Verify the conversation belongs to the user
-        let conversation = self
-            .dal
-            .conversations()
-            .find_by_id(conversation_id)
-            .await?;
+        let conversation = self.dal.conversations().find_by_id(conversation_id).await?;
 
         match conversation {
             Some(conv) if conv.user_id == user_id => {
@@ -53,11 +49,7 @@ impl ChatService {
         conversation_id: Uuid,
     ) -> Result<Vec<Message>> {
         // Verify the conversation belongs to the user
-        let conversation = self
-            .dal
-            .conversations()
-            .find_by_id(conversation_id)
-            .await?;
+        let conversation = self.dal.conversations().find_by_id(conversation_id).await?;
 
         match conversation {
             Some(conv) if conv.user_id == user_id => {
@@ -83,16 +75,21 @@ impl ChatService {
             parent_id,
             role: MessageRole::Assistant,
             content,
-            metadata: Some(tokens_used
-                .map(|t| serde_json::json!({"tokens_used": t}))
-                .unwrap_or_else(|| serde_json::json!({}))),
+            metadata: Some(
+                tokens_used
+                    .map(|t| serde_json::json!({"tokens_used": t}))
+                    .unwrap_or_else(|| serde_json::json!({})),
+            ),
         };
 
         let response = self.dal.messages().create_from_request(request).await?;
 
         // Update token count if provided
         if let Some(tokens) = tokens_used {
-            self.dal.messages().update_tokens(response.id, tokens).await?;
+            self.dal
+                .messages()
+                .update_tokens(response.id, tokens)
+                .await?;
         }
 
         Ok(response)
@@ -130,7 +127,11 @@ impl ChatService {
             .await
     }
 
-    pub async fn get_message_thread(&self, user_id: Uuid, message_id: Uuid) -> Result<Vec<Message>> {
+    pub async fn get_message_thread(
+        &self,
+        user_id: Uuid,
+        message_id: Uuid,
+    ) -> Result<Vec<Message>> {
         // Get the message to verify ownership
         let message = self
             .dal
@@ -150,11 +151,17 @@ impl ChatService {
             return Err(anyhow::anyhow!("Access denied"));
         }
 
-        self.dal.messages().find_conversation_thread(message_id).await
+        self.dal
+            .messages()
+            .find_conversation_thread(message_id)
+            .await
     }
 
     pub async fn update_message_tokens(&self, message_id: Uuid, tokens_used: i32) -> Result<bool> {
-        self.dal.messages().update_tokens(message_id, tokens_used).await
+        self.dal
+            .messages()
+            .update_tokens(message_id, tokens_used)
+            .await
     }
 }
 

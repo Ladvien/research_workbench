@@ -1,10 +1,7 @@
 use crate::{
     config::AppConfig,
     services::{
-        auth::AuthService,
-        chat::ChatService,
-        conversation::ConversationService,
-        DataAccessLayer,
+        auth::AuthService, chat::ChatService, conversation::ConversationService, DataAccessLayer,
     },
 };
 

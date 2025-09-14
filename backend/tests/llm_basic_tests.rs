@@ -1,6 +1,4 @@
-use workbench_server::{
-    llm::{LLMServiceFactory, Provider, ChatRequest, ChatMessage},
-};
+use workbench_server::llm::{ChatMessage, ChatRequest, LLMServiceFactory, Provider};
 
 #[test]
 fn test_available_models() {
@@ -8,8 +6,14 @@ fn test_available_models() {
     assert!(!models.is_empty(), "Should have available models");
 
     // Check for both providers
-    let openai_count = models.iter().filter(|m| matches!(m.provider, Provider::OpenAI)).count();
-    let anthropic_count = models.iter().filter(|m| matches!(m.provider, Provider::Anthropic)).count();
+    let openai_count = models
+        .iter()
+        .filter(|m| matches!(m.provider, Provider::OpenAI))
+        .count();
+    let anthropic_count = models
+        .iter()
+        .filter(|m| matches!(m.provider, Provider::Anthropic))
+        .count();
 
     assert!(openai_count > 0, "Should have OpenAI models");
     assert!(anthropic_count > 0, "Should have Anthropic models");
@@ -18,11 +22,20 @@ fn test_available_models() {
 #[test]
 fn test_provider_detection() {
     // Test OpenAI
-    assert!(matches!(LLMServiceFactory::provider_from_model("gpt-4"), Ok(Provider::OpenAI)));
-    assert!(matches!(LLMServiceFactory::provider_from_model("gpt-3.5-turbo"), Ok(Provider::OpenAI)));
+    assert!(matches!(
+        LLMServiceFactory::provider_from_model("gpt-4"),
+        Ok(Provider::OpenAI)
+    ));
+    assert!(matches!(
+        LLMServiceFactory::provider_from_model("gpt-3.5-turbo"),
+        Ok(Provider::OpenAI)
+    ));
 
     // Test Anthropic
-    assert!(matches!(LLMServiceFactory::provider_from_model("claude-3-sonnet-20240229"), Ok(Provider::Anthropic)));
+    assert!(matches!(
+        LLMServiceFactory::provider_from_model("claude-3-sonnet-20240229"),
+        Ok(Provider::Anthropic)
+    ));
 
     // Test unknown
     assert!(LLMServiceFactory::provider_from_model("unknown-model").is_err());
@@ -31,12 +44,10 @@ fn test_provider_detection() {
 #[test]
 fn test_chat_request_serialization() {
     let request = ChatRequest {
-        messages: vec![
-            ChatMessage {
-                role: "user".to_string(),
-                content: "Hello, world!".to_string(),
-            }
-        ],
+        messages: vec![ChatMessage {
+            role: "user".to_string(),
+            content: "Hello, world!".to_string(),
+        }],
         model: "gpt-4".to_string(),
         temperature: Some(0.7),
         max_tokens: Some(2048),

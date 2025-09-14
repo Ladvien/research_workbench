@@ -1,9 +1,9 @@
 use axum::response::Json;
 
 use crate::{
+    config::AppConfig,
     error::AppError,
     openai::{ChatRequest, ChatResponse, OpenAIService},
-    config::AppConfig,
 };
 
 #[derive(Debug, Clone)]
@@ -15,16 +15,17 @@ impl AppState {
     pub fn new(config: AppConfig) -> Result<Self, AppError> {
         let openai_service = OpenAIService::new(config)?;
 
-        Ok(Self {
-            openai_service,
-        })
+        Ok(Self { openai_service })
     }
 }
 
 pub async fn send_message(
     Json(request): Json<ChatRequest>,
 ) -> Result<Json<ChatResponse>, AppError> {
-    tracing::info!("Received chat request with {} messages", request.messages.len());
+    tracing::info!(
+        "Received chat request with {} messages",
+        request.messages.len()
+    );
 
     // Validate the request
     if request.messages.is_empty() {

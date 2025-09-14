@@ -328,12 +328,18 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-data
-Group=www-data
+User=workbench
+Group=workbench
 WorkingDirectory=/opt/workbench/frontend
-ExecStart=/usr/sbin/nginx -c /opt/workbench/frontend/nginx.conf
+# Use npm run dev for development, or serve built files for production
+ExecStart=/usr/bin/npm run dev
 Restart=always
 RestartSec=10
+
+# Environment variables (loaded from .env)
+Environment="FRONTEND_PORT=451"
+Environment="FRONTEND_HOST=0.0.0.0"
+EnvironmentFile=-/opt/workbench/.env
 
 [Install]
 WantedBy=multi-user.target
@@ -354,12 +360,14 @@ ExecStart=/opt/workbench/backend/workbench-server
 Restart=always
 RestartSec=10
 
-# Environment
-Environment="DATABASE_URL=postgresql://workbench:password@192.168.1.104/workbench"
-Environment="REDIS_URL=redis://192.168.1.104:6379"
-Environment="NFS_MOUNT=/mnt/nas"
-Environment="RUST_LOG=info"
-Environment="BIND_ADDRESS=0.0.0.0:8080"
+# Environment variables (loaded from .env file)
+EnvironmentFile=/opt/workbench/.env
+# Or specify individual environment variables:
+# Environment="DATABASE_URL=postgresql://workbench:password@192.168.1.104/workbench"
+# Environment="REDIS_URL=redis://192.168.1.104:6379"
+# Environment="NFS_MOUNT=/mnt/nas"
+# Environment="RUST_LOG=info"
+# Environment="BIND_ADDRESS=0.0.0.0:8080"
 
 # Security
 NoNewPrivileges=true
@@ -408,28 +416,29 @@ sudo systemctl restart workbench-frontend
 ### Reverse Proxy Configuration (at .102)
 
 ```nginx
+# Note: Replace ${FRONTEND_PORT} and ${BACKEND_PORT} with actual values from .env
 server {
     server_name workbench.lolzlab.com;
-    
-    # Frontend
+
+    # Frontend - Uses FRONTEND_PORT from environment (default: 451)
     location / {
-        proxy_pass http://192.168.1.101:3000;
+        proxy_pass http://192.168.1.101:${FRONTEND_PORT};
     }
-    
-    # API & SSE
+
+    # API & SSE - Uses backend BIND_ADDRESS port from environment (default: 8080)
     location /api {
-        proxy_pass http://192.168.1.101:8080;
+        proxy_pass http://192.168.1.101:${BACKEND_PORT};
         proxy_http_version 1.1;
-        
+
         # SSE specific
         proxy_set_header Connection '';
         proxy_buffering off;
         proxy_cache off;
     }
-    
-    # WebSocket
+
+    # WebSocket - Uses backend BIND_ADDRESS port from environment (default: 8080)
     location /ws {
-        proxy_pass http://192.168.1.101:8080;
+        proxy_pass http://192.168.1.101:${BACKEND_PORT};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";

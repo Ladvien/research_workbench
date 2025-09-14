@@ -17,6 +17,17 @@ pub struct AppConfig {
     pub redis_url: String,
     pub session_timeout_hours: u64,
     pub storage_path: String,
+    pub rate_limit: RateLimitConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RateLimitConfig {
+    pub global_requests_per_hour: u32,
+    pub api_requests_per_hour: u32,
+    pub uploads_per_hour: u32,
+    pub max_file_size_mb: u64,
+    pub premium_multiplier: u32,
+    pub admin_override_enabled: bool,
 }
 
 impl AppConfig {
@@ -30,8 +41,7 @@ impl AppConfig {
         let openai_api_key = std::env::var("OPENAI_API_KEY")
             .map_err(|_| anyhow::anyhow!("OPENAI_API_KEY environment variable not set"))?;
 
-        let openai_model = std::env::var("OPENAI_MODEL")
-            .unwrap_or_else(|_| "gpt-4".to_string());
+        let openai_model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4".to_string());
 
         let openai_max_tokens = std::env::var("OPENAI_MAX_TOKENS")
             .unwrap_or_else(|_| "2048".to_string())
@@ -59,22 +69,49 @@ impl AppConfig {
             .parse()
             .unwrap_or(0.7);
 
-        let jwt_secret = std::env::var("JWT_SECRET")
-            .unwrap_or_else(|_| {
-                tracing::warn!("JWT_SECRET not set, using default (NOT FOR PRODUCTION)");
-                "your-secret-key-change-this-in-production".to_string()
-            });
+        let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| {
+            tracing::warn!("JWT_SECRET not set, using default (NOT FOR PRODUCTION)");
+            "your-secret-key-change-this-in-production".to_string()
+        });
 
-        let redis_url = std::env::var("REDIS_URL")
-            .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+        let redis_url =
+            std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
 
         let session_timeout_hours = std::env::var("SESSION_TIMEOUT_HOURS")
             .unwrap_or_else(|_| "24".to_string())
             .parse()
             .unwrap_or(24);
 
-        let storage_path = std::env::var("STORAGE_PATH")
-            .unwrap_or_else(|_| "/tmp/workbench_storage".to_string());
+        let storage_path =
+            std::env::var("STORAGE_PATH").unwrap_or_else(|_| "/tmp/workbench_storage".to_string());
+
+        // Rate limiting configuration
+        let rate_limit = RateLimitConfig {
+            global_requests_per_hour: std::env::var("RATE_LIMIT_GLOBAL_REQUESTS_PER_HOUR")
+                .unwrap_or_else(|_| "1000".to_string())
+                .parse()
+                .unwrap_or(1000),
+            api_requests_per_hour: std::env::var("RATE_LIMIT_API_REQUESTS_PER_HOUR")
+                .unwrap_or_else(|_| "100".to_string())
+                .parse()
+                .unwrap_or(100),
+            uploads_per_hour: std::env::var("RATE_LIMIT_UPLOADS_PER_HOUR")
+                .unwrap_or_else(|_| "10".to_string())
+                .parse()
+                .unwrap_or(10),
+            max_file_size_mb: std::env::var("RATE_LIMIT_MAX_FILE_SIZE_MB")
+                .unwrap_or_else(|_| "10".to_string())
+                .parse()
+                .unwrap_or(10),
+            premium_multiplier: std::env::var("RATE_LIMIT_PREMIUM_MULTIPLIER")
+                .unwrap_or_else(|_| "5".to_string())
+                .parse()
+                .unwrap_or(5),
+            admin_override_enabled: std::env::var("RATE_LIMIT_ADMIN_OVERRIDE")
+                .unwrap_or_else(|_| "true".to_string())
+                .parse()
+                .unwrap_or(true),
+        };
 
         Ok(Self {
             bind_address,
@@ -90,6 +127,7 @@ impl AppConfig {
             redis_url,
             session_timeout_hours,
             storage_path,
+            rate_limit,
         })
     }
 }

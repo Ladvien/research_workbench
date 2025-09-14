@@ -3,7 +3,9 @@ use futures::Stream;
 use std::pin::Pin;
 use tokio_stream;
 
-use super::{ChatRequest, ChatResponse, LLMService, ModelInfo, Provider, StreamEvent, StreamEventType, Usage};
+use super::{
+    ChatRequest, ChatResponse, LLMService, ModelInfo, Provider, StreamEvent, StreamEventType, Usage,
+};
 use crate::{config::AppConfig, error::AppError};
 
 #[derive(Debug, Clone)]
@@ -47,7 +49,10 @@ impl LLMService for AnthropicService {
 
     async fn chat_completion(&self, request: ChatRequest) -> Result<ChatResponse, AppError> {
         // TODO: Implement actual Anthropic API call
-        tracing::info!("Anthropic chat completion for model: {} (placeholder)", request.model);
+        tracing::info!(
+            "Anthropic chat completion for model: {} (placeholder)",
+            request.model
+        );
 
         // For now, return a placeholder response
         Ok(ChatResponse {
@@ -70,7 +75,10 @@ impl LLMService for AnthropicService {
         request: ChatRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamEvent, AppError>> + Send>>, AppError> {
         // TODO: Implement actual Anthropic streaming
-        tracing::info!("Anthropic streaming for model: {} (placeholder)", request.model);
+        tracing::info!(
+            "Anthropic streaming for model: {} (placeholder)",
+            request.model
+        );
 
         let model = request.model.clone();
         let stream = tokio_stream::iter([

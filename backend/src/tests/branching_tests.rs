@@ -2,9 +2,9 @@ use anyhow::Result;
 use uuid::Uuid;
 
 use crate::{
-    models::{MessageRole, CreateMessageRequest},
-    repositories::{message::MessageRepository, Repository},
     database::Database,
+    models::{CreateMessageRequest, MessageRole},
+    repositories::{message::MessageRepository, Repository},
 };
 
 #[tokio::test]
@@ -45,7 +45,10 @@ async fn test_message_tree_operations() -> Result<()> {
     };
 
     let assistant1_message = message_repo.create_from_request(assistant1_request).await?;
-    println!("Created first assistant response: {}", assistant1_message.id);
+    println!(
+        "Created first assistant response: {}",
+        assistant1_message.id
+    );
 
     // Create second user message
     let user2_request = CreateMessageRequest {
@@ -69,13 +72,18 @@ async fn test_message_tree_operations() -> Result<()> {
     };
 
     let assistant2_message = message_repo.create_from_request(assistant2_request).await?;
-    println!("Created second assistant response: {}", assistant2_message.id);
+    println!(
+        "Created second assistant response: {}",
+        assistant2_message.id
+    );
 
     // Test: Edit the second user message to create a branch
-    let edited_message = message_repo.edit_message_and_branch(
-        user2_message.id,
-        "What is the population of Paris?".to_string(),
-    ).await?;
+    let edited_message = message_repo
+        .edit_message_and_branch(
+            user2_message.id,
+            "What is the population of Paris?".to_string(),
+        )
+        .await?;
 
     println!("Created branch with edited message: {}", edited_message.id);
 
@@ -96,37 +104,47 @@ async fn test_message_tree_operations() -> Result<()> {
     assert!(tree_messages.len() >= 4);
 
     // Test: Get active thread
-    let active_thread = message_repo.find_active_conversation_thread(conversation_id).await?;
+    let active_thread = message_repo
+        .find_active_conversation_thread(conversation_id)
+        .await?;
     println!("Active thread contains {} messages", active_thread.len());
 
     // Active thread should contain the new edited message, not the old one
-    let active_content: Vec<&str> = active_thread.iter()
-        .map(|m| m.content.as_str())
-        .collect();
+    let active_content: Vec<&str> = active_thread.iter().map(|m| m.content.as_str()).collect();
 
     assert!(active_content.contains(&"What is the population of Paris?"));
     assert!(!active_content.contains(&"Tell me more about Paris."));
 
     // Test: Get branches
-    let branches = message_repo.get_conversation_branches(conversation_id).await?;
+    let branches = message_repo
+        .get_conversation_branches(conversation_id)
+        .await?;
     println!("Found {} branch points", branches.len());
 
     // Should have at least one branch point (at the assistant1 message)
     if !branches.is_empty() {
         let branch = &branches[0];
         assert!(branch.branch_count >= 2);
-        println!("Branch at {} has {} options", branch.parent_id, branch.branch_count);
+        println!(
+            "Branch at {} has {} options",
+            branch.parent_id, branch.branch_count
+        );
     }
 
     // Test: Switch to a different branch
-    let branch_messages = message_repo.find_message_branches(assistant1_message.id).await?;
+    let branch_messages = message_repo
+        .find_message_branches(assistant1_message.id)
+        .await?;
     if branch_messages.len() > 1 {
-        let alternative_message_id = branch_messages.iter()
+        let alternative_message_id = branch_messages
+            .iter()
             .find(|m| m.id != user2_message.id)
             .map(|m| m.id)
             .unwrap_or(edited_message.id);
 
-        let switched_thread = message_repo.switch_to_branch(alternative_message_id).await?;
+        let switched_thread = message_repo
+            .switch_to_branch(alternative_message_id)
+            .await?;
         println!("Switched to branch with {} messages", switched_thread.len());
 
         assert!(!switched_thread.is_empty());
@@ -183,7 +201,9 @@ async fn test_message_thread_traversal() -> Result<()> {
     let user2_message = message_repo.create_from_request(user2_request).await?;
 
     // Test: Find conversation thread leading to user2_message
-    let thread = message_repo.find_conversation_thread(user2_message.id).await?;
+    let thread = message_repo
+        .find_conversation_thread(user2_message.id)
+        .await?;
 
     // Should contain all three messages in order
     assert_eq!(thread.len(), 3);

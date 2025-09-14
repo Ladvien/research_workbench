@@ -1,11 +1,14 @@
 use crate::{
-    models::{User, JwtClaims, UserResponse, LoginRequest, RegisterRequest, LoginResponse, RegisterResponse},
-    repositories::{user::UserRepository, Repository},
     error::AppError,
+    models::{
+        JwtClaims, LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, User,
+        UserResponse,
+    },
+    repositories::{user::UserRepository, Repository},
 };
 use anyhow::Result;
 use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey, Algorithm};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -33,7 +36,11 @@ impl AuthService {
         }
 
         // Check if username already exists
-        if self.user_repository.username_exists(&request.username).await? {
+        if self
+            .user_repository
+            .username_exists(&request.username)
+            .await?
+        {
             return Err(AppError::ValidationError {
                 field: "username".to_string(),
                 message: "Username already exists".to_string(),
@@ -48,7 +55,10 @@ impl AuthService {
         };
 
         // Create user
-        let user = self.user_repository.create_from_request(create_user_request).await?;
+        let user = self
+            .user_repository
+            .create_from_request(create_user_request)
+            .await?;
 
         // Generate JWT token
         let token = self.generate_jwt_token(&user)?;
@@ -65,12 +75,19 @@ impl AuthService {
             .user_repository
             .find_by_email(&request.email)
             .await?
-            .ok_or(AppError::AuthenticationError("Invalid credentials".to_string()))?;
+            .ok_or(AppError::AuthenticationError(
+                "Invalid credentials".to_string(),
+            ))?;
 
         // Verify password
-        let is_valid = self.user_repository.verify_password(&user, &request.password).await?;
+        let is_valid = self
+            .user_repository
+            .verify_password(&user, &request.password)
+            .await?;
         if !is_valid {
-            return Err(AppError::AuthenticationError("Invalid credentials".to_string()));
+            return Err(AppError::AuthenticationError(
+                "Invalid credentials".to_string(),
+            ));
         }
 
         // Generate JWT token

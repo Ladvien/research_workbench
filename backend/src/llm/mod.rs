@@ -3,8 +3,8 @@ use futures::Stream;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 
-pub mod openai;
 pub mod anthropic;
+pub mod openai;
 
 use crate::error::AppError;
 

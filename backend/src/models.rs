@@ -75,12 +75,25 @@ impl std::fmt::Display for MessageRole {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageEmbedding {
     pub id: Uuid,
     pub message_id: Uuid,
     pub embedding: Vec<f32>,
     pub created_at: DateTime<Utc>,
+}
+
+impl sqlx::FromRow<'_, sqlx::postgres::PgRow> for MessageEmbedding {
+    fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
+        use sqlx::Row;
+
+        Ok(MessageEmbedding {
+            id: row.try_get("id")?,
+            message_id: row.try_get("message_id")?,
+            embedding: row.try_get("embedding")?,
+            created_at: row.try_get("created_at")?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -94,7 +107,7 @@ pub struct Attachment {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiUsage {
     pub id: Uuid,
     pub user_id: Uuid,
@@ -104,6 +117,23 @@ pub struct ApiUsage {
     pub tokens_completion: Option<i32>,
     pub cost_cents: Option<i32>,
     pub created_at: DateTime<Utc>,
+}
+
+impl sqlx::FromRow<'_, sqlx::postgres::PgRow> for ApiUsage {
+    fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
+        use sqlx::Row;
+
+        Ok(ApiUsage {
+            id: row.try_get("id")?,
+            user_id: row.try_get("user_id")?,
+            model: row.try_get("model")?,
+            provider: row.try_get("provider")?,
+            tokens_prompt: row.try_get("tokens_prompt")?,
+            tokens_completion: row.try_get("tokens_completion")?,
+            cost_cents: row.try_get("cost_cents")?,
+            created_at: row.try_get("created_at")?,
+        })
+    }
 }
 
 // Request/Response DTOs

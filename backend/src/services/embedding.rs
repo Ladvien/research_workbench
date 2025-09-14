@@ -2,8 +2,8 @@ use async_openai::{
     types::{CreateEmbeddingRequest, EmbeddingInput},
     Client as OpenAIClient,
 };
-use uuid::Uuid;
 use std::time::Duration;
+use uuid::Uuid;
 
 use crate::{
     config::AppConfig,
@@ -20,8 +20,8 @@ pub struct EmbeddingService {
 
 impl EmbeddingService {
     pub fn new(config: AppConfig, repository: EmbeddingRepository) -> Result<Self, AppError> {
-        let openai_config = async_openai::config::OpenAIConfig::new()
-            .with_api_key(&config.openai_api_key);
+        let openai_config =
+            async_openai::config::OpenAIConfig::new().with_api_key(&config.openai_api_key);
 
         let client = OpenAIClient::with_config(openai_config);
 
@@ -62,7 +62,11 @@ impl EmbeddingService {
     }
 
     /// Store embeddings for a message
-    pub async fn store_message_embedding(&self, message_id: Uuid, content: &str) -> Result<(), AppError> {
+    pub async fn store_message_embedding(
+        &self,
+        message_id: Uuid,
+        content: &str,
+    ) -> Result<(), AppError> {
         let embedding = self.generate_embedding(content).await?;
 
         self.repository
@@ -81,7 +85,10 @@ impl EmbeddingService {
         limit: Option<i64>,
         similarity_threshold: Option<f32>,
     ) -> Result<Vec<SearchResult>, AppError> {
-        tracing::info!("Searching for messages similar to query of length: {}", query.len());
+        tracing::info!(
+            "Searching for messages similar to query of length: {}",
+            query.len()
+        );
 
         let query_embedding = self.generate_embedding(query).await?;
         let limit = limit.unwrap_or(10);
@@ -97,7 +104,10 @@ impl EmbeddingService {
 
     /// Process messages without embeddings in batches
     pub async fn process_pending_embeddings(&self, batch_size: i64) -> Result<usize, AppError> {
-        tracing::info!("Processing pending embeddings with batch size: {}", batch_size);
+        tracing::info!(
+            "Processing pending embeddings with batch size: {}",
+            batch_size
+        );
 
         let message_ids = self
             .repository
@@ -118,7 +128,11 @@ impl EmbeddingService {
                     tracing::debug!("Generated embedding for message {}", message_id);
                 }
                 Err(e) => {
-                    tracing::error!("Failed to generate embedding for message {}: {}", message_id, e);
+                    tracing::error!(
+                        "Failed to generate embedding for message {}: {}",
+                        message_id,
+                        e
+                    );
                     // Continue processing other messages even if one fails
                 }
             }
@@ -127,7 +141,11 @@ impl EmbeddingService {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
 
-        tracing::info!("Processed {} out of {} pending embeddings", processed_count, message_ids.len());
+        tracing::info!(
+            "Processed {} out of {} pending embeddings",
+            processed_count,
+            message_ids.len()
+        );
         Ok(processed_count)
     }
 
@@ -140,15 +158,14 @@ impl EmbeddingService {
         // In practice, this would be called from a background job or webhook
         // where the message content is already available
         tracing::warn!("generate_embedding_for_message called with just message_id - content needed from caller");
-        Err(AppError::BadRequest("Message content required for embedding generation".to_string()))
+        Err(AppError::BadRequest(
+            "Message content required for embedding generation".to_string(),
+        ))
     }
 
     /// Delete embedding for a message
     pub async fn delete_message_embedding(&self, message_id: Uuid) -> Result<bool, AppError> {
-        let deleted = self
-            .repository
-            .delete_by_message_id(message_id)
-            .await?;
+        let deleted = self.repository.delete_by_message_id(message_id).await?;
 
         if deleted {
             tracing::info!("Deleted embedding for message {}", message_id);
@@ -159,10 +176,7 @@ impl EmbeddingService {
 
     /// Check if a message has an embedding
     pub async fn has_embedding(&self, message_id: Uuid) -> Result<bool, AppError> {
-        let embedding = self
-            .repository
-            .find_by_message_id(message_id)
-            .await?;
+        let embedding = self.repository.find_by_message_id(message_id).await?;
 
         Ok(embedding.is_some())
     }
@@ -189,7 +203,10 @@ impl EmbeddingService {
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
 
-        tracing::info!("Background embedding job completed. Processed {} messages", total_processed);
+        tracing::info!(
+            "Background embedding job completed. Processed {} messages",
+            total_processed
+        );
         Ok(total_processed)
     }
 }

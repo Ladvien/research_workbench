@@ -62,7 +62,9 @@ impl ConversationService {
     ) -> Result<bool> {
         // Validate title length
         if title.trim().is_empty() || title.len() > 255 {
-            return Err(anyhow::anyhow!("Title must be between 1 and 255 characters"));
+            return Err(anyhow::anyhow!(
+                "Title must be between 1 and 255 characters"
+            ));
         }
 
         self.dal
@@ -73,28 +75,38 @@ impl ConversationService {
 
     pub async fn delete_conversation(&self, conversation_id: Uuid, user_id: Uuid) -> Result<bool> {
         // First verify the conversation belongs to the user
-        let conversation = self.dal
+        let conversation = self
+            .dal
             .conversations()
             .find_with_messages(conversation_id, user_id)
             .await?;
 
         if conversation.is_some() {
-            self.dal.repositories.conversations.delete(conversation_id).await
+            self.dal
+                .repositories
+                .conversations
+                .delete(conversation_id)
+                .await
         } else {
             Ok(false)
         }
     }
 
-    pub async fn get_conversation_stats(&self, conversation_id: Uuid, user_id: Uuid) -> Result<ConversationStats> {
+    pub async fn get_conversation_stats(
+        &self,
+        conversation_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<ConversationStats> {
         // Verify conversation belongs to user
-        let conversation = self.dal
-            .conversations()
-            .find_by_id(conversation_id)
-            .await?;
+        let conversation = self.dal.conversations().find_by_id(conversation_id).await?;
 
         match conversation {
             Some(conv) if conv.user_id == user_id => {
-                let message_count = self.dal.messages().count_by_conversation(conversation_id).await?;
+                let message_count = self
+                    .dal
+                    .messages()
+                    .count_by_conversation(conversation_id)
+                    .await?;
 
                 Ok(ConversationStats {
                     conversation_id,
@@ -110,21 +122,30 @@ impl ConversationService {
 
     fn is_model_supported(&self, model: &str) -> bool {
         // List of supported models - this could be moved to configuration
-        matches!(model,
-            "gpt-4" | "gpt-4-turbo" | "gpt-3.5-turbo" |
-            "claude-3-opus" | "claude-3-sonnet" | "claude-3-haiku"
+        matches!(
+            model,
+            "gpt-4"
+                | "gpt-4-turbo"
+                | "gpt-3.5-turbo"
+                | "claude-3-opus"
+                | "claude-3-sonnet"
+                | "claude-3-haiku"
         )
     }
 
-    pub async fn generate_title_from_first_message(&self, conversation_id: Uuid) -> Result<Option<String>> {
-        let messages = self.dal.messages().find_by_conversation_id(conversation_id).await?;
+    pub async fn generate_title_from_first_message(
+        &self,
+        conversation_id: Uuid,
+    ) -> Result<Option<String>> {
+        let messages = self
+            .dal
+            .messages()
+            .find_by_conversation_id(conversation_id)
+            .await?;
 
         if let Some(first_message) = messages.first() {
             // Generate a title from the first 50 characters of the first user message
-            let title = first_message.content
-                .chars()
-                .take(50)
-                .collect::<String>();
+            let title = first_message.content.chars().take(50).collect::<String>();
 
             let title = if title.len() == 50 {
                 format!("{}...", title)

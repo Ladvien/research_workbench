@@ -75,10 +75,7 @@ impl AttachmentRepository {
     pub async fn delete(&self, id: Uuid) -> Result<bool> {
         let query = "DELETE FROM attachments WHERE id = $1";
 
-        let result = sqlx::query(query)
-            .bind(id)
-            .execute(&self.db.pool)
-            .await?;
+        let result = sqlx::query(query).bind(id).execute(&self.db.pool).await?;
 
         Ok(result.rows_affected() > 0)
     }

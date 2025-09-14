@@ -9,7 +9,7 @@ use crate::{
     app_state::AppState,
     error::AppError,
     models::UserResponse,
-    models::{SearchRequest, SearchResponse, SearchResultResponse, EmbeddingJobResponse},
+    models::{EmbeddingJobResponse, SearchRequest, SearchResponse, SearchResultResponse},
     services::embedding::EmbeddingService,
 };
 
@@ -34,7 +34,9 @@ pub async fn search_messages(
     }
 
     if params.q.len() > 500 {
-        return Err(AppError::BadRequest("Query too long (max 500 characters)".to_string()));
+        return Err(AppError::BadRequest(
+            "Query too long (max 500 characters)".to_string(),
+        ));
     }
 
     // Create embedding service
@@ -72,10 +74,15 @@ pub async fn search_messages_post(
     Json(request): Json<SearchRequest>,
 ) -> Result<Json<SearchResponse>, AppError> {
     // Validate request
-    request.validate()
+    request
+        .validate()
         .map_err(|e| AppError::BadRequest(format!("Validation error: {}", e)))?;
 
-    tracing::info!("POST search request from user {}: '{}'", user.id, request.query);
+    tracing::info!(
+        "POST search request from user {}: '{}'",
+        user.id,
+        request.query
+    );
 
     // Create embedding service
     let embedding_repository = state.dal.embeddings().clone();
@@ -141,7 +148,12 @@ pub async fn search_health(
     State(state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     // Check database connectivity
-    state.dal.repositories.embeddings.find_messages_without_embeddings(1).await?;
+    state
+        .dal
+        .repositories
+        .embeddings
+        .find_messages_without_embeddings(1)
+        .await?;
 
     Ok(Json(serde_json::json!({
         "status": "healthy",

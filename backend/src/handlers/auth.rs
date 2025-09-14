@@ -21,11 +21,9 @@ pub async fn register(
     Json(payload): Json<RegisterRequest>,
 ) -> Result<Response, AppError> {
     // Validate request
-    payload.validate().map_err(|e| {
-        AppError::ValidationError {
-            field: "payload".to_string(),
-            message: format!("Validation failed: {}", e),
-        }
+    payload.validate().map_err(|e| AppError::ValidationError {
+        field: "payload".to_string(),
+        message: format!("Validation failed: {}", e),
     })?;
 
     // Perform registration
@@ -38,15 +36,13 @@ pub async fn register(
         .map_err(|e| AppError::InternalServerError(format!("Session error: {}", e)))?;
 
     // Set JWT token in HttpOnly cookie
-    let response_builder = Response::builder()
-        .status(StatusCode::CREATED)
-        .header(
-            header::SET_COOKIE,
-            format!(
-                "token={}; HttpOnly; Secure; SameSite=Strict; Max-Age=86400; Path=/",
-                response.access_token
-            ),
-        );
+    let response_builder = Response::builder().status(StatusCode::CREATED).header(
+        header::SET_COOKIE,
+        format!(
+            "token={}; HttpOnly; Secure; SameSite=Strict; Max-Age=86400; Path=/",
+            response.access_token
+        ),
+    );
 
     let response = response_builder
         .body(
@@ -69,11 +65,9 @@ pub async fn login(
     Json(payload): Json<LoginRequest>,
 ) -> Result<Response, AppError> {
     // Validate request
-    payload.validate().map_err(|e| {
-        AppError::ValidationError {
-            field: "payload".to_string(),
-            message: format!("Validation failed: {}", e),
-        }
+    payload.validate().map_err(|e| AppError::ValidationError {
+        field: "payload".to_string(),
+        message: format!("Validation failed: {}", e),
     })?;
 
     // Perform login
