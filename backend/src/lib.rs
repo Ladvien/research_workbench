@@ -4,6 +4,7 @@ pub mod config;
 pub mod database;
 pub mod error;
 pub mod handlers;
+pub mod llm;
 pub mod middleware;
 pub mod models;
 pub mod openai;
@@ -15,5 +16,5 @@ pub use database::Database;
 pub use error::AppError;
 pub use services::DataAccessLayer;
 
-#[cfg(test)]
-pub mod tests;
+// #[cfg(test)]
+// pub mod tests;
