@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Chat } from './components/Chat';
+import { BranchingChat } from './components/BranchingChat';
 import { ConversationSidebar } from './components/ConversationSidebar';
 
 function App() {
@@ -17,7 +17,7 @@ function App() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Chat />
+        <BranchingChat />
       </div>
     </div>
   );

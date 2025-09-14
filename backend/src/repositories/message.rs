@@ -1,6 +1,6 @@
 use crate::{
     database::Database,
-    models::{Message, MessageRole, CreateMessageRequest, CreateMessageResponse},
+    models::{Message, MessageRole, CreateMessageRequest, CreateMessageResponse, BranchInfo, BranchOption},
     repositories::Repository,
 };
 use anyhow::Result;
@@ -154,6 +154,217 @@ impl MessageRepository {
         .await?;
 
         Ok(count)
+    }
+
+    /// Get all branches for a specific message (children of the message)
+    pub async fn find_message_branches(&self, message_id: Uuid) -> Result<Vec<Message>> {
+        let branches = sqlx::query_as::<_, Message>(
+            r#"
+            SELECT id, conversation_id, parent_id, role, content, tokens_used, created_at, is_active, metadata
+            FROM messages
+            WHERE parent_id = $1
+            ORDER BY created_at ASC
+            "#,
+        )
+        .bind(message_id)
+        .fetch_all(&self.database.pool)
+        .await?;
+
+        Ok(branches)
+    }
+
+    /// Get the full tree structure for a conversation with active branch paths
+    pub async fn find_conversation_tree(&self, conversation_id: Uuid) -> Result<Vec<Message>> {
+        let messages = sqlx::query_as::<_, Message>(
+            r#"
+            WITH RECURSIVE conversation_tree AS (
+                -- Base case: root messages (no parent)
+                SELECT m.*, 0 as depth, ARRAY[m.id] as path
+                FROM messages m
+                WHERE m.conversation_id = $1 AND m.parent_id IS NULL
+
+                UNION ALL
+
+                -- Recursive case: find child messages
+                SELECT m.*, ct.depth + 1, ct.path || m.id
+                FROM messages m
+                INNER JOIN conversation_tree ct ON m.parent_id = ct.id
+                WHERE m.conversation_id = $1 AND ct.depth < 100
+            )
+            SELECT id, conversation_id, parent_id, role, content, tokens_used, created_at, is_active, metadata
+            FROM conversation_tree
+            ORDER BY depth ASC, created_at ASC
+            "#,
+        )
+        .bind(conversation_id)
+        .fetch_all(&self.database.pool)
+        .await?;
+
+        Ok(messages)
+    }
+
+    /// Get the current active conversation thread (following is_active flags)
+    pub async fn find_active_conversation_thread(&self, conversation_id: Uuid) -> Result<Vec<Message>> {
+        let messages = sqlx::query_as::<_, Message>(
+            r#"
+            WITH RECURSIVE active_thread AS (
+                -- Base case: root message that's active
+                SELECT m.*, 0 as depth
+                FROM messages m
+                WHERE m.conversation_id = $1 AND m.parent_id IS NULL AND m.is_active = true
+
+                UNION ALL
+
+                -- Recursive case: find the active child message
+                SELECT m.*, at.depth + 1
+                FROM messages m
+                INNER JOIN active_thread at ON m.parent_id = at.id
+                WHERE m.conversation_id = $1 AND m.is_active = true AND at.depth < 100
+            )
+            SELECT id, conversation_id, parent_id, role, content, tokens_used, created_at, is_active, metadata
+            FROM active_thread
+            ORDER BY depth ASC
+            "#,
+        )
+        .bind(conversation_id)
+        .fetch_all(&self.database.pool)
+        .await?;
+
+        Ok(messages)
+    }
+
+    /// Edit a message and create a new branch from that point
+    pub async fn edit_message_and_branch(&self, message_id: Uuid, new_content: String) -> Result<Message> {
+        let original_message = self.find_by_id(message_id).await?
+            .ok_or_else(|| anyhow::anyhow!("Original message not found"))?;
+
+        // Deactivate all messages from this point forward in the current thread
+        sqlx::query(
+            r#"
+            WITH RECURSIVE downstream_messages AS (
+                -- Base case: start with the message being edited
+                SELECT id, parent_id
+                FROM messages
+                WHERE id = $1
+
+                UNION ALL
+
+                -- Recursive case: find all downstream messages
+                SELECT m.id, m.parent_id
+                FROM messages m
+                INNER JOIN downstream_messages dm ON m.parent_id = dm.id
+            )
+            UPDATE messages
+            SET is_active = false
+            WHERE id IN (SELECT id FROM downstream_messages)
+            "#,
+        )
+        .bind(message_id)
+        .execute(&self.database.pool)
+        .await?;
+
+        // Create new message with edited content
+        let request = CreateMessageRequest {
+            conversation_id: original_message.conversation_id,
+            parent_id: original_message.parent_id,
+            role: original_message.role,
+            content: new_content,
+            metadata: Some(original_message.metadata),
+        };
+
+        let response = self.create_from_request(request).await?;
+        self.find_by_id(response.id).await?.ok_or_else(|| anyhow::anyhow!("Created message not found"))
+    }
+
+    /// Switch to a different branch by activating a specific message and its thread
+    pub async fn switch_to_branch(&self, message_id: Uuid) -> Result<Vec<Message>> {
+        let target_message = self.find_by_id(message_id).await?
+            .ok_or_else(|| anyhow::anyhow!("Target message not found"))?;
+
+        // First, deactivate all messages in the conversation
+        sqlx::query(
+            r#"
+            UPDATE messages
+            SET is_active = false
+            WHERE conversation_id = $1
+            "#,
+        )
+        .bind(target_message.conversation_id)
+        .execute(&self.database.pool)
+        .await?;
+
+        // Find and activate the complete path from root to target message
+        let active_path = sqlx::query_as::<_, Message>(
+            r#"
+            WITH RECURSIVE path_to_message AS (
+                -- Base case: start with target message
+                SELECT m.*, 0 as depth
+                FROM messages m
+                WHERE m.id = $1
+
+                UNION ALL
+
+                -- Recursive case: walk up the parent chain
+                SELECT m.*, ptm.depth + 1
+                FROM messages m
+                INNER JOIN path_to_message ptm ON m.id = ptm.parent_id
+                WHERE ptm.depth < 100
+            )
+            SELECT id, conversation_id, parent_id, role, content, tokens_used, created_at, is_active, metadata
+            FROM path_to_message
+            ORDER BY depth DESC
+            "#,
+        )
+        .bind(message_id)
+        .fetch_all(&self.database.pool)
+        .await?;
+
+        // Activate all messages in the path
+        for message in &active_path {
+            sqlx::query(
+                "UPDATE messages SET is_active = true WHERE id = $1"
+            )
+            .bind(message.id)
+            .execute(&self.database.pool)
+            .await?;
+        }
+
+        Ok(active_path)
+    }
+
+    /// Get branch information for a conversation including alternatives at each decision point
+    pub async fn get_conversation_branches(&self, conversation_id: Uuid) -> Result<Vec<BranchInfo>> {
+        // TODO: Fix database query compilation issue
+        // Temporary simplified implementation
+        let messages = self.find_conversation_tree(conversation_id).await?;
+
+        // Group by parent_id to find branches
+        let mut parent_map: std::collections::HashMap<Uuid, Vec<&Message>> = std::collections::HashMap::new();
+
+        for message in &messages {
+            if let Some(parent_id) = message.parent_id {
+                parent_map.entry(parent_id).or_insert_with(Vec::new).push(message);
+            }
+        }
+
+        let mut branches = Vec::new();
+        for (parent_id, children) in parent_map {
+            if children.len() > 1 {
+                let branch_options = children.iter().map(|msg| BranchOption {
+                    id: msg.id,
+                    preview: msg.content.chars().take(50).collect(),
+                    is_active: msg.is_active,
+                }).collect();
+
+                branches.push(BranchInfo {
+                    parent_id,
+                    branch_count: children.len() as u32,
+                    branches: branch_options,
+                });
+            }
+        }
+
+        Ok(branches)
     }
 }
 
