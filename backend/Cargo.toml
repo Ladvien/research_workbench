@@ -63,8 +63,23 @@ reqwest = { version = "0.12", features = ["json", "stream"] }
 futures = "0.3"
 tokio-stream = "0.1"
 
+# Server-Sent Events
+axum-streams = "0.17"
+
 # Configuration
 config = "0.14"
+
+# JWT and Authentication
+jsonwebtoken = "9.2"
+tower-sessions = "0.12"
+tower-sessions-redis-store = "0.12"
+redis = { version = "0.25", features = ["tokio-comp"] }
+
+# Random number generation (for JWT secrets)
+rand = "0.8"
+
+# Time handling for sessions
+time = "0.3"
 
 [dev-dependencies]
 tokio-test = "0.4"

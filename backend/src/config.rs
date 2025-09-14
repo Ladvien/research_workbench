@@ -9,6 +9,9 @@ pub struct AppConfig {
     pub openai_model: String,
     pub openai_max_tokens: u32,
     pub openai_temperature: f32,
+    pub jwt_secret: String,
+    pub redis_url: String,
+    pub session_timeout_hours: u64,
 }
 
 impl AppConfig {
@@ -35,12 +38,29 @@ impl AppConfig {
             .parse()
             .unwrap_or(0.7);
 
+        let jwt_secret = std::env::var("JWT_SECRET")
+            .unwrap_or_else(|_| {
+                tracing::warn!("JWT_SECRET not set, using default (NOT FOR PRODUCTION)");
+                "your-secret-key-change-this-in-production".to_string()
+            });
+
+        let redis_url = std::env::var("REDIS_URL")
+            .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+
+        let session_timeout_hours = std::env::var("SESSION_TIMEOUT_HOURS")
+            .unwrap_or_else(|_| "24".to_string())
+            .parse()
+            .unwrap_or(24);
+
         Ok(Self {
             bind_address,
             openai_api_key,
             openai_model,
             openai_max_tokens,
             openai_temperature,
+            jwt_secret,
+            redis_url,
+            session_timeout_hours,
         })
     }
 }

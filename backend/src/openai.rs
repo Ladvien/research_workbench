@@ -6,7 +6,9 @@ use async_openai::{
     },
     Client as OpenAIClient,
 };
+use futures::Stream;
 use serde::{Deserialize, Serialize};
+use tokio_stream::StreamExt;
 
 use crate::{config::AppConfig, error::AppError};
 
@@ -41,6 +43,21 @@ pub struct Usage {
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
     pub total_tokens: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StreamEvent {
+    pub event_type: StreamEventType,
+    pub data: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StreamEventType {
+    Token,
+    Usage,
+    Error,
+    Done,
 }
 
 impl OpenAIService {
@@ -136,5 +153,95 @@ impl OpenAIService {
             },
             usage,
         })
+    }
+
+    pub async fn chat_completion_stream(
+        &self,
+        request: ChatRequest,
+    ) -> Result<impl Stream<Item = Result<StreamEvent, AppError>>, AppError> {
+        tracing::info!("Sending streaming chat completion request to OpenAI");
+
+        // Convert our message format to OpenAI format (same as non-streaming)
+        let messages: Result<Vec<ChatCompletionRequestMessage>, AppError> = request
+            .messages
+            .into_iter()
+            .map(|msg| {
+                match msg.role.as_str() {
+                    "system" => Ok(ChatCompletionRequestMessage::System(
+                        ChatCompletionRequestSystemMessage {
+                            content: msg.content.clone().into(),
+                            role: async_openai::types::Role::System,
+                            name: None,
+                        }
+                    )),
+                    "user" => Ok(ChatCompletionRequestMessage::User(
+                        ChatCompletionRequestUserMessage {
+                            content: msg.content.clone().into(),
+                            role: async_openai::types::Role::User,
+                            name: None,
+                        }
+                    )),
+                    "assistant" => Ok(ChatCompletionRequestMessage::Assistant(
+                        async_openai::types::ChatCompletionRequestAssistantMessage {
+                            content: Some(msg.content.clone()),
+                            role: async_openai::types::Role::Assistant,
+                            name: None,
+                            tool_calls: None,
+                            function_call: None,
+                        }
+                    )),
+                    _ => Err(AppError::BadRequest(format!("Invalid role: {}", msg.role)))
+                }
+            })
+            .collect();
+
+        let messages = messages?;
+
+        let openai_request = CreateChatCompletionRequest {
+            model: request.model.unwrap_or(self.config.openai_model.clone()),
+            messages,
+            temperature: Some(request.temperature.unwrap_or(self.config.openai_temperature)),
+            max_tokens: Some(request.max_tokens.unwrap_or(self.config.openai_max_tokens) as u16),
+            stream: Some(true),
+            ..Default::default()
+        };
+
+        let stream = self
+            .client
+            .chat()
+            .create_stream(openai_request)
+            .await
+            .map_err(|e| AppError::OpenAI(e.to_string()))?;
+
+        Ok(stream.map(|result| {
+            match result {
+                Ok(response) => {
+                    // Handle the streaming response
+                    if let Some(choice) = response.choices.first() {
+                        if let Some(content) = &choice.delta.content {
+                            return Ok(StreamEvent {
+                                event_type: StreamEventType::Token,
+                                data: Some(content.clone()),
+                            });
+                        }
+                        if choice.finish_reason.is_some() {
+                            return Ok(StreamEvent {
+                                event_type: StreamEventType::Done,
+                                data: None,
+                            });
+                        }
+                    }
+                    // If no content, skip this chunk
+                    Ok(StreamEvent {
+                        event_type: StreamEventType::Token,
+                        data: Some("".to_string()),
+                    })
+                }
+                Err(e) => Ok(StreamEvent {
+                    event_type: StreamEventType::Error,
+                    data: Some(e.to_string()),
+                })
+            }
+        }))
     }
 }

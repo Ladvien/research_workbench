@@ -1,13 +1,13 @@
 use axum::{
     extract::{Path, State},
     response::Json,
-    Extension,
 };
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
     error::AppError,
+    models::UserResponse,
     services::{chat::{ChatService, SendMessageRequest}, DataAccessLayer},
 };
 
@@ -17,12 +17,12 @@ pub type ChatState = State<ChatService>;
 pub async fn send_message(
     State(service): ChatState,
     Path(conversation_id): Path<Uuid>,
-    Extension(user_id): Extension<Uuid>, // This would come from auth middleware
+    user: UserResponse, // This comes from our auth middleware
     Json(request): Json<SendMessageRequest>,
 ) -> Result<Json<Value>, AppError> {
     // Save user message to database
     let user_message = service
-        .send_message(user_id, conversation_id, request.content.clone())
+        .send_message(user.id, conversation_id, request.content.clone())
         .await?;
 
     // For now, we'll just return the saved message
@@ -38,10 +38,10 @@ pub async fn send_message(
 pub async fn get_messages(
     State(service): ChatState,
     Path(conversation_id): Path<Uuid>,
-    Extension(user_id): Extension<Uuid>,
+    user: UserResponse, // This comes from our auth middleware
 ) -> Result<Json<Value>, AppError> {
     let messages = service
-        .get_conversation_messages(user_id, conversation_id)
+        .get_conversation_messages(user.id, conversation_id)
         .await?;
 
     Ok(Json(serde_json::json!({
@@ -54,12 +54,12 @@ pub async fn get_messages(
 // Create a message branch (for conversation threading)
 pub async fn create_message_branch(
     State(service): ChatState,
-    Path((conversation_id, parent_id)): Path<(Uuid, Uuid)>,
-    Extension(user_id): Extension<Uuid>,
+    Path((_conversation_id, parent_id)): Path<(Uuid, Uuid)>,
+    user: UserResponse, // This comes from our auth middleware
     Json(request): Json<CreateBranchRequest>,
 ) -> Result<Json<Value>, AppError> {
     let branch_message = service
-        .create_message_branch(user_id, parent_id, request.content, request.role)
+        .create_message_branch(user.id, parent_id, request.content, request.role)
         .await?;
 
     Ok(Json(serde_json::to_value(branch_message)?))
@@ -69,9 +69,9 @@ pub async fn create_message_branch(
 pub async fn get_message_thread(
     State(service): ChatState,
     Path(message_id): Path<Uuid>,
-    Extension(user_id): Extension<Uuid>,
+    user: UserResponse, // This comes from our auth middleware
 ) -> Result<Json<Value>, AppError> {
-    let thread = service.get_message_thread(user_id, message_id).await?;
+    let thread = service.get_message_thread(user.id, message_id).await?;
     Ok(Json(serde_json::to_value(thread)?))
 }
 

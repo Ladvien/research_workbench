@@ -162,3 +162,63 @@ impl Default for PaginationParams {
         }
     }
 }
+
+// Authentication DTOs
+#[derive(Debug, Deserialize, Validate)]
+pub struct LoginRequest {
+    #[validate(email)]
+    pub email: String,
+    #[validate(length(min = 6))]
+    pub password: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LoginResponse {
+    pub user: UserResponse,
+    pub access_token: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UserResponse {
+    pub id: Uuid,
+    pub email: String,
+    pub username: String,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<User> for UserResponse {
+    fn from(user: User) -> Self {
+        Self {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            created_at: user.created_at,
+        }
+    }
+}
+
+// JWT Claims
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JwtClaims {
+    pub sub: String, // user_id
+    pub email: String,
+    pub username: String,
+    pub exp: usize, // expiration time
+    pub iat: usize, // issued at
+}
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct RegisterRequest {
+    #[validate(email)]
+    pub email: String,
+    #[validate(length(min = 3, max = 100))]
+    pub username: String,
+    #[validate(length(min = 6))]
+    pub password: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RegisterResponse {
+    pub user: UserResponse,
+    pub access_token: String,
+}

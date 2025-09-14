@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Chat } from '../../src/components/Chat';
+import { useConversationStore } from '../../src/hooks/useConversationStore';
+import type { Message } from '../../src/types';
 
 // Mock the Message component to simplify testing
 vi.mock('../../src/components/Message', () => ({
@@ -11,45 +13,113 @@ vi.mock('../../src/components/Message', () => ({
   ),
 }));
 
+// Mock the conversation store
+vi.mock('../../src/hooks/useConversationStore');
+
+const mockUseConversationStore = vi.mocked(useConversationStore);
+
+const mockMessages: Message[] = [
+  {
+    id: 'msg1',
+    conversation_id: '1',
+    role: 'system',
+    content: 'Welcome to the Workbench LLM Chat Application! I\'m your AI assistant.',
+    created_at: '2025-09-14T10:00:00Z',
+    is_active: true,
+    metadata: {}
+  }
+];
+
+const mockStoreActions = {
+  currentMessages: mockMessages,
+  currentConversationId: '1',
+  isLoading: false,
+  error: null,
+  sendMessage: vi.fn(),
+  clearError: vi.fn()
+};
+
 describe('Chat', () => {
   beforeEach(() => {
     vi.clearAllTimers();
     vi.useFakeTimers();
+    vi.clearAllMocks();
+    mockUseConversationStore.mockReturnValue(mockStoreActions);
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('renders the chat interface with header and input', () => {
+  it('renders the chat interface with conversation header', () => {
     render(<Chat />);
 
     expect(screen.getByText('Workbench LLM Chat')).toBeInTheDocument();
     expect(screen.getByText('Chat with your AI assistant')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Type your message... (Shift+Enter for new line)')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
   });
 
-  it('displays initial system message', () => {
+  it('renders welcome screen when no conversation exists', () => {
+    mockUseConversationStore.mockReturnValue({
+      ...mockStoreActions,
+      currentConversationId: null,
+      currentMessages: []
+    });
+
     render(<Chat />);
 
-    expect(screen.getByText(/Welcome to the Workbench LLM Chat Application/)).toBeInTheDocument();
+    expect(screen.getByText('Start a New Conversation')).toBeInTheDocument();
+    expect(screen.getByText('Send a message to begin chatting')).toBeInTheDocument();
+    expect(screen.getByText('Welcome to Workbench')).toBeInTheDocument();
   });
 
-  it('shows error message when simulating an API error', () => {
+  it('displays messages when conversation exists', () => {
     render(<Chat />);
 
-    // The error state UI should be ready to display errors
-    // We can't easily test it without mocking the API call
-    // but we can check that the error UI structure exists
-    expect(screen.queryByText(/Failed to send message/)).not.toBeInTheDocument();
+    expect(screen.getByText('Welcome to the Workbench LLM Chat Application! I\'m your AI assistant.')).toBeInTheDocument();
   });
 
-  it('button is disabled when input is empty', () => {
+  it('shows error message and allows clearing it', () => {
+    mockUseConversationStore.mockReturnValue({
+      ...mockStoreActions,
+      error: 'Test error message'
+    });
+
     render(<Chat />);
 
-    const sendButton = screen.getByRole('button', { name: 'Send' });
-    expect(sendButton).toBeDisabled();
+    expect(screen.getByText('Test error message')).toBeInTheDocument();
+
+    const clearButton = screen.getByText('Test error message').nextElementSibling as HTMLElement;
+    fireEvent.click(clearButton);
+
+    expect(mockStoreActions.clearError).toHaveBeenCalled();
+  });
+
+  it('calls sendMessage when form is submitted', () => {
+    render(<Chat />);
+
+    const input = screen.getByPlaceholderText('Type your message... (Shift+Enter for new line)');
+    const form = input.closest('form');
+
+    fireEvent.change(input, { target: { value: 'Test message' } });
+    fireEvent.submit(form!);
+
+    expect(mockStoreActions.sendMessage).toHaveBeenCalledWith('Test message');
+  });
+
+  it('shows loading state when isLoading is true', () => {
+    mockUseConversationStore.mockReturnValue({
+      ...mockStoreActions,
+      isLoading: true
+    });
+
+    render(<Chat />);
+
+    expect(screen.getByText('Thinking...')).toBeInTheDocument();
+
+    // Input should be disabled during loading
+    const input = screen.getByPlaceholderText('Type your message... (Shift+Enter for new line)');
+    expect(input).toBeDisabled();
   });
 
   it('input field is present and accepts text input', () => {
@@ -61,67 +131,5 @@ describe('Chat', () => {
     // Simulate typing
     fireEvent.change(input, { target: { value: 'Hello world' } });
     expect(input).toHaveValue('Hello world');
-  });
-
-  it('send button becomes enabled when input has content', () => {
-    render(<Chat />);
-
-    const input = screen.getByPlaceholderText('Type your message... (Shift+Enter for new line)');
-    const sendButton = screen.getByRole('button', { name: 'Send' });
-
-    expect(sendButton).toBeDisabled();
-
-    fireEvent.change(input, { target: { value: 'Hello' } });
-    expect(sendButton).toBeEnabled();
-  });
-
-  it('clears input and adds message when form is submitted', () => {
-    render(<Chat />);
-
-    const input = screen.getByPlaceholderText('Type your message... (Shift+Enter for new line)');
-    const form = input.closest('form');
-
-    fireEvent.change(input, { target: { value: 'Test message' } });
-    expect(input).toHaveValue('Test message');
-
-    fireEvent.submit(form!);
-
-    // Input should be cleared
-    expect(input).toHaveValue('');
-
-    // Message should be added to the chat
-    expect(screen.getByText('Test message')).toBeInTheDocument();
-  });
-
-  it('shows loading state when message is sent', () => {
-    render(<Chat />);
-
-    const input = screen.getByPlaceholderText('Type your message... (Shift+Enter for new line)');
-    const form = input.closest('form');
-
-    fireEvent.change(input, { target: { value: 'Test message' } });
-    fireEvent.submit(form!);
-
-    // Should show loading state
-    expect(screen.getByText('Thinking...')).toBeInTheDocument();
-
-    // Input should be disabled during loading
-    expect(input).toBeDisabled();
-  });
-
-  it('has the structure for assistant responses', () => {
-    render(<Chat />);
-
-    const input = screen.getByPlaceholderText('Type your message... (Shift+Enter for new line)');
-    const form = input.closest('form');
-
-    fireEvent.change(input, { target: { value: 'Hello' } });
-    fireEvent.submit(form!);
-
-    // Should show loading state immediately
-    expect(screen.getByText('Thinking...')).toBeInTheDocument();
-
-    // Note: The actual assistant response would be tested with real API integration
-    // For now, we just verify the loading state appears correctly
   });
 });

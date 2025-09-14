@@ -48,6 +48,7 @@ export const useConversationStore = create<ConversationState>()(
       isLoading: false,
       isStreaming: false,
       error: null,
+      abortController: null,
 
       setCurrentConversation: (id: string) => {
         set({ currentConversationId: id });
@@ -223,7 +224,10 @@ export const useConversationStore = create<ConversationState>()(
           }
         }
 
-        set({ isStreaming: true, error: null, streamingMessage: null });
+        // Create abort controller for this streaming request
+        const abortController = new AbortController();
+
+        set({ isStreaming: true, error: null, streamingMessage: null, abortController });
 
         try {
           // Optimistically add the user message to the current messages
@@ -277,7 +281,8 @@ export const useConversationStore = create<ConversationState>()(
               set({
                 error,
                 isStreaming: false,
-                streamingMessage: null
+                streamingMessage: null,
+                abortController: null
               });
             },
             // onComplete callback
@@ -301,27 +306,44 @@ export const useConversationStore = create<ConversationState>()(
                   currentMessages: [...state.currentMessages, completedMessage],
                   streamingMessage: null,
                   isStreaming: false,
+                  abortController: null,
                 }));
               } else {
-                set({ isStreaming: false, streamingMessage: null });
+                set({ isStreaming: false, streamingMessage: null, abortController: null });
               }
-            }
+            },
+            // Pass abort signal
+            abortController.signal
           );
 
         } catch (error) {
-          set({
-            error: error instanceof Error ? error.message : 'Failed to send streaming message',
-            isStreaming: false,
-            streamingMessage: null
-          });
+          // Handle abort errors gracefully
+          if (error instanceof Error && error.name === 'AbortError') {
+            set({
+              isStreaming: false,
+              streamingMessage: null,
+              abortController: null
+            });
+          } else {
+            set({
+              error: error instanceof Error ? error.message : 'Failed to send streaming message',
+              isStreaming: false,
+              streamingMessage: null,
+              abortController: null
+            });
+          }
         }
       },
 
       stopStreaming: () => {
-        // TODO: Implement abort functionality
+        const { abortController } = get();
+        if (abortController) {
+          abortController.abort();
+        }
         set({
           isStreaming: false,
-          streamingMessage: null
+          streamingMessage: null,
+          abortController: null
         });
       },
 

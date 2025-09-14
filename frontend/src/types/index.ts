@@ -81,6 +81,7 @@ export interface ConversationState {
   isLoading: boolean;
   isStreaming: boolean; // Track streaming state separately
   error: string | null;
+  abortController: AbortController | null; // For canceling streaming requests
 
   // Actions
   setCurrentConversation: (id: string) => void;

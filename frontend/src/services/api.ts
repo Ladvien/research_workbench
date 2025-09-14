@@ -108,7 +108,8 @@ class ApiClient {
     content: string,
     onToken: (token: string) => void,
     onError: (error: string) => void,
-    onComplete: (messageId?: string) => void
+    onComplete: (messageId?: string) => void,
+    abortSignal?: AbortSignal
   ): Promise<void> {
     try {
       const response = await fetch(`${this.baseUrl}/api/conversations/${conversationId}/stream`, {
@@ -119,6 +120,7 @@ class ApiClient {
           'Cache-Control': 'no-cache',
         },
         body: JSON.stringify({ content }),
+        signal: abortSignal,
       });
 
       if (!response.ok) {

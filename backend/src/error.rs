@@ -31,6 +31,15 @@ pub enum AppError {
 
     #[error("Validation error: {0}")]
     Validation(String),
+
+    #[error("Authentication error: {0}")]
+    AuthenticationError(String),
+
+    #[error("Validation error on field {field}: {message}")]
+    ValidationError { field: String, message: String },
+
+    #[error("Internal server error: {0}")]
+    InternalServerError(String),
 }
 
 impl IntoResponse for AppError {
@@ -53,6 +62,19 @@ impl IntoResponse for AppError {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Database error occurred")
             }
             AppError::Validation(ref msg) => (StatusCode::BAD_REQUEST, msg.as_str()),
+            AppError::AuthenticationError(ref msg) => (StatusCode::UNAUTHORIZED, msg.as_str()),
+            AppError::ValidationError { ref field, ref message } => {
+                return (StatusCode::BAD_REQUEST, Json(json!({
+                    "error": "Validation failed",
+                    "field": field,
+                    "message": message,
+                    "status": 400,
+                }))).into_response()
+            },
+            AppError::InternalServerError(ref msg) => {
+                tracing::error!("Internal server error: {}", msg);
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+            },
         };
 
         let body = Json(json!({

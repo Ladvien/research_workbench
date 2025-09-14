@@ -2,14 +2,13 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
-    Extension,
 };
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
     error::AppError,
-    models::{CreateConversationRequest, PaginationParams},
+    models::{CreateConversationRequest, PaginationParams, UserResponse},
     services::{conversation::ConversationService, DataAccessLayer},
 };
 
@@ -18,20 +17,20 @@ pub type ConversationState = State<ConversationService>;
 // Create a new conversation
 pub async fn create_conversation(
     State(service): ConversationState,
-    Extension(user_id): Extension<Uuid>, // This would come from auth middleware
+    user: UserResponse, // This comes from our auth middleware
     Json(request): Json<CreateConversationRequest>,
 ) -> Result<Json<Value>, AppError> {
-    let conversation = service.create_conversation(user_id, request).await?;
+    let conversation = service.create_conversation(user.id, request).await?;
     Ok(Json(serde_json::to_value(conversation)?))
 }
 
 // Get user's conversations with pagination
 pub async fn get_user_conversations(
     State(service): ConversationState,
-    Extension(user_id): Extension<Uuid>,
+    user: UserResponse, // This comes from our auth middleware
     Query(pagination): Query<PaginationParams>,
 ) -> Result<Json<Value>, AppError> {
-    let conversations = service.get_user_conversations(user_id, pagination).await?;
+    let conversations = service.get_user_conversations(user.id, pagination).await?;
     Ok(Json(serde_json::to_value(conversations)?))
 }
 
@@ -39,10 +38,10 @@ pub async fn get_user_conversations(
 pub async fn get_conversation(
     State(service): ConversationState,
     Path(conversation_id): Path<Uuid>,
-    Extension(user_id): Extension<Uuid>,
+    user: UserResponse, // This comes from our auth middleware
 ) -> Result<Json<Value>, AppError> {
     match service
-        .get_conversation_with_messages(conversation_id, user_id)
+        .get_conversation_with_messages(conversation_id, user.id)
         .await?
     {
         Some(conversation) => Ok(Json(serde_json::to_value(conversation)?)),
@@ -54,11 +53,11 @@ pub async fn get_conversation(
 pub async fn update_conversation_title(
     State(service): ConversationState,
     Path(conversation_id): Path<Uuid>,
-    Extension(user_id): Extension<Uuid>,
+    user: UserResponse, // This comes from our auth middleware
     Json(request): Json<UpdateTitleRequest>,
 ) -> Result<Json<Value>, AppError> {
     let updated = service
-        .update_conversation_title(conversation_id, user_id, request.title)
+        .update_conversation_title(conversation_id, user.id, request.title)
         .await?;
 
     if updated {
@@ -72,9 +71,9 @@ pub async fn update_conversation_title(
 pub async fn delete_conversation(
     State(service): ConversationState,
     Path(conversation_id): Path<Uuid>,
-    Extension(user_id): Extension<Uuid>,
+    user: UserResponse, // This comes from our auth middleware
 ) -> Result<StatusCode, AppError> {
-    let deleted = service.delete_conversation(conversation_id, user_id).await?;
+    let deleted = service.delete_conversation(conversation_id, user.id).await?;
 
     if deleted {
         Ok(StatusCode::NO_CONTENT)
@@ -87,9 +86,9 @@ pub async fn delete_conversation(
 pub async fn get_conversation_stats(
     State(service): ConversationState,
     Path(conversation_id): Path<Uuid>,
-    Extension(user_id): Extension<Uuid>,
+    user: UserResponse, // This comes from our auth middleware
 ) -> Result<Json<Value>, AppError> {
-    let stats = service.get_conversation_stats(conversation_id, user_id).await?;
+    let stats = service.get_conversation_stats(conversation_id, user.id).await?;
     Ok(Json(serde_json::to_value(stats)?))
 }
 
