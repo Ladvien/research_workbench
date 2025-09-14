@@ -7,34 +7,7 @@
 
 This document outlines the MVP (Minimum Viable Product) development phases for the Workbench LLM chat application. Each phase builds upon the previous one, delivering incremental value while maintaining a shippable product at each milestone.
 
-## Development Phases
 
-```mermaid
-gantt
-    title MVP Development Timeline
-    dateFormat  YYYY-MM-DD
-    section Phase 1
-    Basic Chat Interface       :done, p1-1, 2024-01-01, 7d
-    OpenAI Integration         :done, p1-2, after p1-1, 5d
-    Message Persistence        :done, p1-3, after p1-2, 3d
-    
-    section Phase 2
-    User Authentication        :active, p2-1, after p1-3, 5d
-    Conversation Management    :p2-2, after p2-1, 4d
-    Streaming Responses        :p2-3, after p2-2, 3d
-    
-    section Phase 3
-    Multiple LLM Providers     :p3-1, after p2-3, 5d
-    File Attachments          :p3-2, after p3-1, 4d
-    Conversation Branching    :p3-3, after p3-2, 4d
-    
-    section Phase 4
-    Semantic Search           :p4-1, after p3-3, 5d
-    Usage Analytics          :p4-2, after p4-1, 3d
-    Rate Limiting            :p4-3, after p4-2, 2d
-```
-
----
 
 ## Phase 1: Core Chat Functionality (Week 1-2)
 
