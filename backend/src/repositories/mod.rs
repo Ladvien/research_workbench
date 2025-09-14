@@ -1,0 +1,34 @@
+pub mod conversation;
+pub mod message;
+pub mod user;
+
+use crate::database::Database;
+use anyhow::Result;
+use async_trait::async_trait;
+
+// Base repository trait for common operations
+#[async_trait]
+pub trait Repository<T, ID> {
+    async fn find_by_id(&self, id: ID) -> Result<Option<T>>;
+    async fn create(&self, entity: T) -> Result<T>;
+    async fn update(&self, entity: T) -> Result<T>;
+    async fn delete(&self, id: ID) -> Result<bool>;
+}
+
+// Repository factory to create repository instances
+#[derive(Debug)]
+pub struct RepositoryManager {
+    pub conversations: conversation::ConversationRepository,
+    pub messages: message::MessageRepository,
+    pub users: user::UserRepository,
+}
+
+impl RepositoryManager {
+    pub fn new(database: Database) -> Self {
+        Self {
+            conversations: conversation::ConversationRepository::new(database.clone()),
+            messages: message::MessageRepository::new(database.clone()),
+            users: user::UserRepository::new(database),
+        }
+    }
+}
