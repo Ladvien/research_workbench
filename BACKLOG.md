@@ -65,24 +65,6 @@ This document outlines the MVP (Minimum Viable Product) development phases for t
 
 #### User Stories
 
-##### 2.1 User Authentication
-**As a** user  
-**I want to** create an account and log in  
-**So that** my conversations are private and secure  
-
-**Acceptance Criteria:**
-- [ ] Registration page with email/password
-- [ ] Login page with session management
-- [ ] JWT tokens stored in HttpOnly cookies
-- [ ] Logout functionality clears session
-- [ ] Protected routes require authentication
-
-**Technical Tasks:**
-- Implement auth endpoints (register, login, logout)
-- Add password hashing with Argon2
-- Set up JWT token generation and validation
-- Create auth middleware for protected routes
-- Add Redis session storage with tower-sessions
 
 ---
 
