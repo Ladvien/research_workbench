@@ -13,6 +13,7 @@ export interface Conversation {
   user_id: string;
   title?: string;
   model: string;
+  provider: string;
   created_at: string;
   updated_at: string;
   metadata: Record<string, any>;
@@ -40,6 +41,7 @@ export interface ConversationWithMessages {
 export interface CreateConversationRequest {
   title?: string;
   model: string;
+  provider?: string;
   metadata?: Record<string, any>;
 }
 
@@ -72,12 +74,25 @@ export interface StreamingMessage {
   isStreaming: boolean;
 }
 
+// Model types
+export type Provider = 'openai' | 'anthropic';
+
+export interface Model {
+  id: string;
+  name: string;
+  provider: Provider;
+  max_tokens: number;
+  supports_streaming: boolean;
+  cost_per_token?: number;
+}
+
 // Zustand store types
 export interface ConversationState {
   currentConversationId: string | null;
   conversations: Conversation[];
   currentMessages: Message[];
   streamingMessage: StreamingMessage | null; // Current streaming message
+  selectedModel: string; // Currently selected model for new conversations
   isLoading: boolean;
   isStreaming: boolean; // Track streaming state separately
   error: string | null;
@@ -85,6 +100,7 @@ export interface ConversationState {
 
   // Actions
   setCurrentConversation: (id: string) => void;
+  setSelectedModel: (modelId: string) => void;
   loadConversations: () => Promise<void>;
   loadConversation: (id: string) => Promise<void>;
   createConversation: (request: CreateConversationRequest) => Promise<string>;
