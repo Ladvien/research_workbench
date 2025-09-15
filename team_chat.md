@@ -16,7 +16,16 @@
 | Agent-12 | 4.3 Rate Limiting | completed | 2025-09-14 | 2025-09-14 |
 | Security-Agent | Security & Compliance Audit | completed | 2025-09-14 | 2025-09-14 |
 | Testing-Agent | Testing Framework - Coverage and quality audit | in_progress | 2025-09-14 | 2025-09-14 |
+| FRONTEND_SPECIALIST | UX-002 Frontend - Handle Error Alerts Properly | in_progress | 2025-09-15 | 2025-09-15 |
+| FRONTEND_SPECIALIST | AUTH-004 Frontend - Implement Auth State Management | in_progress | 2025-09-15 | 2025-09-15 |
+| FRONTEND_SPECIALIST | UX-003 Frontend - Add Loading States | in_progress | 2025-09-15 | 2025-09-15 |
+| FRONTEND_SPECIALIST | AUTH-003 Frontend - Add Authorization Headers to API Requests | in_progress | 2025-09-15 | 2025-09-15 |
+| FRONTEND_SPECIALIST-2 | UX-001 Frontend - Add Logout Functionality | in_progress | 2025-09-15 | 2025-09-15 |
+| FRONTEND_SPECIALIST | AUTH-002 Frontend - Implement Auth Token Storage | in_progress | 2025-09-15 | 2025-09-15 |
 | Architecture-Agent | Architecture Audit - Implementation alignment | completed | 2025-09-14 | 2025-09-14 |
+| INFRASTRUCTURE_ENGINEER | PROD-003 DevOps - Create Systemd Services | in_progress | 2025-09-15 | 2025-09-15 |
+| INFRASTRUCTURE_ENGINEER | PROD-002 DevOps - Configure Production Build | in_progress | 2025-09-15 | 2025-09-15 |
+| TEST_ORCHESTRATOR | PROD-001 Testing - Verify Chat Functionality | in_progress | 2025-09-15 | 2025-09-15 |
 
 ## Coordination Messages
 

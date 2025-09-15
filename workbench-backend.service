@@ -1,18 +1,26 @@
 [Unit]
-Description=Research Workbench Backend API
-After=network.target postgresql.service
-Wants=postgresql.service
+Description=Workbench Backend API
+After=network.target postgresql.service redis.service
 
 [Service]
 Type=simple
-User=ladvien
-Group=ladvien
-WorkingDirectory=/mnt/datadrive_m2/research_workbench/backend
-Environment="RUST_LOG=info"
-EnvironmentFile=/mnt/datadrive_m2/research_workbench/.env
-ExecStart=/mnt/datadrive_m2/research_workbench/backend/target/release/research-workbench
+User=workbench
+Group=workbench
+WorkingDirectory=/opt/workbench/backend
+ExecStart=/opt/workbench/backend/workbench-server
 Restart=always
 RestartSec=10
+EnvironmentFile=/opt/workbench/.env
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/mnt/nas /var/log/workbench
+
+# Logging
+StandardOutput=append:/var/log/workbench/backend.log
+StandardError=append:/var/log/workbench/backend-error.log
 
 [Install]
 WantedBy=multi-user.target
