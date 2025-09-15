@@ -85,6 +85,7 @@ export class AuthService {
     const token = TokenStorage.getAccessToken();
     return this.request<User>('/api/auth/me', {
       headers: {
+        'Content-Type': 'application/json',
         Authorization: token ? `Bearer ${token}` : '',
       },
     });
