@@ -5,6 +5,9 @@ use axum::{
     Json,
 };
 use serde_json::json;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use tower_sessions::Session;
 use validator::Validate;
 
@@ -14,12 +17,53 @@ use crate::{
     models::{LoginRequest, RegisterRequest, UserResponse},
 };
 
+// Simple in-memory rate limiting for auth endpoints
+lazy_static::lazy_static! {
+    static ref AUTH_RATE_LIMITER: Arc<Mutex<HashMap<String, (u32, Instant)>>> =
+        Arc::new(Mutex::new(HashMap::new()));
+}
+
+const MAX_AUTH_ATTEMPTS: u32 = 5;
+const AUTH_WINDOW_DURATION: Duration = Duration::from_secs(300); // 5 minutes
+
+fn check_auth_rate_limit(key: &str) -> Result<(), AppError> {
+    let mut limiter = AUTH_RATE_LIMITER.lock().unwrap();
+    let now = Instant::now();
+
+    // Clean up expired entries
+    limiter.retain(|_, (_, timestamp)| now.duration_since(*timestamp) < AUTH_WINDOW_DURATION);
+
+    match limiter.get_mut(key) {
+        Some((count, timestamp)) => {
+            if now.duration_since(*timestamp) < AUTH_WINDOW_DURATION {
+                if *count >= MAX_AUTH_ATTEMPTS {
+                    return Err(AppError::TooManyRequests(
+                        "Too many authentication attempts. Please try again in 5 minutes.".to_string()
+                    ));
+                }
+                *count += 1;
+            } else {
+                *count = 1;
+                *timestamp = now;
+            }
+        }
+        None => {
+            limiter.insert(key.to_string(), (1, now));
+        }
+    }
+
+    Ok(())
+}
+
 // Register endpoint
 pub async fn register(
     State(app_state): State<AppState>,
     session: Session,
     Json(payload): Json<RegisterRequest>,
 ) -> Result<Response, AppError> {
+    // Rate limiting check using email as key
+    check_auth_rate_limit(&payload.email)?;
+
     // Validate request
     payload.validate().map_err(|e| AppError::ValidationError {
         field: "payload".to_string(),
@@ -64,6 +108,9 @@ pub async fn login(
     session: Session,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Response, AppError> {
+    // Rate limiting check using email as key
+    check_auth_rate_limit(&payload.email)?;
+
     // Validate request
     payload.validate().map_err(|e| AppError::ValidationError {
         field: "payload".to_string(),

@@ -1,0 +1,18 @@
+[Unit]
+Description=Research Workbench Backend API
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=ladvien
+Group=ladvien
+WorkingDirectory=/mnt/datadrive_m2/research_workbench/backend
+Environment="RUST_LOG=info"
+EnvironmentFile=/mnt/datadrive_m2/research_workbench/.env
+ExecStart=/mnt/datadrive_m2/research_workbench/backend/target/release/research-workbench
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

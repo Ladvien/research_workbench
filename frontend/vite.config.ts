@@ -18,6 +18,12 @@ export default defineConfig({
     host: frontendHost,
     strictPort: true, // Fail if port is already in use
   },
+  preview: {
+    port: frontendPort,
+    host: frontendHost,
+    strictPort: true,
+    allowedHosts: ['workbench.lolzlab.com', 'localhost', '192.168.1.110'],
+  },
   test: {
     globals: true,
     environment: 'jsdom',

@@ -6,6 +6,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
+    app_state::AppState,
     error::AppError,
     models::UserResponse,
     services::{
@@ -14,17 +15,16 @@ use crate::{
     },
 };
 
-pub type ChatState = State<ChatService>;
-
 // Send a message to a conversation with persistence
 pub async fn send_message(
-    State(service): ChatState,
+    State(app_state): State<AppState>,
     Path(conversation_id): Path<Uuid>,
     user: UserResponse, // This comes from our auth middleware
     Json(request): Json<SendMessageRequest>,
 ) -> Result<Json<Value>, AppError> {
     // Save user message to database
-    let user_message = service
+    let user_message = app_state
+        .chat_service
         .send_message(user.id, conversation_id, request.content.clone())
         .await?;
 
@@ -39,11 +39,12 @@ pub async fn send_message(
 
 // Get all messages in a conversation
 pub async fn get_messages(
-    State(service): ChatState,
+    State(app_state): State<AppState>,
     Path(conversation_id): Path<Uuid>,
     user: UserResponse, // This comes from our auth middleware
 ) -> Result<Json<Value>, AppError> {
-    let messages = service
+    let messages = app_state
+        .chat_service
         .get_conversation_messages(user.id, conversation_id)
         .await?;
 
@@ -56,12 +57,13 @@ pub async fn get_messages(
 
 // Create a message branch (for conversation threading)
 pub async fn create_message_branch(
-    State(service): ChatState,
+    State(app_state): State<AppState>,
     Path((_conversation_id, parent_id)): Path<(Uuid, Uuid)>,
     user: UserResponse, // This comes from our auth middleware
     Json(request): Json<CreateBranchRequest>,
 ) -> Result<Json<Value>, AppError> {
-    let branch_message = service
+    let branch_message = app_state
+        .chat_service
         .create_message_branch(user.id, parent_id, request.content, request.role)
         .await?;
 
@@ -70,11 +72,11 @@ pub async fn create_message_branch(
 
 // Get message thread (all messages leading to a specific message)
 pub async fn get_message_thread(
-    State(service): ChatState,
+    State(app_state): State<AppState>,
     Path(message_id): Path<Uuid>,
     user: UserResponse, // This comes from our auth middleware
 ) -> Result<Json<Value>, AppError> {
-    let thread = service.get_message_thread(user.id, message_id).await?;
+    let thread = app_state.chat_service.get_message_thread(user.id, message_id).await?;
     Ok(Json(serde_json::to_value(thread)?))
 }
 

@@ -40,7 +40,6 @@ const FileAttachmentDemo: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
 
   const handleUpload = async (file: File, messageId: string) => {
-    console.log('Uploading file:', file.name, 'for message:', messageId);
 
     setIsUploading(true);
 
@@ -60,7 +59,6 @@ const FileAttachmentDemo: React.FC = () => {
       };
 
       setAttachments(prev => [...prev, newAttachment]);
-      console.log('File uploaded successfully:', newAttachment);
 
       // In a real app, you would use:
       // const result = await FileService.uploadFile(file, messageId);
@@ -75,14 +73,12 @@ const FileAttachmentDemo: React.FC = () => {
   };
 
   const handleDelete = async (attachmentId: string) => {
-    console.log('Deleting attachment:', attachmentId);
 
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       setAttachments(prev => prev.filter(att => att.id !== attachmentId));
-      console.log('Attachment deleted successfully');
 
       // In a real app, you would use:
       // await FileService.deleteAttachment(attachmentId);
@@ -95,7 +91,6 @@ const FileAttachmentDemo: React.FC = () => {
   };
 
   const handleDownload = (attachment: AttachmentFile) => {
-    console.log('Downloading attachment:', attachment.filename);
     // In a real app, the FileAttachment component would handle this automatically
     // or you could use FileService.getDownloadUrl(attachment.id)
   };

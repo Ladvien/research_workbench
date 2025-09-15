@@ -15,7 +15,7 @@ Comprehensive security audit of the research workbench application identified **
 **Risk:** CRITICAL
 **Impact:** Complete system compromise
 **Details:**
-- Database password `$5$@!zjP6dZ222Qc` exposed in plain text
+- Database password exposed in plain text in setup scripts
 - API key placeholders (`sk-...`, `sk-ant-...`) present but may contain real keys
 - JWT secret using placeholder value `your_jwt_secret_here_replace_with_secure_random_string`
 
@@ -29,7 +29,7 @@ Comprehensive security audit of the research workbench application identified **
 **File:** `/mnt/datadrive_m2/research_workbench/db/setup_db.sh:14`
 **Risk:** CRITICAL
 **Impact:** Database access compromise
-**Details:** Hardcoded database password `$5$@!zjP6dZ222Qc` in shell script
+**Details:** Database password was hardcoded in shell script (now fixed to use environment variables)
 
 ### 4. IP Address Exposure in Configuration Files
 **Files:** CLUADE.md, ARCHITECTURE.md

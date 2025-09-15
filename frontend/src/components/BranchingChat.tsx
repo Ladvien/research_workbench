@@ -35,7 +35,6 @@ export const BranchingChat: React.FC = () => {
     conversationId: currentConversationId || '',
     onTreeUpdate: (tree) => {
       // Tree updated - the active thread information is now available in tree.activeThread
-      console.log('Tree updated with active thread:', tree.activeThread);
     },
     onError: (error) => {
       console.error('Branching error:', error);

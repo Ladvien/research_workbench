@@ -1,0 +1,18 @@
+[Unit]
+Description=Research Workbench Frontend
+After=network.target workbench-backend.service
+Wants=workbench-backend.service
+
+[Service]
+Type=simple
+User=ladvien
+Group=ladvien
+WorkingDirectory=/mnt/datadrive_m2/research_workbench/frontend
+Environment="NODE_ENV=production"
+EnvironmentFile=/mnt/datadrive_m2/research_workbench/frontend/.env.production
+ExecStart=/usr/bin/npx serve -s dist -l tcp://0.0.0.0:451
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

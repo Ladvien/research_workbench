@@ -12,6 +12,11 @@
 - ❌ No containerization of any kind
 - ❌ No Kubernetes, Podman, or any container orchestration
 
+## Network Setup
+```
+workbench.lolzlab.com --> Cloudflare tunnel --> 192.168.1.102 nginx reverse proxy --> 192.168.1.110 (you are here) --> nginx --> .110:4512 (backend) / .110:4510 (frontend)
+```
+
 ### Rationale
 This application is designed to run directly on bare metal infrastructure. The Lolz Lab cluster uses systemd services and direct process management for maximum performance and minimal overhead.
 

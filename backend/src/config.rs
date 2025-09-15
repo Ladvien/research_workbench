@@ -18,6 +18,7 @@ pub struct AppConfig {
     pub session_timeout_hours: u64,
     pub storage_path: String,
     pub rate_limit: RateLimitConfig,
+    pub cors_origins: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -69,10 +70,15 @@ impl AppConfig {
             .parse()
             .unwrap_or(0.7);
 
-        let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| {
-            tracing::warn!("JWT_SECRET not set, using default (NOT FOR PRODUCTION)");
-            "your-secret-key-change-this-in-production".to_string()
-        });
+        let jwt_secret = std::env::var("JWT_SECRET")
+            .map_err(|_| anyhow::anyhow!("JWT_SECRET environment variable not set - required for production"))?;
+
+        // Validate JWT secret strength (minimum 256 bits / 32 bytes)
+        if jwt_secret.len() < 32 {
+            return Err(anyhow::anyhow!(
+                "JWT_SECRET must be at least 32 characters (256 bits) for production security"
+            ));
+        }
 
         let redis_url =
             std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
@@ -113,6 +119,14 @@ impl AppConfig {
                 .unwrap_or(true),
         };
 
+        // CORS origins configuration
+        let cors_origins = std::env::var("CORS_ORIGINS")
+            .unwrap_or_else(|_| "http://localhost:4510,https://workbench.lolzlab.com".to_string())
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
         Ok(Self {
             bind_address,
             openai_api_key,
@@ -128,6 +142,7 @@ impl AppConfig {
             session_timeout_hours,
             storage_path,
             rate_limit,
+            cors_origins,
         })
     }
 }

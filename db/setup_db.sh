@@ -11,7 +11,7 @@ set -e  # Exit on error
 # ==============================================================================
 DB_NAME="workbench"
 DB_USER="workbench"
-DB_PASSWORD='$5$@!zjP6dZ222Qc'  # Single quotes to handle special characters
+DB_PASSWORD="${DATABASE_PASSWORD:-}"  # Get from environment variable
 DB_HOST="localhost"
 DB_PORT="5432"
 
@@ -75,6 +75,15 @@ check_extension_available() {
 
 echo "🚀 Starting Workbench Database Setup..."
 echo "================================================"
+
+# Step 0: Validate environment variables
+if [ -z "$DATABASE_PASSWORD" ]; then
+    log_error "DATABASE_PASSWORD environment variable is not set!"
+    echo "Please set DATABASE_PASSWORD or source your .env file:"
+    echo "  export DATABASE_PASSWORD=your_password"
+    echo "  or: source .env && ./setup_db.sh"
+    exit 1
+fi
 
 # Step 1: Check PostgreSQL is running
 log_info "Checking PostgreSQL service..."

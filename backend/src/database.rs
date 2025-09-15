@@ -1,5 +1,5 @@
 use anyhow::Result;
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use sqlx::{postgres::{PgConnectOptions, PgPoolOptions}, Pool, Postgres};
 use std::time::Duration;
 use tracing::info;
 
@@ -9,6 +9,39 @@ pub struct Database {
 }
 
 impl Database {
+    pub async fn new_with_options(
+        host: &str,
+        port: u16,
+        database: &str,
+        username: &str,
+        password: &str,
+    ) -> Result<Self> {
+        info!("Connecting to database using options...");
+
+        let options = PgConnectOptions::new()
+            .host(host)
+            .port(port)
+            .database(database)
+            .username(username)
+            .password(password);
+
+        let pool = PgPoolOptions::new()
+            .max_connections(20)
+            .min_connections(5)
+            .acquire_timeout(Duration::from_secs(3))
+            .idle_timeout(Duration::from_secs(600))
+            .max_lifetime(Duration::from_secs(1800))
+            .connect_with(options)
+            .await?;
+
+        // Run migrations
+        info!("Running database migrations...");
+        sqlx::migrate!("./migrations").run(&pool).await?;
+        info!("Database migrations completed successfully");
+
+        Ok(Self { pool })
+    }
+
     pub async fn new(database_url: &str) -> Result<Self> {
         info!("Connecting to database...");
 

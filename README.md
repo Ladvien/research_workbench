@@ -89,7 +89,6 @@ All configuration is managed through environment variables in the `.env` file. C
 - **Backend**: Rust + Axum + SQLx + PostgreSQL 17
 - **AI Providers**: OpenAI GPT-4/3.5, Anthropic Claude (extensible)
 - **Features**: Real-time streaming, conversation branching, semantic search, file attachments
-- **Infrastructure**: Docker-ready, systemd services, reverse proxy support
 
 ## Development
 

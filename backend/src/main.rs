@@ -16,7 +16,8 @@ mod services;
 use app_state::AppState;
 use config::AppConfig;
 use database::Database;
-use middleware::rate_limit::{api_rate_limit_middleware, upload_rate_limit_middleware};
+// Temporarily disabled while Redis is not available
+// use middleware::rate_limit::{api_rate_limit_middleware, upload_rate_limit_middleware};
 use services::{auth::AuthService, DataAccessLayer};
 use time::Duration;
 use tower_sessions::{Expiry, MemoryStore, SessionManagerLayer};
@@ -33,11 +34,29 @@ async fn main() -> anyhow::Result<()> {
     let config = AppConfig::from_env()?;
 
     // Initialize database connection
-    let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgresql://workbench:password@localhost:5432/workbench".to_string());
+    // Use direct options to handle password with special chars
+    let database = if let (Ok(host), Ok(user), Ok(_pass), Ok(name)) = (
+        std::env::var("DATABASE_HOST"),
+        std::env::var("DATABASE_USER"),
+        std::env::var("DATABASE_PASSWORD"),
+        std::env::var("DATABASE_NAME"),
+    ) {
+        let port = std::env::var("DATABASE_PORT")
+            .unwrap_or_else(|_| "5432".to_string())
+            .parse::<u16>()
+            .unwrap_or(5432);
+        let pass = std::env::var("DATABASE_PASSWORD")
+            .map_err(|_| anyhow::anyhow!("DATABASE_PASSWORD environment variable not set"))?;
 
-    tracing::info!("Connecting to database...");
-    let database = Database::new(&database_url).await?;
+        tracing::info!("Connecting to database at {}:{}", host, port);
+        Database::new_with_options(&host, port, &name, &user, &pass).await?
+    } else if let Ok(database_url) = std::env::var("DATABASE_URL") {
+        tracing::info!("Connecting to database...");
+        Database::new(&database_url).await?
+    } else {
+        tracing::info!("Connecting to database...");
+        Database::new("postgresql://workbench:password@localhost:5432/workbench").await?
+    };
 
     // Initialize data access layer
     let dal = DataAccessLayer::new(database);
@@ -47,8 +66,8 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Setting up in-memory sessions...");
     let session_store = MemoryStore::default();
     let session_layer = SessionManagerLayer::new(session_store)
-        .with_secure(false) // Set to true in production with HTTPS
-        .with_same_site(tower_sessions::cookie::SameSite::Lax)
+        .with_secure(true) // HTTPS enforcement for production
+        .with_same_site(tower_sessions::cookie::SameSite::Strict)
         .with_expiry(Expiry::OnInactivity(Duration::hours(
             config.session_timeout_hours as i64,
         )));
@@ -91,7 +110,7 @@ async fn create_app(
     // Build router with authentication endpoints
     let app = Router::new()
         // Health check (no state needed)
-        .route("/health", get(handlers::health::health_check))
+        .route("/api/health", get(handlers::health::health_check))
         // Authentication endpoints (public - no auth needed)
         .route(
             "/api/auth/register",
@@ -190,21 +209,28 @@ async fn create_app(
         // .route("/api/models/:provider", get(handlers::models::get_models_by_provider))
         // .route("/api/models/config/:model_id", get(handlers::models::get_model_config))
         // Add application state
-        .with_state(app_state)
+        .with_state(app_state.clone())
         // Add session middleware
         .layer(session_layer)
-        // Add API rate limiting middleware (applied to all routes)
-        .layer(axum_middleware::from_fn_with_state(
-            app_state.clone(),
-            api_rate_limit_middleware,
-        ))
+        // Add API rate limiting middleware only if Redis is available
+        // Comment out for now as Redis is not running
+        // .layer(axum_middleware::from_fn_with_state(
+        //     app_state.clone(),
+        //     api_rate_limit_middleware,
+        // ))
         // Add CORS middleware
-        .layer(
+        .layer({
+            let origins: Result<Vec<_>, _> = config.cors_origins
+                .iter()
+                .map(|origin| origin.parse())
+                .collect();
+
             tower_http::cors::CorsLayer::new()
-                .allow_origin(tower_http::cors::Any)
-                .allow_methods(tower_http::cors::Any)
-                .allow_headers(tower_http::cors::Any),
-        )
+                .allow_origin(origins.unwrap_or_else(|_| vec!["http://localhost:4510".parse().unwrap()]))
+                .allow_methods([axum::http::Method::GET, axum::http::Method::POST, axum::http::Method::PUT, axum::http::Method::DELETE, axum::http::Method::OPTIONS])
+                .allow_headers([axum::http::header::CONTENT_TYPE, axum::http::header::AUTHORIZATION])
+                .allow_credentials(true)
+        })
         // Add tracing middleware
         .layer(tower_http::trace::TraceLayer::new_for_http());
 
