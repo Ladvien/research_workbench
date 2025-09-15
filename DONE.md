@@ -1,5 +1,46 @@
 # Completed Stories
 
+## Authentication
+
+### AUTH-003 Frontend - Add Authorization Headers to API Requests - **COMPLETED**
+**Completed by**: FRONTEND_SPECIALIST
+**Date**: 2025-09-15
+
+**As a** frontend developer
+**I want to** automatically include JWT tokens in API requests
+**So that** users can access protected resources without manual token management
+
+**Acceptance Criteria:** ALL COMPLETED ✅
+- ✅ Modified API client to include Authorization header with JWT token
+- ✅ Added interceptor to automatically attach Bearer token to all requests
+- ✅ Implemented 401 response handling with automatic token refresh
+- ✅ Added request retry mechanism for failed requests due to expired tokens
+- ✅ Created comprehensive TokenStorage utility for JWT token management
+- ✅ Enhanced AuthService with login/register/logout/refresh functionality
+- ✅ Added proactive token refresh when tokens are expiring soon (within 5 minutes)
+- ✅ Implemented automatic redirect to login on authentication failures
+- ✅ Added support for streaming requests with authorization headers
+- ✅ Created comprehensive test suites for API client, auth service, and token storage
+- ✅ Maintained compatibility with existing API calls and HttpOnly cookie sessions
+
+**Technical Implementation:**
+- Enhanced `frontend/src/services/api.ts` with automatic JWT token attachment
+- Created `frontend/src/services/auth.ts` for authentication operations
+- Implemented `frontend/src/utils/storage.ts` for secure token storage
+- Added authorization header format: "Bearer {token}"
+- Implemented intelligent token refresh with queue management for concurrent requests
+- Added comprehensive error handling and retry logic
+- Created full test coverage for all authentication functionality
+
+**Files Modified:**
+- `frontend/src/services/api.ts` - Enhanced with authorization headers and retry logic
+- `frontend/src/services/auth.ts` - New authentication service
+- `frontend/src/utils/storage.ts` - New token storage utility
+- `frontend/src/types/index.ts` - Added auth-related TypeScript interfaces
+- `frontend/tests/services/api_test.ts` - Comprehensive API client tests
+- `frontend/tests/services/auth_test.ts` - Auth service tests
+- `frontend/tests/utils/storage_test.ts` - Token storage tests
+
 ## Testing
 
 ### PROD-001 Testing - Verify Chat Functionality - **COMPLETED**

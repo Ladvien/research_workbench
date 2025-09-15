@@ -4,16 +4,6 @@
 
 
 
-### [AUTH-003] Frontend - Add Authorization Headers to API Requests
-**Priority:** Critical
-**Points:** 3
-**AC:**
-- Modify API client to include Authorization header with JWT token
-- Add interceptor to automatically attach token to all requests
-- Handle 401 responses and redirect to login
-- Implement token refresh logic if applicable
-**Dependencies:** AUTH-002
-**Files:** frontend/src/services/api.ts
 
 ## High Priority - UX Improvements
 
