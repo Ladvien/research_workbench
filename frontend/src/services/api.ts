@@ -9,28 +9,72 @@ import {
   PaginationParams,
   ApiResponse
 } from '../types';
+import { authService } from './auth';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4512';
 
 class ApiClient {
   private baseUrl: string;
+  private isRefreshing = false;
+  private failedQueue: Array<{
+    resolve: (token: string | null) => void;
+    reject: (error: any) => void;
+  }> = [];
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
   }
 
+  /**
+   * Process the queue of failed requests after token refresh
+   */
+  private processQueue(error: any, token: string | null = null): void {
+    this.failedQueue.forEach(({ resolve, reject }) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(token);
+      }
+    });
+
+    this.failedQueue = [];
+  }
+
+  /**
+   * Main request method with automatic token attachment and retry logic
+   */
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retryCount = 0
   ): Promise<ApiResponse<T>> {
     try {
+      // Get auth headers and merge with provided headers
+      const authHeaders = authService.getAuthHeaders();
+      const headers = {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+        ...options.headers,
+      };
+
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+        headers,
+        credentials: 'include', // Include HttpOnly cookies for auth
         ...options,
       });
+
+      // Handle 401 Unauthorized responses - token expired/invalid
+      if (response.status === 401 && retryCount === 0) {
+        // For 401 errors, handle through auth service and don't retry automatically
+        // The auth service will handle logout and cleanup
+        authService.handleAuthError(401);
+
+        const errorText = await response.text();
+        return {
+          error: errorText || 'Authentication required. Please log in again.',
+          status: 401,
+        };
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -112,18 +156,28 @@ class ApiClient {
     abortSignal?: AbortSignal
   ): Promise<void> {
     try {
+      const authHeaders = authService.getAuthHeaders();
+
       const response = await fetch(`${this.baseUrl}/api/conversations/${conversationId}/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'text/event-stream',
           'Cache-Control': 'no-cache',
+          ...authHeaders,
         },
         body: JSON.stringify({ content }),
+        credentials: 'include',
         signal: abortSignal,
       });
 
       if (!response.ok) {
+        // Handle 401 for streaming requests
+        if (response.status === 401) {
+          authService.handleAuthError(401);
+          onError('Authentication failed. Please log in again.');
+          return;
+        }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
