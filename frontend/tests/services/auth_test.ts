@@ -199,7 +199,6 @@ describe('AuthService', () => {
         '/api/auth/me',
         {
           headers: {
-            'Content-Type': 'application/json',
             'Authorization': 'Bearer test-token',
           },
           credentials: 'include',
@@ -219,7 +218,6 @@ describe('AuthService', () => {
         '/api/auth/me',
         {
           headers: {
-            'Content-Type': 'application/json',
             'Authorization': '',
           },
           credentials: 'include',
