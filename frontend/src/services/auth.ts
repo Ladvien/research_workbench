@@ -1,6 +1,5 @@
 // Authentication service for handling login/register/token management
 import { AuthResponse, LoginRequest, RegisterRequest, User, ApiResponse } from '../types';
-import { TokenStorage } from '../utils/storage';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -82,13 +81,7 @@ export class AuthService {
    * Get current authenticated user
    */
   async getCurrentUser(): Promise<ApiResponse<User>> {
-    const token = TokenStorage.getAccessToken();
-    return this.request<User>('/api/auth/me', {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: token ? `Bearer ${token}` : '',
-      },
-    });
+    return this.request<User>('/api/auth/me');
   }
 
   /**

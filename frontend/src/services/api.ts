@@ -9,7 +9,6 @@ import {
   PaginationParams,
   ApiResponse
 } from '../types';
-import { TokenStorage } from '../utils/storage';
 import { authService } from './auth';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -42,9 +41,9 @@ class ApiClient {
   }
 
   /**
-   * Refresh token and retry failed requests
+   * Refresh session and retry failed requests
    */
-  private async refreshTokenAndRetry(): Promise<string | null> {
+  private async refreshSessionAndRetry(): Promise<boolean> {
     if (this.isRefreshing) {
       // If already refreshing, wait for the result
       return new Promise((resolve, reject) => {
@@ -57,19 +56,16 @@ class ApiClient {
     try {
       const response = await authService.refreshToken();
 
-      if (response.data?.tokens) {
-        TokenStorage.setTokens(response.data.tokens);
-        const newToken = response.data.tokens.accessToken;
-        this.processQueue(null, newToken);
-        return newToken;
+      if (response.data) {
+        this.processQueue(null, 'success');
+        return true;
       } else {
-        throw new Error('No tokens in refresh response');
+        throw new Error('Session refresh failed');
       }
     } catch (error) {
       this.processQueue(error, null);
 
-      // Clear tokens and redirect to login on refresh failure
-      TokenStorage.clearTokens();
+      // Redirect to login on refresh failure
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
@@ -81,20 +77,16 @@ class ApiClient {
   }
 
   /**
-   * Get authorization headers if token is available
+   * Get base headers for requests (no explicit auth headers needed for cookies)
    */
-  private getAuthHeaders(): Record<string, string> {
-    const token = TokenStorage.getAccessToken();
-    if (token) {
-      return {
-        Authorization: `Bearer ${token}`,
-      };
-    }
-    return {};
+  private getBaseHeaders(): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+    };
   }
 
   /**
-   * Main request method with automatic token attachment and retry logic
+   * Main request method with automatic session management and retry logic
    */
   private async request<T>(
     endpoint: string,
@@ -102,22 +94,11 @@ class ApiClient {
     retryCount = 0
   ): Promise<ApiResponse<T>> {
     try {
-      // Check if token is expiring soon and refresh proactively
-      if (TokenStorage.isTokenExpiringSoon() && !this.isRefreshing) {
-        try {
-          await this.refreshTokenAndRetry();
-        } catch (error) {
-          // If refresh fails, continue with current token
-          console.warn('Proactive token refresh failed:', error);
-        }
-      }
-
-      const authHeaders = this.getAuthHeaders();
+      const baseHeaders = this.getBaseHeaders();
 
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders,
+          ...baseHeaders,
           ...options.headers,
         },
         credentials: 'include', // Include cookies for session management
@@ -127,8 +108,8 @@ class ApiClient {
       // Handle 401 Unauthorized responses
       if (response.status === 401 && retryCount === 0) {
         try {
-          await this.refreshTokenAndRetry();
-          // Retry the request with new token
+          await this.refreshSessionAndRetry();
+          // Retry the request with refreshed session
           return this.request(endpoint, options, retryCount + 1);
         } catch (refreshError) {
           // If refresh fails, return the 401 error
@@ -220,24 +201,14 @@ class ApiClient {
     abortSignal?: AbortSignal
   ): Promise<void> {
     try {
-      // Check if token is expiring soon and refresh proactively
-      if (TokenStorage.isTokenExpiringSoon() && !this.isRefreshing) {
-        try {
-          await this.refreshTokenAndRetry();
-        } catch (error) {
-          console.warn('Proactive token refresh failed:', error);
-        }
-      }
-
-      const authHeaders = this.getAuthHeaders();
+      const baseHeaders = this.getBaseHeaders();
 
       const response = await fetch(`${this.baseUrl}/api/conversations/${conversationId}/stream`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          ...baseHeaders,
           'Accept': 'text/event-stream',
           'Cache-Control': 'no-cache',
-          ...authHeaders,
         },
         body: JSON.stringify({ content }),
         credentials: 'include',
@@ -248,8 +219,8 @@ class ApiClient {
         // Handle 401 for streaming requests
         if (response.status === 401) {
           try {
-            await this.refreshTokenAndRetry();
-            // Retry the streaming request with new token
+            await this.refreshSessionAndRetry();
+            // Retry the streaming request with refreshed session
             return this.streamMessage(conversationId, content, onToken, onError, onComplete, abortSignal);
           } catch (refreshError) {
             onError('Authentication failed. Please log in again.');

@@ -1,22 +1,7 @@
 // Tests for authentication service
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AuthService } from '../../src/services/auth';
-import { TokenStorage } from '../../src/utils/storage';
 import { LoginRequest, RegisterRequest } from '../../src/types';
-
-// Mock dependencies
-vi.mock('../../src/utils/storage', () => ({
-  TokenStorage: {
-    getAccessToken: vi.fn(),
-    hasValidToken: vi.fn(),
-    isTokenExpiringSoon: vi.fn(),
-    clearTokens: vi.fn(),
-    setTokens: vi.fn(),
-    getTokens: vi.fn(),
-  }
-}));
-
-const mockTokenStorage = TokenStorage as any;
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -55,7 +40,7 @@ describe('AuthService', () => {
       text: () => Promise.resolve(''),
     });
 
-    mockTokenStorage.getAccessToken.mockReturnValue(null);
+    // No token storage setup needed for cookie-based auth
   });
 
   afterEach(() => {
@@ -180,9 +165,7 @@ describe('AuthService', () => {
   });
 
   describe('getCurrentUser', () => {
-    it('should include Authorization header when token is available', async () => {
-      mockTokenStorage.getAccessToken.mockReturnValue('test-token');
-
+    it('should send getCurrentUser request with credentials', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
@@ -200,7 +183,6 @@ describe('AuthService', () => {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer test-token',
           },
           credentials: 'include',
         }
@@ -210,26 +192,7 @@ describe('AuthService', () => {
       expect(result.data?.email).toBe('test@example.com');
     });
 
-    it('should send empty Authorization header when no token is available', async () => {
-      mockTokenStorage.getAccessToken.mockReturnValue(null);
-
-      await authService.getCurrentUser();
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/auth/me',
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': '',
-          },
-          credentials: 'include',
-        }
-      );
-    });
-
     it('should handle unauthorized response', async () => {
-      mockTokenStorage.getAccessToken.mockReturnValue('expired-token');
-
       mockFetch.mockResolvedValue({
         ok: false,
         status: 401,

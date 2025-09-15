@@ -1,22 +1,9 @@
-// Comprehensive tests for API client with authorization headers
+// Comprehensive tests for API client with cookie-based authentication
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import apiClient from '../../src/services/api';
-import { TokenStorage } from '../../src/utils/storage';
 import { authService } from '../../src/services/auth';
-import { AuthTokens } from '../../src/types';
 
 // Mock dependencies
-vi.mock('../../src/utils/storage', () => ({
-  TokenStorage: {
-    getAccessToken: vi.fn(),
-    hasValidToken: vi.fn(),
-    isTokenExpiringSoon: vi.fn(),
-    clearTokens: vi.fn(),
-    setTokens: vi.fn(),
-    getTokens: vi.fn(),
-  }
-}));
-
 vi.mock('../../src/services/auth', () => ({
   authService: {
     refreshToken: vi.fn(),
@@ -28,21 +15,13 @@ vi.mock('../../src/services/auth', () => ({
   }
 }));
 
-const mockTokenStorage = TokenStorage as any;
 const mockAuthService = authService as any;
 
 // Mock fetch globally
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
-// Helper to create mock tokens
-const createMockTokens = (expiresInMinutes = 60): AuthTokens => ({
-  accessToken: 'mock-access-token',
-  refreshToken: 'mock-refresh-token',
-  expiresAt: Date.now() + (expiresInMinutes * 60 * 1000),
-});
-
-describe('ApiClient with Authorization', () => {
+describe('ApiClient with Cookie Authentication', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -54,16 +33,9 @@ describe('ApiClient with Authorization', () => {
       text: () => Promise.resolve(''),
     });
 
-    // Reset TokenStorage mocks
-    mockTokenStorage.getAccessToken.mockReturnValue(null);
-    mockTokenStorage.hasValidToken.mockReturnValue(false);
-    mockTokenStorage.isTokenExpiringSoon.mockReturnValue(false);
-    mockTokenStorage.clearTokens.mockImplementation(() => {});
-    mockTokenStorage.setTokens.mockImplementation(() => {});
-
     // Reset AuthService mocks
     mockAuthService.refreshToken.mockResolvedValue({
-      data: { tokens: createMockTokens() },
+      data: { user: { id: '1', email: 'test@example.com' } },
       status: 200,
     });
   });
@@ -72,37 +44,7 @@ describe('ApiClient with Authorization', () => {
     vi.restoreAllMocks();
   });
 
-  describe('Authorization Headers', () => {
-    it('should include Authorization header when token is available', async () => {
-      mockTokenStorage.getAccessToken.mockReturnValue('test-token');
-
-      await apiClient.getConversations();
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/conversations'),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'Authorization': 'Bearer test-token',
-          }),
-        })
-      );
-    });
-
-    it('should not include Authorization header when no token is available', async () => {
-      mockTokenStorage.getAccessToken.mockReturnValue(null);
-
-      await apiClient.getConversations();
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/conversations'),
-        expect.objectContaining({
-          headers: expect.not.objectContaining({
-            'Authorization': expect.any(String),
-          }),
-        })
-      );
-    });
-
+  describe('Cookie-Based Authentication', () => {
     it('should include credentials in all requests', async () => {
       await apiClient.getConversations();
 
@@ -113,37 +55,37 @@ describe('ApiClient with Authorization', () => {
         })
       );
     });
-  });
 
-  describe('Token Refresh Logic', () => {
-    it('should refresh token proactively when expiring soon', async () => {
-      mockTokenStorage.isTokenExpiringSoon.mockReturnValue(true);
-      mockTokenStorage.getAccessToken.mockReturnValue('old-token');
-
+    it('should include base headers in requests', async () => {
       await apiClient.getConversations();
 
-      expect(mockAuthService.refreshToken).toHaveBeenCalled();
-      expect(mockTokenStorage.setTokens).toHaveBeenCalledWith(
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/conversations'),
         expect.objectContaining({
-          accessToken: 'mock-access-token',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+          }),
         })
       );
     });
+  });
 
-    it('should not refresh token when not expiring soon', async () => {
-      mockTokenStorage.isTokenExpiringSoon.mockReturnValue(false);
-      mockTokenStorage.getAccessToken.mockReturnValue('valid-token');
-
+  describe('Session Management', () => {
+    it('should make requests normally with valid session', async () => {
       await apiClient.getConversations();
 
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/conversations'),
+        expect.objectContaining({
+          credentials: 'include',
+        })
+      );
       expect(mockAuthService.refreshToken).not.toHaveBeenCalled();
     });
   });
 
   describe('401 Unauthorized Handling', () => {
-    it('should retry request after token refresh on 401', async () => {
-      mockTokenStorage.getAccessToken.mockReturnValue('expired-token');
-
+    it('should retry request after session refresh on 401', async () => {
       // First call returns 401
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -165,9 +107,7 @@ describe('ApiClient with Authorization', () => {
       expect(result.data).toEqual({ conversations: [] });
     });
 
-    it('should clear tokens and redirect on refresh failure', async () => {
-      mockTokenStorage.getAccessToken.mockReturnValue('expired-token');
-
+    it('should redirect on session refresh failure', async () => {
       // Mock failed refresh
       mockAuthService.refreshToken.mockRejectedValue(new Error('Refresh failed'));
 
@@ -186,14 +126,11 @@ describe('ApiClient with Authorization', () => {
 
       const result = await apiClient.getConversations();
 
-      expect(mockTokenStorage.clearTokens).toHaveBeenCalled();
       expect(mockLocation.href).toBe('/login');
       expect(result.status).toBe(401);
     });
 
     it('should handle concurrent 401 requests correctly', async () => {
-      mockTokenStorage.getAccessToken.mockReturnValue('expired-token');
-
       // Both requests return 401 initially
       mockFetch.mockResolvedValue({
         ok: false,
@@ -212,7 +149,7 @@ describe('ApiClient with Authorization', () => {
     });
   });
 
-  describe('Streaming with Authorization', () => {
+  describe('Streaming with Cookie Authentication', () => {
     let mockReader: any;
     let mockResponse: any;
 
@@ -233,9 +170,7 @@ describe('ApiClient with Authorization', () => {
       mockFetch.mockResolvedValue(mockResponse);
     });
 
-    it('should include Authorization header in streaming requests', async () => {
-      mockTokenStorage.getAccessToken.mockReturnValue('stream-token');
-
+    it('should include credentials in streaming requests', async () => {
       mockReader.read
         .mockResolvedValueOnce({ done: false, value: new TextEncoder().encode('data: {"type":"token","data":{"content":"Hello"}}\n\n') })
         .mockResolvedValueOnce({ done: true });
@@ -249,16 +184,12 @@ describe('ApiClient with Authorization', () => {
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/stream'),
         expect.objectContaining({
-          headers: expect.objectContaining({
-            'Authorization': 'Bearer stream-token',
-          }),
+          credentials: 'include',
         })
       );
     });
 
     it('should retry streaming request on 401', async () => {
-      mockTokenStorage.getAccessToken.mockReturnValue('expired-token');
-
       // First call returns 401
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -281,8 +212,7 @@ describe('ApiClient with Authorization', () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
-    it('should call onError when streaming refresh fails', async () => {
-      mockTokenStorage.getAccessToken.mockReturnValue('expired-token');
+    it('should call onError when streaming session refresh fails', async () => {
       mockAuthService.refreshToken.mockRejectedValue(new Error('Refresh failed'));
 
       mockFetch.mockResolvedValue({
@@ -326,12 +256,8 @@ describe('ApiClient with Authorization', () => {
     });
   });
 
-  describe('Conversation API with Auth', () => {
-    beforeEach(() => {
-      mockTokenStorage.getAccessToken.mockReturnValue('valid-token');
-    });
-
-    it('should create conversation with auth headers', async () => {
+  describe('Conversation API with Cookie Auth', () => {
+    it('should create conversation with credentials', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
@@ -347,14 +273,12 @@ describe('ApiClient with Authorization', () => {
         expect.stringContaining('/api/conversations'),
         expect.objectContaining({
           method: 'POST',
-          headers: expect.objectContaining({
-            'Authorization': 'Bearer valid-token',
-          }),
+          credentials: 'include',
         })
       );
     });
 
-    it('should send message with auth headers', async () => {
+    it('should send message with credentials', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
@@ -367,9 +291,7 @@ describe('ApiClient with Authorization', () => {
         expect.stringContaining('/api/conversations/conv-1/messages'),
         expect.objectContaining({
           method: 'POST',
-          headers: expect.objectContaining({
-            'Authorization': 'Bearer valid-token',
-          }),
+          credentials: 'include',
         })
       );
     });
