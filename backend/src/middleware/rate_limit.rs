@@ -138,7 +138,7 @@ impl RateLimitService {
 
         // Set expiry on first increment
         if current_count == 1 {
-            conn.expire(&window_key, 3600)
+            conn.expire::<_, ()>(&window_key, 3600)
                 .await
                 .map_err(|e| AppError::Internal(anyhow::anyhow!("Redis EXPIRE failed: {}", e)))?;
         }
