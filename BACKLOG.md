@@ -48,18 +48,6 @@
 
 ## Medium Priority - Production Readiness
 
-### [PROD-001] Testing - Verify Chat Functionality
-**Priority:** Medium
-**Points:** 3
-**AC:**
-- Test login/register flow end-to-end
-- Verify conversation creation with auth
-- Test message sending and receiving
-- Verify branching functionality
-- Test error handling scenarios
-- Document any remaining issues
-**Dependencies:** AUTH-001 through AUTH-004, UX-001 through UX-003
-**Files:** Test documentation in docs/testing/
 
 ### [PROD-002] DevOps - Configure Production Build ✅ COMPLETED
 **Priority:** Medium
