@@ -1,557 +1,361 @@
-/**
- * Tests for auth service
- */
+// Tests for authentication service
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { AuthService } from '../../src/services/auth';
+import { TokenStorage } from '../../src/utils/storage';
+import { LoginRequest, RegisterRequest } from '../../src/types';
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import {
-  AuthService,
-  parseJWTToken,
-  isTokenExpired,
-  getTokenTimeToExpiry,
-  type LoginRequest,
-  type RegisterRequest,
-  type AuthResponse,
-  type JWTPayload
-} from '../../src/services/auth';
-import { tokenStorage } from '../../src/utils/storage';
-
-// Mock tokenStorage
+// Mock dependencies
 vi.mock('../../src/utils/storage', () => ({
-  tokenStorage: {
-    setToken: vi.fn(),
-    getToken: vi.fn(),
-    clearToken: vi.fn(),
+  TokenStorage: {
+    getAccessToken: vi.fn(),
     hasValidToken: vi.fn(),
-    getTokenExpiry: vi.fn(),
-    setUserData: vi.fn(),
-    getUserData: vi.fn(),
-    clearUserData: vi.fn(),
-    setRefreshToken: vi.fn(),
-    getRefreshToken: vi.fn(),
-    clearRefreshToken: vi.fn(),
-    clearAll: vi.fn(),
-    isStorageAvailable: vi.fn(),
-    getStorageType: vi.fn(() => 'localStorage')
+    isTokenExpiringSoon: vi.fn(),
+    clearTokens: vi.fn(),
+    setTokens: vi.fn(),
+    getTokens: vi.fn(),
   }
 }));
 
-// Mock fetch
+const mockTokenStorage = TokenStorage as any;
+
+// Mock fetch globally
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
-describe('Auth Service', () => {
+describe('AuthService', () => {
   let authService: AuthService;
 
+  const mockLoginRequest: LoginRequest = {
+    email: 'test@example.com',
+    password: 'password123',
+  };
+
+  const mockRegisterRequest: RegisterRequest = {
+    email: 'test@example.com',
+    username: 'testuser',
+    password: 'password123',
+  };
+
   beforeEach(() => {
-    authService = new AuthService();
     vi.clearAllMocks();
-    vi.clearAllTimers();
-    vi.useFakeTimers();
+    authService = new AuthService();
+
+    // Default successful response
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({
+        user: { id: '1', email: 'test@example.com', username: 'testuser' },
+        tokens: {
+          accessToken: 'mock-access-token',
+          refreshToken: 'mock-refresh-token',
+          expiresAt: Date.now() + (60 * 60 * 1000),
+        }
+      }),
+      text: () => Promise.resolve(''),
+    });
+
+    mockTokenStorage.getAccessToken.mockReturnValue(null);
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  describe('JWT Token Utilities', () => {
-    describe('parseJWTToken', () => {
-      it('should parse valid JWT token', () => {
-        // Mock JWT payload (base64 encoded)
-        const payload: JWTPayload = {
-          sub: '123',
-          email: 'test@example.com',
-          username: 'testuser',
-          exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-          iat: Math.floor(Date.now() / 1000),
-        };
+  describe('login', () => {
+    it('should send login request with correct parameters', async () => {
+      const result = await authService.login(mockLoginRequest);
 
-        const encodedPayload = btoa(JSON.stringify(payload));
-        const mockToken = `header.${encodedPayload}.signature`;
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/auth/login',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify(mockLoginRequest),
+        }
+      );
 
-        const parsed = parseJWTToken(mockToken);
-
-        expect(parsed).toEqual(payload);
-      });
-
-      it('should return null for invalid token format', () => {
-        const parsed = parseJWTToken('invalid.token');
-        expect(parsed).toBeNull();
-      });
-
-      it('should return null for malformed payload', () => {
-        const parsed = parseJWTToken('header.invalid_base64.signature');
-        expect(parsed).toBeNull();
-      });
+      expect(result.status).toBe(200);
+      expect(result.data?.user.email).toBe('test@example.com');
     });
 
-    describe('isTokenExpired', () => {
-      it('should return false for valid token', () => {
-        const payload = {
-          sub: '123',
-          email: 'test@example.com',
-          username: 'testuser',
-          exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-          iat: Math.floor(Date.now() / 1000),
-        };
-
-        const encodedPayload = btoa(JSON.stringify(payload));
-        const token = `header.${encodedPayload}.signature`;
-
-        expect(isTokenExpired(token)).toBe(false);
+    it('should handle login failure with error message', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: () => Promise.resolve('Invalid credentials'),
       });
 
-      it('should return true for expired token', () => {
-        const payload = {
-          sub: '123',
-          email: 'test@example.com',
-          username: 'testuser',
-          exp: Math.floor(Date.now() / 1000) - 3600, // 1 hour ago
-          iat: Math.floor(Date.now() / 1000) - 7200, // 2 hours ago
-        };
+      const result = await authService.login(mockLoginRequest);
 
-        const encodedPayload = btoa(JSON.stringify(payload));
-        const token = `header.${encodedPayload}.signature`;
-
-        expect(isTokenExpired(token)).toBe(true);
-      });
-
-      it('should return true for invalid token', () => {
-        expect(isTokenExpired('invalid.token')).toBe(true);
-      });
+      expect(result.status).toBe(401);
+      expect(result.error).toBe('Invalid credentials');
+      expect(result.data).toBeUndefined();
     });
 
-    describe('getTokenTimeToExpiry', () => {
-      it('should return correct time to expiry', () => {
-        const expiryTime = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
-        const payload = {
-          sub: '123',
-          email: 'test@example.com',
-          username: 'testuser',
-          exp: expiryTime,
-          iat: Math.floor(Date.now() / 1000),
-        };
+    it('should handle network errors during login', async () => {
+      mockFetch.mockRejectedValue(new Error('Network error'));
 
-        const encodedPayload = btoa(JSON.stringify(payload));
-        const token = `header.${encodedPayload}.signature`;
+      const result = await authService.login(mockLoginRequest);
 
-        const timeToExpiry = getTokenTimeToExpiry(token);
-        expect(timeToExpiry).toBeCloseTo(3600 * 1000, -2); // ~1 hour in milliseconds
-      });
-
-      it('should return 0 for expired token', () => {
-        const payload = {
-          sub: '123',
-          email: 'test@example.com',
-          username: 'testuser',
-          exp: Math.floor(Date.now() / 1000) - 3600, // 1 hour ago
-          iat: Math.floor(Date.now() / 1000) - 7200,
-        };
-
-        const encodedPayload = btoa(JSON.stringify(payload));
-        const token = `header.${encodedPayload}.signature`;
-
-        const timeToExpiry = getTokenTimeToExpiry(token);
-        expect(timeToExpiry).toBe(0);
-      });
-
-      it('should return null for invalid token', () => {
-        const timeToExpiry = getTokenTimeToExpiry('invalid.token');
-        expect(timeToExpiry).toBeNull();
-      });
+      expect(result.status).toBe(0);
+      expect(result.error).toBe('Network error');
+      expect(result.data).toBeUndefined();
     });
   });
 
-  describe('AuthService', () => {
-    const mockUser = {
-      id: '123',
-      email: 'test@example.com',
-      username: 'testuser',
-      created_at: '2023-01-01T00:00:00Z',
-      updated_at: '2023-01-01T00:00:00Z'
-    };
+  describe('register', () => {
+    it('should send register request with correct parameters', async () => {
+      const result = await authService.register(mockRegisterRequest);
 
-    const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJ1c2VybmFtZSI6InRlc3R1c2VyIiwiZXhwIjo5OTk5OTk5OTk5LCJpYXQiOjE2OTk5OTk5OTl9.signature';
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/auth/register',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify(mockRegisterRequest),
+        }
+      );
 
-    describe('login', () => {
-      it('should login successfully with email', async () => {
-        const loginRequest: LoginRequest = {
+      expect(result.status).toBe(200);
+      expect(result.data?.user.email).toBe('test@example.com');
+    });
+
+    it('should handle registration failure with validation errors', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 400,
+        text: () => Promise.resolve('Email already exists'),
+      });
+
+      const result = await authService.register(mockRegisterRequest);
+
+      expect(result.status).toBe(400);
+      expect(result.error).toBe('Email already exists');
+    });
+  });
+
+  describe('logout', () => {
+    it('should send logout request', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({}),
+      });
+
+      const result = await authService.logout();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/auth/logout',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        }
+      );
+
+      expect(result.status).toBe(200);
+    });
+
+    it('should handle logout errors gracefully', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve('Server error'),
+      });
+
+      const result = await authService.logout();
+
+      expect(result.status).toBe(500);
+      expect(result.error).toBe('Server error');
+    });
+  });
+
+  describe('getCurrentUser', () => {
+    it('should include Authorization header when token is available', async () => {
+      mockTokenStorage.getAccessToken.mockReturnValue('test-token');
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({
+          id: '1',
           email: 'test@example.com',
-          password: 'password123'
-        };
+          username: 'testuser'
+        }),
+      });
 
-        const mockResponse: AuthResponse = {
-          user: mockUser,
-          token: mockToken,
-          expires_at: new Date(Date.now() + 3600000).toISOString()
-        };
+      const result = await authService.getCurrentUser();
 
-        mockFetch.mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve(mockResponse)
-        });
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/auth/me',
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer test-token',
+          },
+          credentials: 'include',
+        }
+      );
 
-        const result = await authService.login(loginRequest);
+      expect(result.status).toBe(200);
+      expect(result.data?.email).toBe('test@example.com');
+    });
 
-        expect(result).toEqual(mockResponse);
-        expect(tokenStorage.setUserData).toHaveBeenCalledWith(mockUser);
-        expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:4512/api/auth/login',
+    it('should send empty Authorization header when no token is available', async () => {
+      mockTokenStorage.getAccessToken.mockReturnValue(null);
+
+      await authService.getCurrentUser();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/auth/me',
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': '',
+          },
+          credentials: 'include',
+        }
+      );
+    });
+
+    it('should handle unauthorized response', async () => {
+      mockTokenStorage.getAccessToken.mockReturnValue('expired-token');
+
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: () => Promise.resolve('Unauthorized'),
+      });
+
+      const result = await authService.getCurrentUser();
+
+      expect(result.status).toBe(401);
+      expect(result.error).toBe('Unauthorized');
+    });
+  });
+
+  describe('refreshToken', () => {
+    it('should send refresh token request', async () => {
+      const result = await authService.refreshToken();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/auth/refresh',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        }
+      );
+
+      expect(result.status).toBe(200);
+      expect(result.data?.tokens?.accessToken).toBe('mock-access-token');
+    });
+
+    it('should handle refresh token failure', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: () => Promise.resolve('Refresh token expired'),
+      });
+
+      const result = await authService.refreshToken();
+
+      expect(result.status).toBe(401);
+      expect(result.error).toBe('Refresh token expired');
+    });
+
+    it('should handle refresh token network errors', async () => {
+      mockFetch.mockRejectedValue(new Error('Connection failed'));
+
+      const result = await authService.refreshToken();
+
+      expect(result.status).toBe(0);
+      expect(result.error).toBe('Connection failed');
+    });
+  });
+
+  describe('healthCheck', () => {
+    it('should send health check request', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ status: 'healthy' }),
+      });
+
+      const result = await authService.healthCheck();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/auth/health',
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        }
+      );
+
+      expect(result.status).toBe(200);
+      expect(result.data?.status).toBe('healthy');
+    });
+  });
+
+  describe('Custom base URL', () => {
+    it('should use custom base URL when provided', async () => {
+      const customAuthService = new AuthService('https://api.example.com');
+
+      await customAuthService.login(mockLoginRequest);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/auth/login',
+        expect.any(Object)
+      );
+    });
+  });
+
+  describe('Error handling', () => {
+    it('should handle empty error responses', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve(''),
+      });
+
+      const result = await authService.login(mockLoginRequest);
+
+      expect(result.error).toBe('HTTP 500');
+    });
+
+    it('should include credentials in all requests', async () => {
+      await authService.login(mockLoginRequest);
+      await authService.register(mockRegisterRequest);
+      await authService.logout();
+      await authService.getCurrentUser();
+      await authService.refreshToken();
+      await authService.healthCheck();
+
+      // Check that all 6 calls included credentials
+      expect(mockFetch).toHaveBeenCalledTimes(6);
+
+      for (let i = 0; i < 6; i++) {
+        expect(mockFetch).toHaveBeenNthCalledWith(
+          i + 1,
+          expect.any(String),
           expect.objectContaining({
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify(loginRequest)
           })
         );
-      });
-
-      it('should login successfully with username', async () => {
-        const loginRequest: LoginRequest = {
-          username: 'testuser',
-          password: 'password123'
-        };
-
-        const mockResponse: AuthResponse = {
-          user: mockUser
-        };
-
-        mockFetch.mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve(mockResponse)
-        });
-
-        const result = await authService.login(loginRequest);
-
-        expect(result).toEqual(mockResponse);
-        expect(tokenStorage.setUserData).toHaveBeenCalledWith(mockUser);
-      });
-
-      it('should throw error on failed login', async () => {
-        const loginRequest: LoginRequest = {
-          email: 'test@example.com',
-          password: 'wrongpassword'
-        };
-
-        mockFetch.mockResolvedValueOnce({
-          ok: false,
-          status: 401,
-          json: () => Promise.resolve({ message: 'Invalid credentials' })
-        });
-
-        await expect(authService.login(loginRequest)).rejects.toThrow('Invalid credentials');
-      });
-
-      it('should handle network errors', async () => {
-        const loginRequest: LoginRequest = {
-          email: 'test@example.com',
-          password: 'password123'
-        };
-
-        mockFetch.mockRejectedValueOnce(new Error('Network error'));
-
-        await expect(authService.login(loginRequest)).rejects.toThrow('Network error');
-      });
-    });
-
-    describe('register', () => {
-      it('should register successfully', async () => {
-        const registerRequest: RegisterRequest = {
-          email: 'test@example.com',
-          username: 'testuser',
-          password: 'password123'
-        };
-
-        const mockResponse: AuthResponse = {
-          user: mockUser,
-          token: mockToken
-        };
-
-        mockFetch.mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve(mockResponse)
-        });
-
-        const result = await authService.register(registerRequest);
-
-        expect(result).toEqual(mockResponse);
-        expect(tokenStorage.setUserData).toHaveBeenCalledWith(mockUser);
-        expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:4512/api/auth/register',
-          expect.objectContaining({
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(registerRequest)
-          })
-        );
-      });
-
-      it('should throw error on failed registration', async () => {
-        const registerRequest: RegisterRequest = {
-          email: 'test@example.com',
-          username: 'testuser',
-          password: 'password123'
-        };
-
-        mockFetch.mockResolvedValueOnce({
-          ok: false,
-          status: 400,
-          json: () => Promise.resolve({ message: 'Email already exists' })
-        });
-
-        await expect(authService.register(registerRequest)).rejects.toThrow('Email already exists');
-      });
-    });
-
-    describe('logout', () => {
-      it('should logout successfully', async () => {
-        mockFetch.mockResolvedValueOnce({
-          ok: true
-        });
-
-        await authService.logout();
-
-        expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:4512/api/auth/logout',
-          expect.objectContaining({
-            method: 'POST',
-            credentials: 'include'
-          })
-        );
-        expect(tokenStorage.clearAll).toHaveBeenCalled();
-      });
-
-      it('should clear tokens even if API call fails', async () => {
-        mockFetch.mockRejectedValueOnce(new Error('Network error'));
-
-        await authService.logout();
-
-        expect(tokenStorage.clearAll).toHaveBeenCalled();
-      });
-    });
-
-    describe('getCurrentUser', () => {
-      it('should return stored user data if available', async () => {
-        (tokenStorage.getUserData as any).mockReturnValue(mockUser);
-
-        const result = await authService.getCurrentUser();
-
-        expect(result).toEqual(mockUser);
-        expect(mockFetch).not.toHaveBeenCalled();
-      });
-
-      it('should fetch user data from API if not stored', async () => {
-        (tokenStorage.getUserData as any).mockReturnValue(null);
-        (authService as any).getStoredToken = vi.fn().mockReturnValue(mockToken);
-
-        mockFetch.mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve(mockUser)
-        });
-
-        const result = await authService.getCurrentUser();
-
-        expect(result).toEqual(mockUser);
-        expect(tokenStorage.setUserData).toHaveBeenCalledWith(mockUser);
-        expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:4512/api/auth/me',
-          expect.objectContaining({
-            credentials: 'include'
-          })
-        );
-      });
-
-      it('should handle 401 response by calling logout', async () => {
-        (tokenStorage.getUserData as any).mockReturnValue(null);
-
-        mockFetch.mockResolvedValueOnce({
-          ok: false,
-          status: 401
-        });
-
-        const logoutSpy = vi.spyOn(authService, 'logout').mockResolvedValue();
-
-        const result = await authService.getCurrentUser();
-
-        expect(result).toBeNull();
-        expect(logoutSpy).toHaveBeenCalled();
-      });
-
-      it('should return null on API failure', async () => {
-        (tokenStorage.getUserData as any).mockReturnValue(null);
-
-        mockFetch.mockRejectedValueOnce(new Error('Network error'));
-
-        const result = await authService.getCurrentUser();
-
-        expect(result).toBeNull();
-      });
-    });
-
-    describe('isAuthenticated', () => {
-      it('should return true for valid token', () => {
-        (tokenStorage.getToken as any).mockReturnValue(mockToken);
-        const isTokenValidSpy = vi.spyOn(authService, 'isTokenValid').mockReturnValue(true);
-
-        const result = authService.isAuthenticated();
-
-        expect(result).toBe(true);
-        expect(isTokenValidSpy).toHaveBeenCalledWith(mockToken);
-      });
-
-      it('should return true for HttpOnly cookie scenario with stored user data', () => {
-        (tokenStorage.getToken as any).mockReturnValue(null);
-        (tokenStorage.getUserData as any).mockReturnValue(mockUser);
-
-        const result = authService.isAuthenticated();
-
-        expect(result).toBe(true);
-      });
-
-      it('should return false when no token and no user data', () => {
-        (tokenStorage.getToken as any).mockReturnValue(null);
-        (tokenStorage.getUserData as any).mockReturnValue(null);
-
-        const result = authService.isAuthenticated();
-
-        expect(result).toBe(false);
-      });
-    });
-
-    describe('getAuthHeaders', () => {
-      it('should return authorization header when valid token exists', () => {
-        (authService as any).getStoredToken = vi.fn().mockReturnValue(mockToken);
-        const isTokenValidSpy = vi.spyOn(authService, 'isTokenValid').mockReturnValue(true);
-
-        const headers = authService.getAuthHeaders();
-
-        expect(headers).toEqual({
-          Authorization: `Bearer ${mockToken}`
-        });
-        expect(isTokenValidSpy).toHaveBeenCalledWith(mockToken);
-      });
-
-      it('should return empty headers when no valid token', () => {
-        (authService as any).getStoredToken = vi.fn().mockReturnValue(null);
-
-        const headers = authService.getAuthHeaders();
-
-        expect(headers).toEqual({});
-      });
-
-      it('should return empty headers when token is invalid', () => {
-        (authService as any).getStoredToken = vi.fn().mockReturnValue('invalid.token');
-        const isTokenValidSpy = vi.spyOn(authService, 'isTokenValid').mockReturnValue(false);
-
-        const headers = authService.getAuthHeaders();
-
-        expect(headers).toEqual({});
-        expect(isTokenValidSpy).toHaveBeenCalledWith('invalid.token');
-      });
-    });
-
-    describe('handleAuthError', () => {
-      it('should call logout on 401 error', () => {
-        const logoutSpy = vi.spyOn(authService, 'logout').mockResolvedValue();
-
-        authService.handleAuthError(401);
-
-        expect(logoutSpy).toHaveBeenCalled();
-      });
-
-      it('should not call logout on non-401 errors', () => {
-        const logoutSpy = vi.spyOn(authService, 'logout');
-
-        authService.handleAuthError(400);
-        authService.handleAuthError(500);
-
-        expect(logoutSpy).not.toHaveBeenCalled();
-      });
-    });
-
-    describe('getTokenInfo', () => {
-      it('should return token information when token exists', () => {
-        const expiryDate = new Date(Date.now() + 3600000);
-
-        // Create a proper mock token with the right expiry
-        const currentTime = Math.floor(Date.now() / 1000);
-        const payload = {
-          sub: '123',
-          email: 'test@example.com',
-          username: 'testuser',
-          exp: currentTime + 3600, // 1 hour from now
-          iat: currentTime,
-        };
-        const encodedPayload = btoa(JSON.stringify(payload));
-        const properMockToken = `header.${encodedPayload}.signature`;
-
-        (authService as any).getStoredToken = vi.fn().mockReturnValue(properMockToken);
-        (tokenStorage.getTokenExpiry as any).mockReturnValue(expiryDate);
-
-        const tokenInfo = authService.getTokenInfo();
-
-        expect(tokenInfo.token).toBe(properMockToken);
-        expect(tokenInfo.expiresAt).toBe(expiryDate);
-        expect(tokenInfo.timeToExpiry).toBeCloseTo(3600000, -2);
-      });
-
-      it('should return null values when no token exists', () => {
-        (authService as any).getStoredToken = vi.fn().mockReturnValue(null);
-
-        const tokenInfo = authService.getTokenInfo();
-
-        expect(tokenInfo.token).toBeNull();
-        expect(tokenInfo.expiresAt).toBeNull();
-        expect(tokenInfo.timeToExpiry).toBeNull();
-      });
-    });
-
-    describe('token refresh', () => {
-      it('should schedule token refresh on login', async () => {
-        const futureTime = Math.floor(Date.now() / 1000) + 3600; // 1 hour
-        const payload = {
-          sub: '123',
-          email: 'test@example.com',
-          username: 'testuser',
-          exp: futureTime,
-          iat: Math.floor(Date.now() / 1000),
-        };
-
-        const encodedPayload = btoa(JSON.stringify(payload));
-        const tokenWithExpiry = `header.${encodedPayload}.signature`;
-
-        const loginRequest: LoginRequest = {
-          email: 'test@example.com',
-          password: 'password123'
-        };
-
-        const mockResponse: AuthResponse = {
-          user: mockUser,
-          token: tokenWithExpiry
-        };
-
-        mockFetch.mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve(mockResponse)
-        });
-
-        await authService.login(loginRequest);
-
-        // Verify timeout was scheduled
-        expect(vi.getTimerCount()).toBeGreaterThan(0);
-      });
-    });
-
-    describe('cleanup', () => {
-      it('should clear refresh timeout', () => {
-        // Set up a timeout
-        (authService as any).refreshTimeout = setTimeout(() => {}, 1000);
-
-        authService.cleanup();
-
-        expect(vi.getTimerCount()).toBe(0);
-      });
+      }
     });
   });
 });
