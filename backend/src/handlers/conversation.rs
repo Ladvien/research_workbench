@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::StatusCode,
     response::Json,
 };
@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::{
     app_state::AppState,
     error::AppError,
-    models::{CreateConversationRequest, PaginationParams, UserResponse},
+    models::{CreateConversationRequest, UserResponse},
     services::{conversation::ConversationService, DataAccessLayer},
 };
 

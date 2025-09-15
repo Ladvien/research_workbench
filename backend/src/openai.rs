@@ -70,6 +70,7 @@ impl OpenAIService {
         Ok(Self { client, config })
     }
 
+    #[allow(deprecated)] // function_call field required by async-openai v0.20 struct
     pub async fn chat_completion(&self, request: ChatRequest) -> Result<ChatResponse, AppError> {
         tracing::info!("Sending chat completion request to OpenAI");
 
@@ -156,6 +157,7 @@ impl OpenAIService {
         })
     }
 
+    #[allow(deprecated)] // function_call field required by async-openai v0.20 struct
     pub async fn chat_completion_stream(
         &self,
         request: ChatRequest,

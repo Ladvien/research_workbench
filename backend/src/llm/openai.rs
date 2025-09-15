@@ -32,6 +32,7 @@ impl OpenAIService {
         Ok(Self { client, config })
     }
 
+    #[allow(deprecated)] // function_call field required by async-openai v0.20 struct
     fn convert_messages(
         &self,
         messages: Vec<super::ChatMessage>,
