@@ -9,42 +9,139 @@ import {
   PaginationParams,
   ApiResponse
 } from '../types';
+import { TokenStorage } from '../utils/storage';
+import { authService } from './auth';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 class ApiClient {
   private baseUrl: string;
+  private isRefreshing = false;
+  private failedQueue: Array<{
+    resolve: (value: any) => void;
+    reject: (error: any) => void;
+  }> = [];
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
   }
 
+  /**
+   * Process the failed queue after token refresh
+   */
+  private processQueue(error: any, token: string | null = null): void {
+    this.failedQueue.forEach(({ resolve, reject }) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(token);
+      }
+    });
+
+    this.failedQueue = [];
+  }
+
+  /**
+   * Refresh token and retry failed requests
+   */
+  private async refreshTokenAndRetry(): Promise<string | null> {
+    if (this.isRefreshing) {
+      // If already refreshing, wait for the result
+      return new Promise((resolve, reject) => {
+        this.failedQueue.push({ resolve, reject });
+      });
+    }
+
+    this.isRefreshing = true;
+
+    try {
+      const response = await authService.refreshToken();
+
+      if (response.data?.tokens) {
+        TokenStorage.setTokens(response.data.tokens);
+        const newToken = response.data.tokens.accessToken;
+        this.processQueue(null, newToken);
+        return newToken;
+      } else {
+        throw new Error('No tokens in refresh response');
+      }
+    } catch (error) {
+      this.processQueue(error, null);
+
+      // Clear tokens and redirect to login on refresh failure
+      TokenStorage.clearTokens();
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+
+      throw error;
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
+
+  /**
+   * Get authorization headers if token is available
+   */
+  private getAuthHeaders(): Record<string, string> {
+    const token = TokenStorage.getAccessToken();
+    if (token) {
+      return {
+        Authorization: `Bearer ${token}`,
+      };
+    }
+    return {};
+  }
+
+  /**
+   * Main request method with automatic token attachment and retry logic
+   */
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retryCount = 0
   ): Promise<ApiResponse<T>> {
     try {
+      // Check if token is expiring soon and refresh proactively
+      if (TokenStorage.isTokenExpiringSoon() && !this.isRefreshing) {
+        try {
+          await this.refreshTokenAndRetry();
+        } catch (error) {
+          // If refresh fails, continue with current token
+          console.warn('Proactive token refresh failed:', error);
+        }
+      }
+
+      const authHeaders = this.getAuthHeaders();
+
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        credentials: 'include', // Include cookies for JWT authentication
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders,
           ...options.headers,
         },
+        credentials: 'include', // Include cookies for session management
         ...options,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-
-        // Handle authentication errors
-        if (response.status === 401) {
-          // Token expired or invalid - let auth context handle this
+      // Handle 401 Unauthorized responses
+      if (response.status === 401 && retryCount === 0) {
+        try {
+          await this.refreshTokenAndRetry();
+          // Retry the request with new token
+          return this.request(endpoint, options, retryCount + 1);
+        } catch (refreshError) {
+          // If refresh fails, return the 401 error
+          const errorText = await response.text();
           return {
-            error: 'Authentication required',
-            status: response.status,
+            error: errorText || 'Unauthorized',
+            status: 401,
           };
         }
+      }
 
+      if (!response.ok) {
+        const errorText = await response.text();
         return {
           error: errorText || `HTTP ${response.status}`,
           status: response.status,
@@ -123,22 +220,41 @@ class ApiClient {
     abortSignal?: AbortSignal
   ): Promise<void> {
     try {
+      // Check if token is expiring soon and refresh proactively
+      if (TokenStorage.isTokenExpiringSoon() && !this.isRefreshing) {
+        try {
+          await this.refreshTokenAndRetry();
+        } catch (error) {
+          console.warn('Proactive token refresh failed:', error);
+        }
+      }
+
+      const authHeaders = this.getAuthHeaders();
+
       const response = await fetch(`${this.baseUrl}/api/conversations/${conversationId}/stream`, {
         method: 'POST',
-        credentials: 'include', // Include auth cookies
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'text/event-stream',
           'Cache-Control': 'no-cache',
+          ...authHeaders,
         },
         body: JSON.stringify({ content }),
+        credentials: 'include',
         signal: abortSignal,
       });
 
       if (!response.ok) {
+        // Handle 401 for streaming requests
         if (response.status === 401) {
-          onError('Authentication required');
-          return;
+          try {
+            await this.refreshTokenAndRetry();
+            // Retry the streaming request with new token
+            return this.streamMessage(conversationId, content, onToken, onError, onComplete, abortSignal);
+          } catch (refreshError) {
+            onError('Authentication failed. Please log in again.');
+            return;
+          }
         }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }

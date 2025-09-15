@@ -26,18 +26,6 @@
 **Dependencies:** AUTH-002
 **Files:** frontend/src/services/api.ts
 
-### [AUTH-004] Frontend - Implement Auth State Management
-**Priority:** Critical
-**Points:** 5
-**AC:**
-- Create auth context/store for global auth state
-- Track user login status, user info, and permissions
-- Implement protected routes that require authentication
-- Add auth guards for components requiring login
-- Handle auth state persistence across sessions
-**Dependencies:** AUTH-002, AUTH-003
-**Files:** frontend/src/contexts/AuthContext.tsx, frontend/src/hooks/useAuth.ts
-
 ## High Priority - UX Improvements
 
 ### ✅ [UX-001] Frontend - Add Logout Functionality - COMPLETED
