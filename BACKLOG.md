@@ -64,17 +64,6 @@
 **Dependencies:** None
 **Files:** frontend/src/components/BranchingChat.tsx, frontend/src/components/ErrorBoundary.tsx
 
-### [UX-003] Frontend - Add Loading States
-**Priority:** High
-**Points:** 3
-**AC:**
-- Add loading spinners/skeletons during API calls
-- Show loading state while authenticating
-- Add loading indicators for message sending
-- Implement progressive loading for large datasets
-- Disable form submissions while processing
-**Dependencies:** None
-**Files:** frontend/src/components/LoadingSpinner.tsx, frontend/src/components/BranchingChat.tsx
 
 ## Medium Priority - Production Readiness
 

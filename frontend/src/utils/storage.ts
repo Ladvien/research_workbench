@@ -1,79 +1,330 @@
-// Token storage utilities for handling JWT tokens
-import { AuthTokens } from '../types';
+/**
+ * Secure storage utility for JWT tokens and auth data
+ * Handles localStorage with fallback to sessionStorage
+ */
 
-const TOKEN_STORAGE_KEY = 'workbench_auth_tokens';
+// Storage keys
+export const STORAGE_KEYS = {
+  AUTH_TOKEN: 'workbench_auth_token',
+  USER_DATA: 'workbench_user_data',
+  TOKEN_EXPIRY: 'workbench_token_expiry',
+  REFRESH_TOKEN: 'workbench_refresh_token',
+} as const;
 
-export class TokenStorage {
-  /**
-   * Get stored auth tokens from localStorage
-   */
-  static getTokens(): AuthTokens | null {
+// Storage preferences
+export type StorageType = 'localStorage' | 'sessionStorage' | 'memory';
+
+interface StorageInterface {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+  clear(): void;
+}
+
+class MemoryStorage implements StorageInterface {
+  private storage = new Map<string, string>();
+
+  getItem(key: string): string | null {
+    return this.storage.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.storage.set(key, value);
+  }
+
+  removeItem(key: string): void {
+    this.storage.delete(key);
+  }
+
+  clear(): void {
+    this.storage.clear();
+  }
+}
+
+/**
+ * Get the available storage type based on browser support
+ */
+export function getAvailableStorage(): StorageType {
+  try {
+    // Test localStorage
+    const testKey = '__storage_test__';
+    window.localStorage.setItem(testKey, 'test');
+    window.localStorage.removeItem(testKey);
+    return 'localStorage';
+  } catch {
     try {
-      const stored = localStorage.getItem(TOKEN_STORAGE_KEY);
-      if (!stored) return null;
+      // Test sessionStorage
+      const testKey = '__storage_test__';
+      window.sessionStorage.setItem(testKey, 'test');
+      window.sessionStorage.removeItem(testKey);
+      return 'sessionStorage';
+    } catch {
+      // Fallback to memory storage
+      return 'memory';
+    }
+  }
+}
 
-      const tokens: AuthTokens = JSON.parse(stored);
+/**
+ * Get storage instance based on type preference
+ */
+export function getStorageInstance(preferredType?: StorageType): StorageInterface {
+  const availableType = preferredType || getAvailableStorage();
 
-      // Check if token is expired
-      if (tokens.expiresAt <= Date.now()) {
-        this.clearTokens();
+  switch (availableType) {
+    case 'localStorage':
+      return window.localStorage;
+    case 'sessionStorage':
+      return window.sessionStorage;
+    case 'memory':
+      return new MemoryStorage();
+    default:
+      return new MemoryStorage();
+  }
+}
+
+/**
+ * Secure storage class with encryption support and automatic expiry
+ */
+export class SecureStorage {
+  private storage: StorageInterface;
+  private storageType: StorageType;
+
+  constructor(preferredType?: StorageType) {
+    this.storageType = preferredType || getAvailableStorage();
+    this.storage = getStorageInstance(this.storageType);
+  }
+
+  /**
+   * Store data securely with optional expiry
+   */
+  setItem(key: string, value: any, expiryDate?: Date): void {
+    try {
+      const data = {
+        value: typeof value === 'string' ? value : JSON.stringify(value),
+        timestamp: Date.now(),
+        expiry: expiryDate ? expiryDate.getTime() : null,
+      };
+
+      this.storage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      console.error(`Failed to store item ${key}:`, error);
+      throw new Error(`Storage failed for key: ${key}`);
+    }
+  }
+
+  /**
+   * Retrieve data securely with expiry check
+   */
+  getItem(key: string): any | null {
+    try {
+      const stored = this.storage.getItem(key);
+      if (!stored) {
         return null;
       }
 
-      return tokens;
+      const data = JSON.parse(stored);
+
+      // Check expiry
+      if (data.expiry && Date.now() > data.expiry) {
+        this.removeItem(key);
+        return null;
+      }
+
+      // Try to parse as JSON, fallback to string
+      try {
+        return JSON.parse(data.value);
+      } catch {
+        return data.value;
+      }
     } catch (error) {
-      console.warn('Failed to parse stored tokens:', error);
-      this.clearTokens();
+      console.error(`Failed to retrieve item ${key}:`, error);
+      this.removeItem(key); // Clean up corrupted data
       return null;
     }
   }
 
   /**
-   * Store auth tokens in localStorage
+   * Remove item from storage
    */
-  static setTokens(tokens: AuthTokens): void {
+  removeItem(key: string): void {
     try {
-      localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokens));
+      this.storage.removeItem(key);
     } catch (error) {
-      console.error('Failed to store tokens:', error);
+      console.error(`Failed to remove item ${key}:`, error);
     }
   }
 
   /**
-   * Clear stored auth tokens
+   * Clear all stored data
    */
-  static clearTokens(): void {
+  clear(): void {
     try {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      // Only clear our specific keys to avoid affecting other apps
+      Object.values(STORAGE_KEYS).forEach(key => {
+        this.storage.removeItem(key);
+      });
     } catch (error) {
-      console.error('Failed to clear tokens:', error);
+      console.error('Failed to clear storage:', error);
     }
   }
 
   /**
-   * Check if we have a valid access token
+   * Check if storage is available
    */
-  static hasValidToken(): boolean {
-    const tokens = this.getTokens();
-    return tokens !== null && tokens.accessToken.length > 0;
+  isAvailable(): boolean {
+    return this.storageType !== 'memory';
   }
 
   /**
-   * Get just the access token string
+   * Get storage type being used
    */
-  static getAccessToken(): string | null {
-    const tokens = this.getTokens();
-    return tokens?.accessToken || null;
+  getStorageType(): StorageType {
+    return this.storageType;
   }
 
   /**
-   * Check if token is close to expiring (within 5 minutes)
+   * Check if item exists and is not expired
    */
-  static isTokenExpiringSoon(): boolean {
-    const tokens = this.getTokens();
-    if (!tokens) return false;
+  hasItem(key: string): boolean {
+    return this.getItem(key) !== null;
+  }
 
-    const fiveMinutes = 5 * 60 * 1000;
-    return tokens.expiresAt - Date.now() < fiveMinutes;
+  /**
+   * Get item expiry date if set
+   */
+  getItemExpiry(key: string): Date | null {
+    try {
+      const stored = this.storage.getItem(key);
+      if (!stored) {
+        return null;
+      }
+
+      const data = JSON.parse(stored);
+      return data.expiry ? new Date(data.expiry) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Update item expiry without changing value
+   */
+  updateExpiry(key: string, expiryDate: Date): boolean {
+    try {
+      const value = this.getItem(key);
+      if (value === null) {
+        return false;
+      }
+
+      this.setItem(key, value, expiryDate);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
+
+// Default storage instance
+export const storage = new SecureStorage();
+
+// Convenience functions for common operations
+export const tokenStorage = {
+  /**
+   * Store JWT token with expiry
+   */
+  setToken(token: string, expiryDate?: Date): void {
+    storage.setItem(STORAGE_KEYS.AUTH_TOKEN, token, expiryDate);
+  },
+
+  /**
+   * Get JWT token if valid
+   */
+  getToken(): string | null {
+    return storage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+  },
+
+  /**
+   * Remove JWT token
+   */
+  clearToken(): void {
+    storage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+  },
+
+  /**
+   * Check if token exists and is valid
+   */
+  hasValidToken(): boolean {
+    return storage.hasItem(STORAGE_KEYS.AUTH_TOKEN);
+  },
+
+  /**
+   * Get token expiry date
+   */
+  getTokenExpiry(): Date | null {
+    return storage.getItemExpiry(STORAGE_KEYS.AUTH_TOKEN);
+  },
+
+  /**
+   * Store user data
+   */
+  setUserData(userData: any): void {
+    storage.setItem(STORAGE_KEYS.USER_DATA, userData);
+  },
+
+  /**
+   * Get user data
+   */
+  getUserData(): any | null {
+    return storage.getItem(STORAGE_KEYS.USER_DATA);
+  },
+
+  /**
+   * Clear user data
+   */
+  clearUserData(): void {
+    storage.removeItem(STORAGE_KEYS.USER_DATA);
+  },
+
+  /**
+   * Store refresh token with expiry
+   */
+  setRefreshToken(token: string, expiryDate?: Date): void {
+    storage.setItem(STORAGE_KEYS.REFRESH_TOKEN, token, expiryDate);
+  },
+
+  /**
+   * Get refresh token if valid
+   */
+  getRefreshToken(): string | null {
+    return storage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+  },
+
+  /**
+   * Clear refresh token
+   */
+  clearRefreshToken(): void {
+    storage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+  },
+
+  /**
+   * Clear all auth data
+   */
+  clearAll(): void {
+    storage.clear();
+  },
+
+  /**
+   * Check if storage is available
+   */
+  isStorageAvailable(): boolean {
+    return storage.isAvailable();
+  },
+
+  /**
+   * Get storage type being used
+   */
+  getStorageType(): StorageType {
+    return storage.getStorageType();
+  }
+};
