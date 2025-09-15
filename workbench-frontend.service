@@ -7,19 +7,29 @@ Type=simple
 User=workbench
 Group=workbench
 WorkingDirectory=/opt/workbench/frontend
-ExecStart=/usr/bin/pnpm preview --port 4510 --host 0.0.0.0
+ExecStart=/usr/bin/pnpm start
 Restart=always
 RestartSec=10
 Environment="NODE_ENV=production"
 EnvironmentFile=-/opt/workbench/.env
+EnvironmentFile=-/opt/workbench/frontend/.env.production
 
-# Security
+# Security hardening
 NoNewPrivileges=true
 PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/log/workbench
+ProtectHome=true
+RestrictRealtime=true
+MemoryDenyWriteExecute=true
+
+# Resource limits
+LimitNOFILE=65536
 
 # Logging
 StandardOutput=append:/var/log/workbench/frontend.log
 StandardError=append:/var/log/workbench/frontend-error.log
+SyslogIdentifier=workbench-frontend
 
 [Install]
 WantedBy=multi-user.target
