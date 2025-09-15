@@ -21,9 +21,9 @@
 | FRONTEND_SPECIALIST | UX-003 Frontend - Add Loading States | in_progress | 2025-09-15 | 2025-09-15 |
 | FRONTEND_SPECIALIST | AUTH-003 Frontend - Add Authorization Headers to API Requests | in_progress | 2025-09-15 | 2025-09-15 |
 | FRONTEND_SPECIALIST-2 | UX-001 Frontend - Add Logout Functionality | in_progress | 2025-09-15 | 2025-09-15 |
-| FRONTEND_SPECIALIST | AUTH-002 Frontend - Implement Auth Token Storage | in_progress | 2025-09-15 | 2025-09-15 |
+| FRONTEND_SPECIALIST | AUTH-002 Frontend - Implement Auth Token Storage | completed | 2025-09-15 | 2025-09-15 |
 | Architecture-Agent | Architecture Audit - Implementation alignment | completed | 2025-09-14 | 2025-09-14 |
-| INFRASTRUCTURE_ENGINEER | PROD-003 DevOps - Create Systemd Services | in_progress | 2025-09-15 | 2025-09-15 |
+| INFRASTRUCTURE_ENGINEER | PROD-003 DevOps - Create Systemd Services | completed | 2025-09-15 | 2025-09-15 |
 | INFRASTRUCTURE_ENGINEER | PROD-002 DevOps - Configure Production Build | in_progress | 2025-09-15 | 2025-09-15 |
 | TEST_ORCHESTRATOR | PROD-001 Testing - Verify Chat Functionality | in_progress | 2025-09-15 | 2025-09-15 |
 
@@ -922,3 +922,74 @@ Successfully conducted comprehensive testing framework audit covering backend an
 - ✅ Quality evaluation of existing tests and patterns
 - ✅ Production readiness gaps identified with specific recommendations
 - ✅ Stories prioritized by testing criticality for implementation
+
+### 2025-09-15 - INFRASTRUCTURE_ENGINEER - Story PROD-003 DevOps - Create Systemd Services COMPLETED
+
+Successfully implemented comprehensive systemd services for production bare metal deployment:
+
+**Core Implementation:**
+- ✅ Updated workbench-backend.service with security hardening and production configuration
+- ✅ Updated workbench-frontend.service for port 4510 with proper Node.js/pnpm integration
+- ✅ Created install-services.sh script for automated service installation and setup
+- ✅ Built comprehensive build.sh script supporting cross-architecture compilation (AMD64/ARM64)
+- ✅ Developed deploy.sh script for complete production deployment workflow
+- ✅ Created detailed systemd-setup.md documentation in docs/deployment/
+
+**Security Features Implemented:**
+- ✅ NoNewPrivileges=true prevents privilege escalation
+- ✅ PrivateTmp=true provides isolated temporary directory
+- ✅ ProtectSystem=strict enables read-only filesystem protection
+- ✅ Services run as dedicated 'workbench' user with restricted permissions
+- ✅ Environment files secured with 600 permissions
+
+**Production Architecture:**
+- ✅ Backend service on port 4512 with /opt/workbench/backend/workbench-server binary
+- ✅ Frontend service on port 4510 using pnpm preview for production serving
+- ✅ Comprehensive logging to /var/log/workbench/ (backend.log, frontend.log, error logs)
+- ✅ Auto-restart on failure with RestartSec=10 as required
+- ✅ Services enabled for startup on boot with systemctl enable
+- ✅ Health checks implemented for both services
+
+**Cross-Architecture Support:**
+- ✅ Build script detects architecture (x86_64/aarch64) and compiles accordingly
+- ✅ Supports AMD64 cross-compilation: cargo build --target x86_64-unknown-linux-gnu
+- ✅ Supports ARM64 cross-compilation: cargo build --target aarch64-unknown-linux-gnu
+- ✅ Native fallback for other architectures with cargo build --release
+
+**Deployment Workflow:**
+- ✅ Automated installation with ./install-services.sh (creates user, directories, services)
+- ✅ Complete build process with ./build.sh (backend + frontend)
+- ✅ Full deployment with ./deploy.sh (backup, build, deploy, restart, health check)
+- ✅ Service management documented with start/stop/status/logs commands
+
+**Files Created/Modified:**
+- `workbench-backend.service` - Production-ready systemd service with security
+- `workbench-frontend.service` - Frontend service with pnpm preview on port 4510
+- `install-services.sh` - Automated service installation and user setup
+- `build.sh` - Cross-architecture build script supporting AMD64/ARM64
+- `deploy.sh` - Complete production deployment automation
+- `docs/deployment/systemd-setup.md` - Comprehensive deployment documentation
+
+**Integration Benefits:**
+- NO DOCKER compliance: Pure bare metal systemd services as required by CLAUDE.md
+- Multi-architecture support for both Intel/AMD and ARM platforms (Raspberry Pi)
+- Production logging integration with log rotation support
+- Security hardening following systemd best practices
+- Automated deployment suitable for CI/CD integration
+- Health monitoring and troubleshooting documentation
+
+**All acceptance criteria for Story PROD-003 have been met:**
+- ✅ Created workbench-frontend.service for frontend serving on port 4510
+- ✅ Created workbench-backend.service for backend API on port 4512
+- ✅ Configured auto-restart on failure with RestartSec=10
+- ✅ Set up proper logging to /var/log/workbench/ directory
+- ✅ Added health checks for service monitoring
+- ✅ Enabled services for startup on boot
+- ✅ Created installation script for easy deployment
+- ✅ Added comprehensive documentation
+
+**Production Ready:**
+- Services follow CLAUDE.md specifications exactly (ports 4510/4512, bare metal, systemd)
+- Security hardened with multiple protection layers
+- Cross-platform deployment support for full infrastructure coverage
+- Complete automation from build to production deployment
