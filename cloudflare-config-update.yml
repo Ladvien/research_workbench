@@ -1,0 +1,53 @@
+tunnel: 12518b15-9945-45fc-a089-ae0b79f0d849
+credentials-file: /home/ladvien/.cloudflared/12518b15-9945-45fc-a089-ae0b79f0d849.json
+
+ingress:
+  # Ladvien's personal site/service
+  - hostname: ladvien.lolzlab.com
+    service: http://192.168.1.101:80
+    originRequest:
+      noTLSVerify: true
+
+  # Lightdash BI tool
+  - hostname: lightdash.lolzlab.com
+    service: http://192.168.1.101:8080  # Adjust port as needed
+    originRequest:
+      noTLSVerify: true
+
+  - hostname: mqtt.lolzlab.com
+    service: ws://192.168.1.110:9001
+    originRequest:
+      noTLSVerify: true
+
+  # PostgreSQL access (be careful with this!)
+  - hostname: postgres.lolzlab.com
+    service: tcp://192.168.1.104:5432
+
+  # Self-sensored API
+  - hostname: self-sensored-api.lolzlab.com
+    service: http://192.168.1.110:9876  # Adjust port as needed
+    originRequest:
+      noTLSVerify: true
+
+  # Tempus service
+  - hostname: tempus.lolzlab.com
+    service: http://192.168.1.110:443  # Adjust port as needed
+    originRequest:
+      noTLSVerify: true
+
+  # Ollama
+  - hostname: llm.lolzlab.com
+    service: http://192.168.1.110:11434  # Adjust port as needed
+    originRequest:
+      noTLSVerify: true
+
+  # Workbench application - UPDATED to point directly to frontend on 4510
+  - hostname: workbench.lolzlab.com
+    service: http://192.168.1.110:4510
+    originRequest:
+      noTLSVerify: true
+      httpHostHeader: workbench.lolzlab.com
+      connectTimeout: 30s
+
+  # Catch-all rule (required)
+  - service: http_status:404

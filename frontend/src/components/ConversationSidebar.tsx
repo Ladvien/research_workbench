@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useConversationStore } from '../hooks/useConversationStore';
+import { ConversationSkeleton, LoadingSpinner } from './LoadingSpinner';
 import { Conversation } from '../types';
 
 interface ConversationSidebarProps {
@@ -13,6 +14,7 @@ interface ConversationItemProps {
   onSelect: (id: string) => void;
   onRename: (id: string, newTitle: string) => void;
   onDelete: (id: string) => void;
+  isLoading?: boolean;
 }
 
 const ConversationItem: React.FC<ConversationItemProps> = ({
@@ -20,7 +22,8 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
   isActive,
   onSelect,
   onRename,
-  onDelete
+  onDelete,
+  isLoading = false
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(conversation.title || 'New Conversation');
@@ -65,7 +68,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
           ? 'bg-blue-100 dark:bg-blue-900/30 border-l-4 border-blue-500'
           : 'hover:bg-gray-100 dark:hover:bg-gray-700'
       }`}
-      onClick={() => !isEditing && onSelect(conversation.id)}
+      onClick={() => !isEditing && !isLoading && onSelect(conversation.id)}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
@@ -89,7 +92,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
             }`}>
               {conversation.title || 'New Conversation'}
             </h3>
-            {showActions && !isActive && (
+            {showActions && !isActive && !isLoading && (
               <div className="flex space-x-1">
                 <button
                   onClick={(e) => {
@@ -98,6 +101,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
                   }}
                   className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                   title="Rename conversation"
+                  disabled={isLoading}
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -110,12 +114,16 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
                   }}
                   className="p-1 text-gray-400 hover:text-red-500 transition-colors"
                   title="Delete conversation"
+                  disabled={isLoading}
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                 </button>
               </div>
+            )}
+            {isLoading && (
+              <LoadingSpinner size="xs" variant="secondary" inline data-testid="conversation-item-loading" />
             )}
           </div>
         )}
@@ -150,6 +158,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   } = useConversationStore();
 
   const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null);
+  const [operationLoadingId, setOperationLoadingId] = useState<string | null>(null);
+  const [operationType, setOperationType] = useState<'rename' | 'delete' | null>(null);
 
   useEffect(() => {
     loadConversations();
@@ -167,10 +177,15 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   };
 
   const handleRenameConversation = async (id: string, newTitle: string) => {
+    setOperationLoadingId(id);
+    setOperationType('rename');
     try {
       await updateConversationTitle(id, newTitle);
     } catch (error) {
       console.error('Failed to rename conversation:', error);
+    } finally {
+      setOperationLoadingId(null);
+      setOperationType(null);
     }
   };
 
@@ -181,12 +196,17 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   const confirmDelete = async () => {
     if (!showDeleteDialog) return;
 
+    setOperationLoadingId(showDeleteDialog);
+    setOperationType('delete');
     try {
       await deleteConversation(showDeleteDialog);
       setShowDeleteDialog(null);
     } catch (error) {
       console.error('Failed to delete conversation:', error);
       setShowDeleteDialog(null);
+    } finally {
+      setOperationLoadingId(null);
+      setOperationType(null);
     }
   };
 
@@ -266,9 +286,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
 
         {/* Loading State */}
         {isLoading && conversations.length === 0 && (
-          <div className="p-4 text-center">
-            <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading conversations...</p>
+          <div className="p-4">
+            <ConversationSkeleton count={3} data-testid="conversation-skeleton" />
           </div>
         )}
 
@@ -289,6 +308,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                   onSelect={setCurrentConversation}
                   onRename={handleRenameConversation}
                   onDelete={handleDeleteConversation}
+                  isLoading={operationLoadingId === conversation.id}
                 />
               ))}
             </div>
@@ -309,14 +329,20 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                 <button
                   onClick={() => setShowDeleteDialog(null)}
                   className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  disabled={operationType === 'delete'}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmDelete}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed rounded-lg transition-colors min-w-[80px]"
+                  disabled={operationType === 'delete'}
                 >
-                  Delete
+                  {operationType === 'delete' ? (
+                    <LoadingSpinner size="xs" variant="secondary" inline />
+                  ) : (
+                    'Delete'
+                  )}
                 </button>
               </div>
             </div>

@@ -9,9 +9,10 @@ import {
   PaginationParams,
   ApiResponse
 } from '../types';
+import { TokenStorage } from '../utils/storage';
 import { authService } from './auth';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4512';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 class ApiClient {
   private baseUrl: string;

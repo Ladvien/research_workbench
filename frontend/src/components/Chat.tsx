@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Message } from './Message';
 import { ChatInput } from './ChatInput';
+import { LoadingDots } from './LoadingSpinner';
 import { useConversationStore } from '../hooks/useConversationStore';
 import type { Message as MessageType } from '../types';
 
@@ -109,11 +110,7 @@ export const Chat: React.FC = () => {
                 <span>Assistant</span>
                 {isStreaming && (
                   <>
-                    <div className="ml-2 flex space-x-1">
-                      <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse"></div>
-                      <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.3s' }}></div>
-                      <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.6s' }}></div>
-                    </div>
+                    <LoadingDots size="sm" variant="primary" className="ml-2" />
                     <span className="ml-2 text-xs text-blue-500">Streaming...</span>
                   </>
                 )}
@@ -144,11 +141,7 @@ export const Chat: React.FC = () => {
                 Assistant
               </div>
               <div className="flex items-center space-x-2">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                </div>
+                <LoadingDots size="md" variant="default" />
                 <span className="text-sm text-gray-500 dark:text-gray-400">Thinking...</span>
               </div>
             </div>

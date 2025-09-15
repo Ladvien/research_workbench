@@ -148,3 +148,41 @@ export interface SearchState {
   clearSearch: () => void;
   clearError: () => void;
 }
+
+// Auth types
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt: number;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  username: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  tokens?: AuthTokens;
+}
+
+export interface AuthState {
+  isAuthenticated: boolean;
+  user: User | null;
+  tokens: AuthTokens | null;
+  isLoading: boolean;
+  error: string | null;
+
+  // Actions
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, username: string, password: string) => Promise<void>;
+  logout: () => void;
+  refreshToken: () => Promise<boolean>;
+  clearError: () => void;
+}

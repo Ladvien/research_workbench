@@ -1,4 +1,5 @@
 import React, { useState, type KeyboardEvent } from 'react';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -74,9 +75,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           "
         >
           {disabled ? (
-            <div className="flex items-center justify-center">
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            </div>
+            <LoadingSpinner size="sm" variant="secondary" inline />
           ) : (
             'Send'
           )}

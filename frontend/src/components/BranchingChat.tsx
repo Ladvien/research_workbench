@@ -2,12 +2,16 @@ import React, { useRef, useEffect, useState } from 'react';
 import { EditableMessage } from './EditableMessage';
 import { BranchVisualizer } from './BranchVisualizer';
 import { ChatInput } from './ChatInput';
+import { LoadingSpinner, LoadingDots } from './LoadingSpinner';
+import { ErrorAlert } from './ErrorAlert';
 import { useConversationStore } from '../hooks/useConversationStore';
 import { useBranching } from '../hooks/useBranching';
+import { categorizeError, retryOperation, isTemporaryError } from '../utils/errorHandling';
 import type { Message as MessageType } from '../types';
 
 export const BranchingChat: React.FC = () => {
   const [showBranchView, setShowBranchView] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -54,30 +58,52 @@ export const BranchingChat: React.FC = () => {
   }, [currentMessages, streamingMessage]);
 
   const handleSendMessage = async (content: string) => {
-    try {
+    const attemptSend = async () => {
       await sendStreamingMessage(content);
       // Reload tree if in branch view to show new message
       if (showBranchView && currentConversationId) {
         setTimeout(() => loadTree(), 500); // Small delay to ensure message is saved
       }
+    };
+
+    try {
+      // Retry for temporary errors
+      await retryOperation(attemptSend, {
+        maxRetries: error && isTemporaryError(error) ? 2 : 0,
+        retryDelay: 1000,
+      });
+      setRetryCount(0); // Reset retry count on success
     } catch (error) {
       console.error('Failed to send streaming message:', error);
+      // Error is already handled by the store, no need to set additional error state
     }
   };
 
   const handleEditMessage = async (messageId: string, newContent: string) => {
-    await editMessage(messageId, newContent);
-    // The tree will be reloaded automatically by useBranching
+    try {
+      await editMessage(messageId, newContent);
+      // The tree will be reloaded automatically by useBranching
+    } catch (error) {
+      console.error('Failed to edit message:', error);
+    }
   };
 
   const handleDeleteMessage = async (messageId: string) => {
-    await deleteMessage(messageId);
-    // The tree will be reloaded automatically by useBranching
+    try {
+      await deleteMessage(messageId);
+      // The tree will be reloaded automatically by useBranching
+    } catch (error) {
+      console.error('Failed to delete message:', error);
+    }
   };
 
   const handleBranchSwitch = async (targetMessageId: string) => {
-    await switchBranch(targetMessageId);
-    // The conversation will be refreshed automatically by onTreeUpdate
+    try {
+      await switchBranch(targetMessageId);
+      // The conversation will be refreshed automatically by onTreeUpdate
+    } catch (error) {
+      console.error('Failed to switch branch:', error);
+    }
   };
 
   const toggleBranchView = () => {
@@ -88,6 +114,25 @@ export const BranchingChat: React.FC = () => {
   };
 
   const hasError = error || branchError;
+  const errorContext = hasError ? categorizeError(hasError) : null;
+
+  const handleRetryError = async () => {
+    if (!hasError) return;
+
+    clearError();
+    clearBranchError();
+
+    // Determine what to retry based on error context
+    if (currentConversationId && errorContext?.category === 'network') {
+      try {
+        await loadTree();
+      } catch (error) {
+        console.error('Retry failed:', error);
+      }
+    }
+
+    setRetryCount(prev => prev + 1);
+  };
 
   return (
     <div className="flex h-full bg-gray-50 dark:bg-gray-900">
@@ -132,14 +177,24 @@ export const BranchingChat: React.FC = () => {
                       ? 'bg-blue-500 text-white hover:bg-blue-600'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
                     }
+                    ${isBranchLoading ? 'opacity-75 cursor-not-allowed' : ''}
                   `}
                   disabled={isBranchLoading}
                 >
                   <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-                    </svg>
-                    {showBranchView ? 'Hide Tree' : 'Show Tree'}
+                    {isBranchLoading ? (
+                      <LoadingSpinner size="xs" variant={showBranchView ? 'secondary' : 'primary'} inline />
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                      </svg>
+                    )}
+                    {isBranchLoading
+                      ? 'Loading...'
+                      : showBranchView
+                      ? 'Hide Tree'
+                      : 'Show Tree'
+                    }
                   </div>
                 </button>
               </div>
@@ -149,25 +204,18 @@ export const BranchingChat: React.FC = () => {
 
         {/* Messages Container */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {hasError && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
-              <div className="flex justify-between items-start">
-                <div className="text-red-800 dark:text-red-400 text-sm">
-                  {error || branchError}
-                </div>
-                <button
-                  onClick={() => {
-                    clearError();
-                    clearBranchError();
-                  }}
-                  className="text-red-500 hover:text-red-700 dark:hover:text-red-300"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
+          {hasError && errorContext && (
+            <ErrorAlert
+              error={errorContext.userMessage}
+              title={errorContext.category === 'authentication' ? 'Authentication Required' : 'Error'}
+              type={errorContext.category === 'authentication' ? 'warning' : 'error'}
+              onRetry={errorContext.isRetryable ? handleRetryError : undefined}
+              onDismiss={() => {
+                clearError();
+                clearBranchError();
+              }}
+              className="mb-4"
+            />
           )}
 
           {!currentConversationId && currentMessages.length === 0 && (
@@ -217,11 +265,7 @@ export const BranchingChat: React.FC = () => {
                   <span>Assistant</span>
                   {isStreaming && (
                     <>
-                      <div className="ml-2 flex space-x-1">
-                        <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse"></div>
-                        <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.3s' }}></div>
-                        <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.6s' }}></div>
-                      </div>
+                      <LoadingDots size="sm" variant="primary" className="ml-2" />
                       <span className="ml-2 text-xs text-blue-500">Streaming...</span>
                     </>
                   )}
@@ -252,11 +296,7 @@ export const BranchingChat: React.FC = () => {
                   Assistant
                 </div>
                 <div className="flex items-center space-x-2">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  </div>
+                  <LoadingDots size="md" variant="default" />
                   <span className="text-sm text-gray-500 dark:text-gray-400">Thinking...</span>
                 </div>
               </div>
@@ -267,12 +307,12 @@ export const BranchingChat: React.FC = () => {
           {isBranchLoading && (
             <div className="flex justify-center mb-4">
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm text-blue-700 dark:text-blue-300">
-                    Processing branch operation...
-                  </span>
-                </div>
+                <LoadingSpinner
+                  size="sm"
+                  variant="primary"
+                  label="Processing branch operation..."
+                  data-testid="branch-loading-indicator"
+                />
               </div>
             </div>
           )}

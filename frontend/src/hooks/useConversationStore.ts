@@ -5,6 +5,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { ConversationState, StreamingMessage } from '../types';
 import { apiClient } from '../services/api';
+import { categorizeError, formatErrorForUser } from '../utils/errorHandling';
 
 // Helper function to generate conversation title from first message
 const generateTitleFromMessage = (content: string): string => {
@@ -73,8 +74,9 @@ export const useConversationStore = create<ConversationState>()(
             error: null
           });
         } catch (error) {
+          const errorMessage = formatErrorForUser(error, 'Unable to load conversations');
           set({
-            error: error instanceof Error ? error.message : 'Failed to load conversations',
+            error: errorMessage,
             isLoading: false
           });
         }
@@ -100,8 +102,9 @@ export const useConversationStore = create<ConversationState>()(
             });
           }
         } catch (error) {
+          const errorMessage = formatErrorForUser(error, 'Unable to load conversation');
           set({
-            error: error instanceof Error ? error.message : 'Failed to load conversation',
+            error: errorMessage,
             isLoading: false
           });
         }
@@ -114,7 +117,11 @@ export const useConversationStore = create<ConversationState>()(
           const response = await apiClient.createConversation(request);
 
           if (response.error) {
-            set({ error: response.error, isLoading: false });
+            const errorContext = categorizeError(response.error);
+            set({
+              error: errorContext.userMessage,
+              isLoading: false
+            });
             throw new Error(response.error);
           }
 
@@ -131,10 +138,11 @@ export const useConversationStore = create<ConversationState>()(
             return response.data.id;
           }
 
-          throw new Error('Failed to create conversation');
+          throw new Error('No conversation data received');
         } catch (error) {
+          const errorMessage = formatErrorForUser(error, 'Unable to create conversation');
           set({
-            error: error instanceof Error ? error.message : 'Failed to create conversation',
+            error: errorMessage,
             isLoading: false
           });
           throw error;
@@ -157,7 +165,7 @@ export const useConversationStore = create<ConversationState>()(
             await get().sendMessage(content);
             return;
           } catch (error) {
-            set({ error: 'Failed to create new conversation' });
+            // Let the createConversation error handling take care of the error message
             return;
           }
         }
@@ -196,8 +204,9 @@ export const useConversationStore = create<ConversationState>()(
           await get().loadConversation(currentConversationId);
 
         } catch (error) {
+          const errorMessage = formatErrorForUser(error, 'Unable to send message');
           set({
-            error: error instanceof Error ? error.message : 'Failed to send message',
+            error: errorMessage,
             isLoading: false
           });
         }
@@ -219,7 +228,7 @@ export const useConversationStore = create<ConversationState>()(
             await get().sendStreamingMessage(content);
             return;
           } catch (error) {
-            set({ error: 'Failed to create new conversation' });
+            // Let the createConversation error handling take care of the error message
             return;
           }
         }
@@ -325,8 +334,9 @@ export const useConversationStore = create<ConversationState>()(
               abortController: null
             });
           } else {
+            const errorMessage = formatErrorForUser(error, 'Unable to send streaming message');
             set({
-              error: error instanceof Error ? error.message : 'Failed to send streaming message',
+              error: errorMessage,
               isStreaming: false,
               streamingMessage: null,
               abortController: null
@@ -368,8 +378,9 @@ export const useConversationStore = create<ConversationState>()(
           }));
 
         } catch (error) {
+          const errorMessage = formatErrorForUser(error, 'Unable to update conversation title');
           set({
-            error: error instanceof Error ? error.message : 'Failed to update conversation title',
+            error: errorMessage,
             isLoading: false
           });
           throw error;
@@ -404,8 +415,9 @@ export const useConversationStore = create<ConversationState>()(
           });
 
         } catch (error) {
+          const errorMessage = formatErrorForUser(error, 'Unable to delete conversation');
           set({
-            error: error instanceof Error ? error.message : 'Failed to delete conversation',
+            error: errorMessage,
             isLoading: false
           });
           throw error;

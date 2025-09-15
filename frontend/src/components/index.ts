@@ -7,3 +7,4 @@ export { SearchResults } from './SearchResults';
 export { default as ModelSelector } from './ModelSelector';
 export { default as FileAttachment } from './FileAttachment';
 export { default as FilePreviewModal } from './FilePreviewModal';
+export { ProtectedRoute, AuthGuard, AuthenticatedOnly, UnauthenticatedOnly } from './ProtectedRoute';
