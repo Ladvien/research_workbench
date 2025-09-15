@@ -75,7 +75,7 @@ export interface StreamingMessage {
 }
 
 // Model types
-export type Provider = 'openai' | 'anthropic';
+export type Provider = 'open_a_i' | 'anthropic' | 'claude_code';
 
 export interface Model {
   id: string;

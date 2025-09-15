@@ -13,6 +13,9 @@ pub struct AppConfig {
     pub anthropic_model: String,
     pub anthropic_max_tokens: u32,
     pub anthropic_temperature: f32,
+    pub claude_code_enabled: bool,
+    pub claude_code_model: String,
+    pub claude_code_session_timeout: u64,
     pub jwt_secret: String,
     pub redis_url: String,
     pub session_timeout_hours: u64,
@@ -31,6 +34,38 @@ pub struct RateLimitConfig {
     pub admin_override_enabled: bool,
 }
 
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            bind_address: "127.0.0.1:8080".parse().unwrap(),
+            openai_api_key: String::new(),
+            openai_model: "gpt-4".to_string(),
+            openai_max_tokens: 2048,
+            openai_temperature: 0.7,
+            anthropic_api_key: String::new(),
+            anthropic_model: "claude-3-sonnet-20240229".to_string(),
+            anthropic_max_tokens: 2048,
+            anthropic_temperature: 0.7,
+            claude_code_enabled: false,
+            claude_code_model: "claude-3-5-sonnet-20241022".to_string(),
+            claude_code_session_timeout: 3600,
+            jwt_secret: "default-dev-secret-key-32-chars-long".to_string(),
+            redis_url: "redis://127.0.0.1:6379".to_string(),
+            session_timeout_hours: 24,
+            storage_path: "/tmp/workbench_storage".to_string(),
+            rate_limit: RateLimitConfig {
+                global_requests_per_hour: 1000,
+                api_requests_per_hour: 100,
+                uploads_per_hour: 10,
+                max_file_size_mb: 10,
+                premium_multiplier: 5,
+                admin_override_enabled: true,
+            },
+            cors_origins: vec!["http://localhost:4510".to_string(), "https://workbench.lolzlab.com".to_string()],
+        }
+    }
+}
+
 impl AppConfig {
     pub fn from_env() -> Result<Self> {
         dotenvy::dotenv().ok();
@@ -40,7 +75,7 @@ impl AppConfig {
             .parse()?;
 
         let openai_api_key = std::env::var("OPENAI_API_KEY")
-            .map_err(|_| anyhow::anyhow!("OPENAI_API_KEY environment variable not set"))?;
+            .unwrap_or_else(|_| String::new()); // Allow empty if not using OpenAI
 
         let openai_model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4".to_string());
 
@@ -55,7 +90,7 @@ impl AppConfig {
             .unwrap_or(0.7);
 
         let anthropic_api_key = std::env::var("ANTHROPIC_API_KEY")
-            .map_err(|_| anyhow::anyhow!("ANTHROPIC_API_KEY environment variable not set"))?;
+            .unwrap_or_else(|_| String::new()); // Allow empty if not using Anthropic
 
         let anthropic_model = std::env::var("ANTHROPIC_MODEL")
             .unwrap_or_else(|_| "claude-3-sonnet-20240229".to_string());
@@ -69,6 +104,19 @@ impl AppConfig {
             .unwrap_or_else(|_| "0.7".to_string())
             .parse()
             .unwrap_or(0.7);
+
+        let claude_code_enabled = std::env::var("CLAUDE_CODE_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse()
+            .unwrap_or(false);
+
+        let claude_code_model = std::env::var("CLAUDE_CODE_MODEL")
+            .unwrap_or_else(|_| "claude-3-5-sonnet-20241022".to_string());
+
+        let claude_code_session_timeout = std::env::var("CLAUDE_CODE_SESSION_TIMEOUT")
+            .unwrap_or_else(|_| "3600".to_string()) // 1 hour default
+            .parse()
+            .unwrap_or(3600);
 
         let jwt_secret = std::env::var("JWT_SECRET")
             .map_err(|_| anyhow::anyhow!("JWT_SECRET environment variable not set - required for production"))?;
@@ -137,6 +185,9 @@ impl AppConfig {
             anthropic_model,
             anthropic_max_tokens,
             anthropic_temperature,
+            claude_code_enabled,
+            claude_code_model,
+            claude_code_session_timeout,
             jwt_secret,
             redis_url,
             session_timeout_hours,

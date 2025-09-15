@@ -45,6 +45,10 @@ export default defineConfig({
     port: frontendPort,
     host: frontendHost,
     strictPort: true, // Fail if port is already in use
+    // Allow requests from these hosts
+    hmr: {
+      host: 'workbench.lolzlab.com'
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:4512',

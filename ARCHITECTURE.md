@@ -81,6 +81,21 @@ graph TB
     LLM --> PG
 ```
 
+## Initial Admin Account
+📧 .env Configuration
+
+ADMIN_EMAIL="xyz@yahoo.com"
+ADMIN_PASSWORD="<PASSWORD>"
+
+🚀 Auto-Creation Process
+
+1. Backend startup reads ADMIN_EMAIL and ADMIN_PASSWORD from .env
+2. Checks if user exists by email address
+3. Creates admin user if not found:
+- Password: Hashed with Argon2
+4. Logs result: "Admin user with email 'xyz@yahoo.com' already exists"
+
+
 ## Technology Stack
 
 ### Frontend

@@ -33,6 +33,7 @@ pub async fn get_models_by_provider(
         .filter(|model| match provider.as_str() {
             "openai" => matches!(model.provider, Provider::OpenAI),
             "anthropic" => matches!(model.provider, Provider::Anthropic),
+            "claude_code" => matches!(model.provider, Provider::ClaudeCode),
             _ => false,
         })
         .collect();
@@ -83,7 +84,7 @@ pub async fn models_health() -> Result<(StatusCode, Json<Value>), AppError> {
         "status": "healthy",
         "service": "models",
         "timestamp": chrono::Utc::now().to_rfc3339(),
-        "available_providers": ["openai", "anthropic"]
+        "available_providers": ["openai", "anthropic", "claude_code"]
     });
 
     Ok((StatusCode::OK, Json(response)))

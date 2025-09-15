@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { User, ApiResponse } from '../types';
 
-// API Base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// API Base URL - use empty string to leverage Vite proxy
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 // Auth request/response types
 export interface LoginRequest {
@@ -106,7 +106,9 @@ class AuthAPI {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const fullUrl = `${API_BASE_URL}${endpoint}`;
+      console.log('AuthAPI: Making request to:', fullUrl, 'with options:', options);
+      const response = await fetch(fullUrl, {
         credentials: 'include', // Include cookies for JWT
         headers: {
           'Content-Type': 'application/json',
@@ -199,7 +201,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       if (response.data) {
-        dispatch({ type: 'AUTH_SUCCESS', payload: response.data });
+        // Backend returns { message: "Login successful", user: {...} }
+        // Extract the user from the response
+        const user = response.data.user || response.data;
+        dispatch({ type: 'AUTH_SUCCESS', payload: user });
         return true;
       }
 
@@ -224,7 +229,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       if (response.data) {
-        dispatch({ type: 'AUTH_SUCCESS', payload: response.data });
+        // Backend returns { message: "Registration successful", user: {...} }
+        // Extract the user from the response
+        const user = response.data.user || response.data;
+        dispatch({ type: 'AUTH_SUCCESS', payload: user });
         return true;
       }
 

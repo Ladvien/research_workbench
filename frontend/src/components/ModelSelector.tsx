@@ -1,20 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronDownIcon, CpuChipIcon } from '@heroicons/react/24/outline';
+import { ChevronDown, Cpu } from 'lucide-react';
 import { Model, Provider } from '../types';
+import { useConversationStore } from '../hooks/useConversationStore';
 
 interface ModelSelectorProps {
-  selectedModel: string;
-  onModelChange: (modelId: string) => void;
   disabled?: boolean;
   className?: string;
 }
 
 const ModelSelector: React.FC<ModelSelectorProps> = ({
-  selectedModel,
-  onModelChange,
   disabled = false,
   className = '',
 }) => {
+  const { selectedModel, setSelectedModel } = useConversationStore();
   const [models, setModels] = useState<Model[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -42,7 +40,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
           {
             id: 'gpt-4',
             name: 'GPT-4',
-            provider: 'openai',
+            provider: 'open_a_i',
             max_tokens: 4096,
             supports_streaming: true,
             cost_per_token: 0.03,
@@ -50,7 +48,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
           {
             id: 'gpt-3.5-turbo',
             name: 'GPT-3.5 Turbo',
-            provider: 'openai',
+            provider: 'open_a_i',
             max_tokens: 4096,
             supports_streaming: true,
             cost_per_token: 0.002,
@@ -62,6 +60,14 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
             max_tokens: 4096,
             supports_streaming: true,
             cost_per_token: 0.015,
+          },
+          {
+            id: 'claude-code-sonnet',
+            name: 'Claude 3.5 Sonnet (via Claude Code)',
+            provider: 'claude_code',
+            max_tokens: 8192,
+            supports_streaming: true,
+            cost_per_token: undefined,
           },
         ]);
       } finally {
@@ -76,10 +82,12 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   const getProviderColor = (provider: Provider) => {
     switch (provider) {
-      case 'openai':
+      case 'open_a_i':
         return 'text-green-600 bg-green-50 border-green-200';
       case 'anthropic':
         return 'text-blue-600 bg-blue-50 border-blue-200';
+      case 'claude_code':
+        return 'text-purple-600 bg-purple-50 border-purple-200';
       default:
         return 'text-gray-600 bg-gray-50 border-gray-200';
     }
@@ -87,10 +95,12 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   const getProviderBadge = (provider: Provider) => {
     switch (provider) {
-      case 'openai':
+      case 'open_a_i':
         return 'OpenAI';
       case 'anthropic':
         return 'Anthropic';
+      case 'claude_code':
+        return 'Claude Code';
       default:
         return provider;
     }
@@ -99,7 +109,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   if (loading) {
     return (
       <div className={`flex items-center gap-2 p-2 bg-gray-50 rounded-lg ${className}`}>
-        <CpuChipIcon className="h-4 w-4 animate-pulse text-gray-400" />
+        <Cpu className="h-4 w-4 animate-pulse text-gray-400" />
         <span className="text-sm text-gray-500">Loading models...</span>
       </div>
     );
@@ -108,7 +118,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   if (error && models.length === 0) {
     return (
       <div className={`flex items-center gap-2 p-2 bg-red-50 rounded-lg ${className}`}>
-        <CpuChipIcon className="h-4 w-4 text-red-400" />
+        <Cpu className="h-4 w-4 text-red-400" />
         <span className="text-sm text-red-600">Failed to load models</span>
       </div>
     );
@@ -128,7 +138,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         disabled={disabled}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <CpuChipIcon className="h-4 w-4 text-gray-500 flex-shrink-0" />
+          <Cpu className="h-4 w-4 text-gray-500 flex-shrink-0" />
           <div className="min-w-0 flex-1">
             {selectedModelInfo ? (
               <div className="flex items-center gap-2">
@@ -147,13 +157,19 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
             )}
           </div>
         </div>
-        <ChevronDownIcon
+        <ChevronDown
           className={`h-4 w-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+        <>
+          {/* Click outside to close overlay */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
           {models.map((model) => (
             <button
               key={model.id}
@@ -163,7 +179,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                 ${selectedModel === model.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}
               `}
               onClick={() => {
-                onModelChange(model.id);
+                setSelectedModel(model.id);
                 setIsOpen(false);
               }}
             >
@@ -181,8 +197,10 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                 </div>
                 <div className="flex items-center gap-3 text-xs text-gray-500">
                   <span>{model.max_tokens.toLocaleString()} tokens</span>
-                  {model.cost_per_token && (
+                  {model.cost_per_token ? (
                     <span>${model.cost_per_token.toFixed(4)}/1k tokens</span>
+                  ) : (
+                    <span className="text-purple-600">Subscription</span>
                   )}
                   {model.supports_streaming && (
                     <span className="text-green-600">Streaming</span>
@@ -192,6 +210,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
             </button>
           ))}
         </div>
+        </>
       )}
 
       {error && (

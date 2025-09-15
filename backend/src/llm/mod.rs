@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 
 pub mod anthropic;
+pub mod claude_code;
 pub mod openai;
 
 use crate::error::AppError;
@@ -67,6 +68,7 @@ pub enum StreamEventType {
 pub enum Provider {
     OpenAI,
     Anthropic,
+    ClaudeCode,
 }
 
 /// Available models with their provider
@@ -117,12 +119,16 @@ impl LLMServiceFactory {
                 let service = anthropic::AnthropicService::new(config.clone())?;
                 Ok(Box::new(service))
             }
+            Provider::ClaudeCode => {
+                let service = claude_code::ClaudeCodeService::new(config.clone())?;
+                Ok(Box::new(service))
+            }
         }
     }
 
     /// Get all available models across all providers
     pub fn available_models() -> Vec<ModelInfo> {
-        vec![
+        let mut models = vec![
             // OpenAI models
             ModelInfo {
                 id: "gpt-4".to_string(),
@@ -157,13 +163,45 @@ impl LLMServiceFactory {
                 supports_streaming: true,
                 cost_per_token: Some(0.0025),
             },
-        ]
+        ];
+
+        // Add Claude Code models (always include in list, but they will be disabled if CLI is not available)
+        models.extend(vec![
+            ModelInfo {
+                id: "claude-code-sonnet".to_string(),
+                name: "Claude 3.5 Sonnet (via Claude Code)".to_string(),
+                provider: Provider::ClaudeCode,
+                max_tokens: 8192,
+                supports_streaming: true,
+                cost_per_token: None, // No direct cost since using subscription
+            },
+            ModelInfo {
+                id: "claude-code-haiku".to_string(),
+                name: "Claude 3.5 Haiku (via Claude Code)".to_string(),
+                provider: Provider::ClaudeCode,
+                max_tokens: 8192,
+                supports_streaming: true,
+                cost_per_token: None,
+            },
+            ModelInfo {
+                id: "claude-code-opus".to_string(),
+                name: "Claude 3 Opus (via Claude Code)".to_string(),
+                provider: Provider::ClaudeCode,
+                max_tokens: 4096,
+                supports_streaming: true,
+                cost_per_token: None,
+            },
+        ]);
+
+        models
     }
 
     /// Parse model ID to determine provider
     pub fn provider_from_model(model_id: &str) -> Result<Provider, AppError> {
         if model_id.starts_with("gpt-") {
             Ok(Provider::OpenAI)
+        } else if model_id.starts_with("claude-code-") {
+            Ok(Provider::ClaudeCode)
         } else if model_id.starts_with("claude-") {
             Ok(Provider::Anthropic)
         } else {

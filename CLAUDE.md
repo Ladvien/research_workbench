@@ -16,6 +16,12 @@
 ```
 workbench.lolzlab.com --> Cloudflare tunnel --> 192.168.1.102 nginx reverse proxy --> 192.168.1.110:4510 (you are here) --> nginx --> .110:4512 (backend) / .110:4510 (frontend)
 ```
+## Rules
+- Always, always do all testing through `workbench.lolzlab.com`
+- Do not change anything in the `.env` setup without asking
+- Always use the `.env` variables as inputs for the application
+- Use `puppeteer` MCP to ensure the application is working.
+
 
 ### Rationale
 This application is designed to run directly on bare metal infrastructure. The Lolz Lab cluster uses systemd services and direct process management for maximum performance and minimal overhead.

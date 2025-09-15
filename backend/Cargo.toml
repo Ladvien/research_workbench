@@ -69,6 +69,7 @@ reqwest = { version = "0.12", features = ["json", "stream"] }
 # Async streams
 futures = "0.3"
 tokio-stream = "0.1"
+async-stream = "0.3"
 
 # Server-Sent Events
 axum-streams = "0.17"

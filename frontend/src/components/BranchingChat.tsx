@@ -4,6 +4,7 @@ import { BranchVisualizer } from './BranchVisualizer';
 import { ChatInput } from './ChatInput';
 import { LoadingSpinner, LoadingDots } from './LoadingSpinner';
 import { ErrorAlert } from './ErrorAlert';
+import ModelSelector from './ModelSelector';
 import { useConversationStore } from '../hooks/useConversationStore';
 import { useBranching } from '../hooks/useBranching';
 import { categorizeError, retryOperation, isTemporaryError } from '../utils/errorHandling';
@@ -149,7 +150,7 @@ export const BranchingChat: React.FC = () => {
         {/* Header */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1">
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {currentConversationId ? 'Workbench LLM Chat' : 'Start a New Conversation'}
               </h1>
@@ -159,6 +160,14 @@ export const BranchingChat: React.FC = () => {
                   : 'Send a message to begin chatting'
                 }
               </p>
+            </div>
+
+            {/* Model Selector */}
+            <div className="mx-4">
+              <ModelSelector
+                disabled={false}
+                className="min-w-[200px]"
+              />
             </div>
 
             {/* Branch Controls */}

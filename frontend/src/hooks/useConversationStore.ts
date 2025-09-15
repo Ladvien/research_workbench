@@ -46,6 +46,7 @@ export const useConversationStore = create<ConversationState>()(
       conversations: [],
       currentMessages: [],
       streamingMessage: null,
+      selectedModel: 'gpt-4', // Default model
       isLoading: false,
       isStreaming: false,
       error: null,
@@ -55,6 +56,10 @@ export const useConversationStore = create<ConversationState>()(
         set({ currentConversationId: id });
         // Load the conversation messages when switching
         get().loadConversation(id);
+      },
+
+      setSelectedModel: (modelId: string) => {
+        set({ selectedModel: modelId });
       },
 
       loadConversations: async () => {
@@ -150,7 +155,7 @@ export const useConversationStore = create<ConversationState>()(
       },
 
       sendMessage: async (content: string) => {
-        const { currentConversationId } = get();
+        const { currentConversationId, selectedModel } = get();
 
         if (!currentConversationId) {
           // Create a new conversation first with title generated from first message
@@ -158,7 +163,7 @@ export const useConversationStore = create<ConversationState>()(
             const generatedTitle = generateTitleFromMessage(content);
             const conversationId = await get().createConversation({
               title: generatedTitle,
-              model: 'gpt-4',
+              model: selectedModel,
             });
 
             // Now send the message to the new conversation
@@ -213,7 +218,7 @@ export const useConversationStore = create<ConversationState>()(
       },
 
       sendStreamingMessage: async (content: string) => {
-        const { currentConversationId } = get();
+        const { currentConversationId, selectedModel } = get();
 
         if (!currentConversationId) {
           // Create a new conversation first with title generated from first message
@@ -221,7 +226,7 @@ export const useConversationStore = create<ConversationState>()(
             const generatedTitle = generateTitleFromMessage(content);
             const conversationId = await get().createConversation({
               title: generatedTitle,
-              model: 'gpt-4',
+              model: selectedModel,
             });
 
             // Now send the streaming message to the new conversation
@@ -433,6 +438,7 @@ export const useConversationStore = create<ConversationState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         currentConversationId: state.currentConversationId,
+        selectedModel: state.selectedModel,
         // Don't persist conversations and messages as they should be fetched from server
       }),
     }

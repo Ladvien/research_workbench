@@ -9,6 +9,8 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { BarChart3, MessageSquare, LogOut, User } from 'lucide-react';
 import { useConversationStore } from './hooks/useConversationStore';
 import { useAuth, useUser } from './hooks/useAuth';
+import { Login } from './components/Auth/Login';
+import { Register } from './components/Auth/Register';
 
 type CurrentView = 'chat' | 'analytics';
 
@@ -16,9 +18,10 @@ type CurrentView = 'chat' | 'analytics';
 const AuthenticatedApp: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentView, setCurrentView] = useState<CurrentView>('chat');
+  const [showRegister, setShowRegister] = useState(false);
 
   const { setCurrentConversation, loadConversation } = useConversationStore();
-  const { logout, isAuthenticated } = useAuth();
+  const { login, register, logout, isAuthenticated } = useAuth();
   const { user, displayName, initials } = useUser();
 
   const handleLogout = async () => {
@@ -54,25 +57,27 @@ const AuthenticatedApp: React.FC = () => {
     }, 100);
   };
 
-  // Show login prompt if not authenticated
+  // Show login/register form if not authenticated
   if (!isAuthenticated) {
+    if (showRegister) {
+      return (
+        <Register
+          onSubmit={async (data) => {
+            await register({ email: data.email, username: data.username, password: data.password });
+          }}
+          onSwitchToLogin={() => setShowRegister(false)}
+        />
+      );
+    }
+
     return (
-      <div className="flex h-screen bg-gray-50 dark:bg-gray-900 items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Welcome to Workbench
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
-            Please log in to continue
-          </p>
-          <button
-            onClick={() => window.location.href = '/login'}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-          >
-            Go to Login
-          </button>
-        </div>
-      </div>
+      <Login
+        onSubmit={async (data) => {
+          // Now frontend and backend both use 'email' field directly
+          await login({ email: data.email, password: data.password });
+        }}
+        onSwitchToRegister={() => setShowRegister(true)}
+      />
     );
   }
 
@@ -209,20 +214,7 @@ function App() {
       }}
     >
       <AuthProvider>
-        <ProtectedRoute
-          showLoading={true}
-          loadingComponent={
-            <div className="flex items-center justify-center min-h-screen bg-gray-50">
-              <div className="flex flex-col items-center space-y-4">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                <h2 className="text-xl font-semibold text-gray-900">Research Workbench</h2>
-                <p className="text-gray-600">Loading...</p>
-              </div>
-            </div>
-          }
-        >
-          <AuthenticatedApp />
-        </ProtectedRoute>
+        <AuthenticatedApp />
       </AuthProvider>
     </ErrorBoundary>
   );

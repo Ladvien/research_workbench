@@ -4591,6 +4591,7 @@ dependencies = [
  "anyhow",
  "argon2",
  "async-openai",
+ "async-stream",
  "async-trait",
  "axum",
  "axum-streams",

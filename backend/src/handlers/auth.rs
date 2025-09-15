@@ -83,7 +83,7 @@ pub async fn register(
     let response_builder = Response::builder().status(StatusCode::CREATED).header(
         header::SET_COOKIE,
         format!(
-            "token={}; HttpOnly; Secure; SameSite=Strict; Max-Age=86400; Path=/",
+            "token={}; HttpOnly; SameSite=Strict; Max-Age=86400; Path=/",
             response.access_token
         ),
     );
@@ -132,7 +132,7 @@ pub async fn login(
         .header(
             header::SET_COOKIE,
             format!(
-                "token={}; HttpOnly; Secure; SameSite=Strict; Max-Age=86400; Path=/",
+                "token={}; HttpOnly; SameSite=Strict; Max-Age=86400; Path=/",
                 response.access_token
             ),
         )
@@ -162,7 +162,7 @@ pub async fn logout(session: Session) -> Result<Response, AppError> {
         .status(StatusCode::OK)
         .header(
             header::SET_COOKIE,
-            "token=; HttpOnly; Secure; SameSite=Strict; Max-Age=0; Path=/",
+            "token=; HttpOnly; SameSite=Strict; Max-Age=0; Path=/",
         )
         .body(
             Json(json!({

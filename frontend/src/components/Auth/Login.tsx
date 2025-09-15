@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 
 interface LoginFormData {
-  emailOrUsername: string;
+  email: string;
   password: string;
 }
 
@@ -20,7 +20,7 @@ export const Login: React.FC<LoginProps> = ({
   onSwitchToRegister
 }) => {
   const [formData, setFormData] = useState<LoginFormData>({
-    emailOrUsername: '',
+    email: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -28,9 +28,14 @@ export const Login: React.FC<LoginProps> = ({
 
   const validateField = (name: keyof LoginFormData, value: string): string | null => {
     switch (name) {
-      case 'emailOrUsername':
+      case 'email':
         if (!value.trim()) {
-          return 'Email or username is required';
+          return 'Email address is required';
+        }
+        // Basic email format validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value.trim())) {
+          return 'Please enter a valid email address';
         }
         return null;
       case 'password':
@@ -85,7 +90,7 @@ export const Login: React.FC<LoginProps> = ({
     }
   };
 
-  const isFormValid = formData.emailOrUsername.trim() && formData.password && Object.keys(validationErrors).length === 0;
+  const isFormValid = formData.email.trim() && formData.password && Object.keys(validationErrors).length === 0;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
@@ -112,35 +117,35 @@ export const Login: React.FC<LoginProps> = ({
           )}
 
           <div className="space-y-4">
-            {/* Email or Username Field */}
+            {/* Email Field */}
             <div>
-              <label htmlFor="emailOrUsername" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Email or Username
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Email Address
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  id="emailOrUsername"
-                  name="emailOrUsername"
-                  type="text"
-                  autoComplete="username"
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
                   required
                   className={`appearance-none relative block w-full pl-10 pr-3 py-2 border rounded-md placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm ${
-                    validationErrors.emailOrUsername
+                    validationErrors.email
                       ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-200'
                       : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
                   }`}
-                  placeholder="Enter your email or username"
-                  value={formData.emailOrUsername}
+                  placeholder="Enter your email address"
+                  value={formData.email}
                   onChange={handleInputChange}
                   disabled={isLoading}
                 />
               </div>
-              {validationErrors.emailOrUsername && (
+              {validationErrors.email && (
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">
-                  {validationErrors.emailOrUsername}
+                  {validationErrors.email}
                 </p>
               )}
             </div>

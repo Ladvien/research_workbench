@@ -61,12 +61,15 @@ async fn main() -> anyhow::Result<()> {
     // Initialize data access layer
     let dal = DataAccessLayer::new(database);
 
+    // Initialize admin user if configured
+    initialize_admin_user(&dal).await?;
+
     // Create memory store for sessions (for development)
     // TODO: Replace with Redis store in production
     tracing::info!("Setting up in-memory sessions...");
     let session_store = MemoryStore::default();
     let session_layer = SessionManagerLayer::new(session_store)
-        .with_secure(true) // HTTPS enforcement for production
+        .with_secure(false) // Disabled for development (enable for production)
         .with_same_site(tower_sessions::cookie::SameSite::Strict)
         .with_expiry(Expiry::OnInactivity(Duration::hours(
             config.session_timeout_hours as i64,
@@ -203,11 +206,11 @@ async fn create_app(
         // .route("/api/files/:id", axum::routing::get(handlers::file::download_file))
         // .route("/api/files/:id", axum::routing::delete(handlers::file::delete_file))
         // .route("/api/messages/:id/attachments", axum::routing::get(handlers::file::get_message_attachments))
-        // Model endpoints (temporarily disabled)
-        // .route("/api/models", get(handlers::models::get_models))
-        // .route("/api/models/health", get(handlers::models::models_health))
-        // .route("/api/models/:provider", get(handlers::models::get_models_by_provider))
-        // .route("/api/models/config/:model_id", get(handlers::models::get_model_config))
+        // Model endpoints
+        .route("/api/models", get(handlers::models::get_models))
+        .route("/api/models/health", get(handlers::models::models_health))
+        .route("/api/models/:provider", get(handlers::models::get_models_by_provider))
+        .route("/api/models/config/:model_id", get(handlers::models::get_model_config))
         // Add application state
         .with_state(app_state.clone())
         // Add session middleware
@@ -235,4 +238,70 @@ async fn create_app(
         .layer(tower_http::trace::TraceLayer::new_for_http());
 
     Ok(app)
+}
+
+/// Initialize admin user from environment variables if not exists
+async fn initialize_admin_user(dal: &DataAccessLayer) -> anyhow::Result<()> {
+    // Check if admin credentials are provided in environment
+    let admin_email = match std::env::var("ADMIN_EMAIL") {
+        Ok(email) if !email.is_empty() => email,
+        _ => {
+            tracing::info!("No ADMIN_EMAIL configured, skipping admin user initialization");
+            return Ok(());
+        }
+    };
+
+    let admin_password = match std::env::var("ADMIN_PASSWORD") {
+        Ok(password) if !password.is_empty() => password,
+        _ => {
+            tracing::warn!("ADMIN_EMAIL configured but no ADMIN_PASSWORD, skipping admin user initialization");
+            return Ok(());
+        }
+    };
+
+    // Extract username from email (part before @)
+    let admin_username = admin_email.split('@').next().unwrap_or(&admin_email).to_string();
+
+    // Check if admin user already exists by email
+    let existing_user_by_email = dal.users().find_by_email(&admin_email).await?;
+
+    if existing_user_by_email.is_some() {
+        tracing::info!("Admin user with email '{}' already exists", admin_email);
+        return Ok(());
+    }
+
+    // Also check by username
+    let existing_user = dal.users().find_by_username(&admin_username).await?;
+
+    if existing_user.is_some() {
+        tracing::info!("Admin user '{}' already exists", admin_username);
+        return Ok(());
+    }
+
+    // Create admin user
+    tracing::info!("Creating admin user with email '{}'", admin_email);
+
+    let create_request = crate::models::CreateUserRequest {
+        email: admin_email.clone(),
+        username: admin_username.clone(),
+        password: admin_password,
+    };
+
+    match dal.users().create_from_request(create_request).await {
+        Ok(user) => {
+            tracing::info!(
+                "Successfully created admin user '{}' with email '{}' and ID: {}",
+                admin_username,
+                admin_email,
+                user.id
+            );
+            Ok(())
+        }
+        Err(e) => {
+            tracing::error!("Failed to create admin user: {}", e);
+            // Don't fail the application startup if admin user creation fails
+            // This allows the app to start even if there's an issue with the admin account
+            Ok(())
+        }
+    }
 }
