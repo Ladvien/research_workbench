@@ -104,7 +104,7 @@ export const Chat: React.FC = () => {
 
         {/* Display streaming message */}
         {streamingMessage && (
-          <div className="flex justify-start mb-4">
+          <div className="flex justify-start mb-4" data-testid="streaming-message">
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm max-w-[80%]">
               <div className="text-xs font-medium mb-2 text-gray-500 dark:text-gray-400 flex items-center">
                 <span>Assistant</span>
@@ -115,7 +115,7 @@ export const Chat: React.FC = () => {
                   </>
                 )}
               </div>
-              <div className="prose prose-sm dark:prose-invert max-w-none">
+              <div className="prose prose-sm dark:prose-invert max-w-none" data-testid="streaming-content">
                 {streamingMessage.content || <span className="text-gray-400">Waiting for response...</span>}
                 {isStreaming && <span className="animate-pulse bg-blue-500 text-blue-500 ml-1">|</span>}
               </div>

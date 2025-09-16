@@ -210,7 +210,8 @@ class ApiClient {
       console.log('[ApiClient] Streaming message request:', {
         conversationId,
         contentLength: content.length,
-        requestBody
+        requestBody,
+        url: `${this.baseUrl}/api/v1/conversations/${conversationId}/stream`
       });
 
       const response = await fetch(`${this.baseUrl}/api/v1/conversations/${conversationId}/stream`, {
@@ -225,6 +226,12 @@ class ApiClient {
         signal: abortSignal,
       });
 
+      console.log('[ApiClient] Streaming response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
       if (!response.ok) {
         // Handle 401 for streaming requests
         if (response.status === 401) {
@@ -237,6 +244,15 @@ class ApiClient {
             return;
           }
         }
+
+        // Handle 404 - conversation not found
+        if (response.status === 404) {
+          console.log('[ApiClient] Conversation not found (404), will create new conversation');
+          // Return a specific error that the store can handle
+          onError('CONVERSATION_NOT_FOUND');
+          return;
+        }
+
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
@@ -251,24 +267,47 @@ class ApiClient {
       try {
         while (true) {
           const { done, value } = await reader.read();
+          console.log('[ApiClient] Stream read:', { done, valueLength: value?.length });
 
           if (done) {
+            console.log('[ApiClient] Stream reading complete');
             break;
           }
 
           // Decode the chunk and add to buffer
-          buffer += decoder.decode(value, { stream: true });
+          const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
+          console.log('[ApiClient] Received chunk:', chunk);
+          console.log('[ApiClient] Current buffer:', buffer);
 
           // Process complete SSE messages
           const lines = buffer.split('\n');
           buffer = lines.pop() || ''; // Keep incomplete line in buffer
+          console.log('[ApiClient] Processing lines:', lines);
 
           for (const line of lines) {
+            console.log('[ApiClient] Processing line:', line);
+
+            // Skip empty lines and SSE comments
+            if (!line.trim() || line.startsWith(':')) {
+              continue;
+            }
+
             if (line.startsWith('data: ')) {
               try {
-                const data = JSON.parse(line.slice(6));
+                const dataStr = line.slice(6).trim();
+
+                // Skip the "[DONE]" message if present
+                if (dataStr === '[DONE]') {
+                  console.log('[ApiClient] Received [DONE] signal');
+                  continue;
+                }
+
+                const data = JSON.parse(dataStr);
+                console.log('[ApiClient] Parsed SSE data:', data);
 
                 if (data.type === 'token' && data.data?.content) {
+                  console.log('[ApiClient] Calling onToken with:', data.data.content);
                   onToken(data.data.content);
                 } else if (data.type === 'done') {
                   console.log('[ApiClient] Stream complete, messageId:', data.data?.messageId);
@@ -282,13 +321,16 @@ class ApiClient {
                   console.log('[ApiClient] Unknown stream event type:', data);
                 }
               } catch (parseError) {
-                console.warn('Failed to parse SSE data:', line);
+                console.warn('[ApiClient] Failed to parse SSE data:', line, parseError);
               }
+            } else if (line.trim() && !line.startsWith(':')) {
+              console.log('[ApiClient] Non-data SSE line:', line);
             }
           }
         }
       } finally {
         reader.releaseLock();
+        console.log('[ApiClient] Stream reader released');
       }
 
       onComplete();

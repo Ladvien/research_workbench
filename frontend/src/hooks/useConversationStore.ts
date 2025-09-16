@@ -94,7 +94,18 @@ export const useConversationStore = create<ConversationState>()(
           const response = await apiClient.getConversation(id);
 
           if (response.error) {
-            set({ error: response.error, isLoading: false });
+            // If conversation not found, clear the invalid ID from state
+            if (response.error.includes('not found') || response.error.includes('404')) {
+              console.log('[ConversationStore] Conversation not found, clearing invalid ID:', id);
+              set({
+                currentConversationId: null,
+                currentMessages: [],
+                error: null, // Don't show error for not found, just clear state
+                isLoading: false
+              });
+            } else {
+              set({ error: response.error, isLoading: false });
+            }
             return;
           }
 
@@ -108,10 +119,22 @@ export const useConversationStore = create<ConversationState>()(
           }
         } catch (error) {
           const errorMessage = formatErrorForUser(error, 'Unable to load conversation');
-          set({
-            error: errorMessage,
-            isLoading: false
-          });
+
+          // Check if it's a 404 error in the catch block as well
+          if (errorMessage.includes('not found') || errorMessage.includes('404')) {
+            console.log('[ConversationStore] Conversation not found in catch, clearing invalid ID:', id);
+            set({
+              currentConversationId: null,
+              currentMessages: [],
+              error: null,
+              isLoading: false
+            });
+          } else {
+            set({
+              error: errorMessage,
+              isLoading: false
+            });
+          }
         }
       },
 
@@ -311,7 +334,45 @@ export const useConversationStore = create<ConversationState>()(
               });
             },
             // onError callback
-            (error: string) => {
+            async (error: string) => {
+              // Handle conversation not found error
+              if (error === 'CONVERSATION_NOT_FOUND') {
+                console.log('[ConversationStore] Conversation not found, creating new conversation and retrying...');
+
+                // Clear the invalid conversation ID
+                set({
+                  currentConversationId: null,
+                  currentMessages: [],
+                  streamingMessage: null,
+                  isStreaming: false,
+                  abortController: null
+                });
+
+                // Create new conversation and retry
+                try {
+                  const generatedTitle = generateTitleFromMessage(content);
+                  const newConversationId = await get().createConversation({
+                    title: generatedTitle,
+                    model: selectedModel,
+                  });
+
+                  // Retry streaming with the new conversation
+                  if (newConversationId) {
+                    await get().sendStreamingMessage(content);
+                  }
+                } catch (createError) {
+                  console.error('[ConversationStore] Failed to create new conversation:', createError);
+                  set({
+                    error: 'Failed to create a new conversation. Please try again.',
+                    isStreaming: false,
+                    streamingMessage: null,
+                    abortController: null
+                  });
+                }
+                return;
+              }
+
+              // Handle other errors normally
               set({
                 error,
                 isStreaming: false,

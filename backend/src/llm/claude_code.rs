@@ -3,8 +3,10 @@ use futures::Stream;
 use serde::Deserialize;
 use std::pin::Pin;
 use std::process::Stdio;
+use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
+use tokio::time::timeout;
 use uuid::Uuid;
 
 use super::{
@@ -123,54 +125,51 @@ impl ClaudeCodeService {
             .stdin(Stdio::null())
             .current_dir("/mnt/datadrive_m2/research_workbench");
 
-        // Inherit critical environment variables for Claude CLI authentication
+        // Set up a minimal, clean environment for Claude CLI
+        // Only preserve essential environment variables needed for Claude authentication
+        cmd.env_clear();
+
+        // Essential system variables
         if let Ok(home) = std::env::var("HOME") {
             cmd.env("HOME", home);
-        } else {
-            cmd.env("HOME", "/home/ladvien");
         }
-
-        // Inherit USER for proper identification
         if let Ok(user) = std::env::var("USER") {
             cmd.env("USER", user);
-        } else {
-            cmd.env("USER", "ladvien");
         }
-
-        // Inherit PATH to locate Claude CLI binary
         if let Ok(path) = std::env::var("PATH") {
             cmd.env("PATH", path);
         }
 
-        // Inherit Claude Code specific environment variables
-        if let Ok(claudecode) = std::env::var("CLAUDECODE") {
-            cmd.env("CLAUDECODE", claudecode);
-        }
-        if let Ok(entrypoint) = std::env::var("CLAUDE_CODE_ENTRYPOINT") {
-            cmd.env("CLAUDE_CODE_ENTRYPOINT", entrypoint);
-        }
-        if let Ok(sse_port) = std::env::var("CLAUDE_CODE_SSE_PORT") {
-            cmd.env("CLAUDE_CODE_SSE_PORT", sse_port);
+        // Claude-specific environment variables (if they exist)
+        for var in ["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SSE_PORT"] {
+            if let Ok(value) = std::env::var(var) {
+                tracing::debug!("Preserving environment variable: {}={}", var, value);
+                cmd.env(var, value);
+            }
         }
 
-        // Inherit XDG directories for proper config access
-        if let Ok(xdg_runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
-            cmd.env("XDG_RUNTIME_DIR", xdg_runtime_dir);
-        }
+        // Get the final command for debugging
+        let args: Vec<String> = std::iter::once("/home/ladvien/.npm-global/bin/claude".to_string())
+            .chain(cmd.as_std().get_args().map(|s| s.to_string_lossy().to_string()))
+            .collect();
+        let command_debug = format!("Command: {:?}", args);
+        tracing::info!("Executing Claude Code CLI: {}", command_debug);
 
-        // Pass Claude Code OAuth token for authentication
-        if let Ok(oauth_token) = std::env::var("CLAUDE_CODE_OAUTH_TOKEN") {
-            cmd.env("CLAUDE_CODE_OAUTH_TOKEN", oauth_token);
+        // Log environment variables being passed
+        tracing::debug!("Environment variables passed to Claude CLI:");
+        for (key, value) in cmd.as_std().get_envs() {
+            if let (Some(k), Some(v)) = (key.to_str(), value.and_then(|v| v.to_str())) {
+                tracing::debug!("  {}={}", k, v);
+            }
         }
-
-        let command_debug = format!("{:?}", cmd);
-        tracing::info!("Executing Claude Code CLI command: {}", command_debug);
 
         let child = cmd.spawn().map_err(|e| {
             tracing::error!("Failed to spawn Claude Code CLI process: {}", e);
+            tracing::error!("Command: {}", command_debug);
             AppError::InternalServerError(format!("Claude Code CLI not available: {}", e))
         })?;
 
+        tracing::debug!("Claude Code CLI process spawned successfully, PID: {:?}", child.id());
         Ok((child, command_debug))
     }
 
@@ -272,10 +271,23 @@ impl LLMService for ClaudeCodeService {
         tracing::info!("Claude Code chat_completion prompt: '{}'", prompt);
         let (child, command_debug) = self.execute_claude_command(&prompt, false).await?;
 
-        let output = child.wait_with_output().await.map_err(|e| {
-            tracing::error!("Failed to wait for Claude Code CLI process: {}", e);
-            AppError::InternalServerError(format!("Claude Code CLI execution failed: {}", e))
-        })?;
+        // Add timeout to prevent hanging - Claude Code should respond within 120 seconds
+        let timeout_duration = Duration::from_secs(120);
+        tracing::debug!("Waiting for Claude Code CLI response with timeout: {:?}", timeout_duration);
+
+        let output = timeout(timeout_duration, child.wait_with_output())
+            .await
+            .map_err(|_| {
+                tracing::error!("Claude Code CLI process timed out after {:?}", timeout_duration);
+                AppError::InternalServerError(format!(
+                    "Claude Code CLI process timed out after {:?}",
+                    timeout_duration
+                ))
+            })?
+            .map_err(|e| {
+                tracing::error!("Failed to wait for Claude Code CLI process: {}", e);
+                AppError::InternalServerError(format!("Claude Code CLI execution failed: {}", e))
+            })?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
 

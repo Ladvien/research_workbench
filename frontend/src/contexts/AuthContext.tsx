@@ -150,27 +150,27 @@ class AuthAPI {
   }
 
   async login(credentials: LoginRequest): Promise<ApiResponse<AuthUser>> {
-    return this.request<AuthUser>('/api/auth/login', {
+    return this.request<AuthUser>('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
   }
 
   async register(userData: RegisterRequest): Promise<ApiResponse<AuthUser>> {
-    return this.request<AuthUser>('/api/auth/register', {
+    return this.request<AuthUser>('/api/v1/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
   }
 
   async logout(): Promise<ApiResponse<void>> {
-    return this.request<void>('/api/auth/logout', {
+    return this.request<void>('/api/v1/auth/logout', {
       method: 'POST',
     });
   }
 
   async getCurrentUser(): Promise<ApiResponse<AuthUser>> {
-    return this.request<AuthUser>('/api/auth/me');
+    return this.request<AuthUser>('/api/v1/auth/me');
   }
 }
 

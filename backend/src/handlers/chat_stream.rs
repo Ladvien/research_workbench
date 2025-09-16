@@ -31,9 +31,15 @@ pub async fn stream_message(
     user: UserResponse,
     Json(request): Json<StreamChatRequest>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, AppError> {
-    tracing::info!("Starting streaming for conversation {}", conversation_id);
+    tracing::info!(
+        "Starting streaming for conversation {} from user {} with content: '{}'",
+        conversation_id,
+        user.id,
+        request.content.chars().take(100).collect::<String>()
+    );
 
     // Get the conversation to find out which model to use
+    tracing::debug!("Looking up conversation with ID: {}", conversation_id);
     let conversation = app_state
         .dal
         .conversations()
@@ -41,22 +47,33 @@ pub async fn stream_message(
         .await?
         .ok_or_else(|| AppError::NotFound("Conversation not found".to_string()))?;
 
+    tracing::info!(
+        "Found conversation: provider={}, model={}, title='{}'",
+        conversation.provider,
+        conversation.model,
+        conversation.title.as_deref().unwrap_or("No title")
+    );
+
     // Verify user owns the conversation
     if conversation.user_id != user.id {
         return Err(AppError::Forbidden("Access denied".to_string()));
     }
 
     // Save user message to database
+    tracing::debug!("Saving user message to database");
     let _user_message = app_state
         .chat_service
         .send_message(user.id, conversation_id, request.content.clone())
         .await?;
+    tracing::debug!("User message saved successfully");
 
     // Get conversation history for context
+    tracing::debug!("Loading conversation history");
     let messages = app_state
         .chat_service
         .get_conversation_messages(user.id, conversation_id)
         .await?;
+    tracing::debug!("Loaded {} messages for conversation context", messages.len());
 
     // Convert messages to LLM format
     let chat_messages: Vec<ChatMessage> = messages
@@ -86,25 +103,43 @@ pub async fn stream_message(
     };
 
     let llm_service = LLMServiceFactory::create_service(&provider, config)?;
+    tracing::info!("Created LLM service for provider: {:?}", provider);
 
     // For now, since streaming isn't fully implemented in Claude Code,
     // let's do a non-streaming request and simulate streaming
     let llm_request_non_stream = ChatRequest {
         model: conversation.model.clone(),
-        messages: chat_messages,
+        messages: chat_messages.clone(),
         temperature: request.temperature,
         max_tokens: request.max_tokens,
         stream: Some(false),
     };
 
+    tracing::info!(
+        "Calling LLM service with model: {}, {} messages, provider: {:?}",
+        conversation.model,
+        chat_messages.len(),
+        provider
+    );
+
     // Call the LLM service
+    let start_time = std::time::Instant::now();
     let llm_response = llm_service.chat_completion(llm_request_non_stream).await?;
+    let duration = start_time.elapsed();
+
+    tracing::info!(
+        "LLM service call completed in {:?}, response length: {} chars",
+        duration,
+        llm_response.message.content.len()
+    );
 
     // Save assistant response to database
+    tracing::debug!("Saving assistant response to database");
     let assistant_message = app_state
         .chat_service
         .send_assistant_message(conversation_id, llm_response.message.content.clone())
         .await?;
+    tracing::debug!("Assistant response saved with ID: {}", assistant_message.id);
 
     // Create a stream that sends the response as tokens
     let content = llm_response.message.content;
@@ -116,22 +151,34 @@ pub async fn stream_message(
         .map(|w| format!("{w} "))
         .collect();
 
-    let stream = futures::stream::iter(words.into_iter().enumerate())
+    tracing::info!(
+        "Starting stream simulation with {} words for message ID: {}",
+        words.len(),
+        message_id
+    );
+
+    // First send a start event with metadata
+    let start_stream = futures::stream::once(async move {
+        tracing::debug!("Sending stream start event for message ID: {}", message_id);
+        Ok::<Event, Infallible>(
+            Event::default().data(
+                serde_json::json!({
+                    "type": "start",
+                    "data": {
+                        "conversationId": conversation_id,
+                        "messageId": message_id
+                    }
+                })
+                .to_string(),
+            )
+        )
+    });
+
+    // Then send all words as token events
+    let word_stream = futures::stream::iter(words.into_iter().enumerate())
         .map(move |(i, word)| {
-            let event = if i == 0 {
-                // Send initial metadata
-                Event::default().event("start").data(
-                    serde_json::json!({
-                        "type": "start",
-                        "data": {
-                            "conversationId": conversation_id,
-                            "messageId": message_id
-                        }
-                    })
-                    .to_string(),
-                )
-            } else {
-                // Send token
+            tracing::debug!("Sending token {} for message ID: {}: '{}'", i, message_id, word.trim());
+            Ok::<Event, Infallible>(
                 Event::default().data(
                     serde_json::json!({
                         "type": "token",
@@ -141,12 +188,13 @@ pub async fn stream_message(
                     })
                     .to_string(),
                 )
-            };
+            )
+        });
 
-            Ok::<Event, Infallible>(event)
-        })
+    let stream = start_stream.chain(word_stream)
         .chain(futures::stream::once(async move {
             // Send completion event
+            tracing::debug!("Sending stream completion event for message ID: {}", message_id);
             Ok::<Event, Infallible>(
                 Event::default().data(
                     serde_json::json!({

@@ -150,6 +150,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     isLoading,
     error,
     loadConversations,
+    loadConversation,
     setCurrentConversation,
     createConversation,
     updateConversationTitle,
@@ -162,8 +163,16 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   const [operationType, setOperationType] = useState<'rename' | 'delete' | null>(null);
 
   useEffect(() => {
+    // Load all conversations first
     loadConversations();
-  }, [loadConversations]);
+
+    // If there's a persisted conversation ID, validate it by trying to load it
+    if (currentConversationId) {
+      console.log('[ConversationSidebar] Validating persisted conversation:', currentConversationId);
+      // The loadConversation function will handle 404 errors and clear invalid IDs
+      loadConversation(currentConversationId);
+    }
+  }, []); // Empty dependency to run only once on mount
 
   const handleNewConversation = async () => {
     try {

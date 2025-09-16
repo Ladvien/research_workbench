@@ -10,7 +10,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 const authApi = {
   async login(email: string, password: string): Promise<ApiResponse<{ user: User; tokens?: AuthTokens }>> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -42,7 +42,7 @@ const authApi = {
 
   async register(email: string, username: string, password: string): Promise<ApiResponse<{ user: User; tokens?: AuthTokens }>> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -74,7 +74,7 @@ const authApi = {
 
   async logout(): Promise<ApiResponse<void>> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -103,7 +103,7 @@ const authApi = {
 
   async getCurrentUser(): Promise<ApiResponse<User>> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

@@ -38,9 +38,9 @@ impl Database {
             .await?;
 
         // Run migrations
-        info!("Running database migrations...");
-        sqlx::migrate!("./migrations").run(&pool).await?;
-        info!("Database migrations completed successfully");
+        // info!("Running database migrations...");
+        // sqlx::migrate!("./migrations").run(&pool).await?;
+        // info!("Database migrations completed successfully");
 
         Ok(Self { pool })
     }
@@ -58,9 +58,9 @@ impl Database {
             .await?;
 
         // Run migrations
-        info!("Running database migrations...");
-        sqlx::migrate!("./migrations").run(&pool).await?;
-        info!("Database migrations completed successfully");
+        // info!("Running database migrations...");
+        // sqlx::migrate!("./migrations").run(&pool).await?;
+        // info!("Database migrations completed successfully");
 
         Ok(Self { pool })
     }
