@@ -83,7 +83,7 @@ impl ClaudeCodeService {
         prompt: &str,
         stream: bool,
     ) -> Result<(tokio::process::Child, String), AppError> {
-        let mut cmd = Command::new("claude");
+        let mut cmd = Command::new("/home/ladvien/.npm-global/bin/claude");
 
         // Add basic flags
         cmd.arg("--print"); // Non-interactive mode
@@ -123,15 +123,40 @@ impl ClaudeCodeService {
             .stdin(Stdio::null())
             .current_dir("/mnt/datadrive_m2/research_workbench");
 
-        // Ensure the subprocess has the HOME environment variable so claude can find credentials
-        // Force HOME to be ladvien's home directory
-        cmd.env("HOME", "/home/ladvien");
+        // Inherit critical environment variables for Claude CLI authentication
+        if let Ok(home) = std::env::var("HOME") {
+            cmd.env("HOME", home);
+        } else {
+            cmd.env("HOME", "/home/ladvien");
+        }
 
-        // Also set USER for good measure
-        cmd.env("USER", "ladvien");
+        // Inherit USER for proper identification
+        if let Ok(user) = std::env::var("USER") {
+            cmd.env("USER", user);
+        } else {
+            cmd.env("USER", "ladvien");
+        }
 
-        // Claude CLI will use credentials from ~/.claude/.credentials.json
-        // Don't override OAuth token as environment variable
+        // Inherit PATH to locate Claude CLI binary
+        if let Ok(path) = std::env::var("PATH") {
+            cmd.env("PATH", path);
+        }
+
+        // Inherit Claude Code specific environment variables
+        if let Ok(claudecode) = std::env::var("CLAUDECODE") {
+            cmd.env("CLAUDECODE", claudecode);
+        }
+        if let Ok(entrypoint) = std::env::var("CLAUDE_CODE_ENTRYPOINT") {
+            cmd.env("CLAUDE_CODE_ENTRYPOINT", entrypoint);
+        }
+        if let Ok(sse_port) = std::env::var("CLAUDE_CODE_SSE_PORT") {
+            cmd.env("CLAUDE_CODE_SSE_PORT", sse_port);
+        }
+
+        // Inherit XDG directories for proper config access
+        if let Ok(xdg_runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
+            cmd.env("XDG_RUNTIME_DIR", xdg_runtime_dir);
+        }
 
         let command_debug = format!("{:?}", cmd);
         tracing::info!("Executing Claude Code CLI command: {}", command_debug);

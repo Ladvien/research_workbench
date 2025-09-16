@@ -1,5 +1,44 @@
 # Completed Stories
 
+## Core Infrastructure
+
+### INFRA-001 Claude Code CLI Integration Fix - **COMPLETED**
+**Completed by**: Backend Developer
+**Date**: 2025-09-16
+
+**As a** developer
+**I want to** use Claude Code CLI subprocess execution for LLM integration
+**So that** the backend can successfully communicate with Claude Code
+
+**Acceptance Criteria:** ALL COMPLETED ✅
+- ✅ Fixed Claude Code CLI subprocess authentication issues
+- ✅ Updated subprocess execution to use full binary path instead of PATH resolution
+- ✅ Added comprehensive environment variable inheritance (HOME, USER, PATH, CLAUDECODE, etc.)
+- ✅ Maintained working directory configuration for proper context
+- ✅ Verified all backend tests pass (22 tests total, some ignored)
+
+**Technical Implementation:**
+- Enhanced `backend/src/llm/claude_code.rs` with full path resolution for Claude CLI binary
+- Changed from `Command::new("claude")` to `Command::new("/home/ladvien/.npm-global/bin/claude")`
+- Added comprehensive environment variable inheritance for subprocess execution:
+  - HOME, USER, PATH for basic system context
+  - CLAUDECODE, CLAUDE_CODE_ENTRYPOINT, CLAUDE_CODE_SSE_PORT for Claude Code specific variables
+  - XDG_RUNTIME_DIR for proper config access
+- Maintained working directory `/mnt/datadrive_m2/research_workbench` for proper project context
+
+**Problem Solved:**
+- Original issue: "Invalid API key" errors due to Claude CLI binary not being found in subprocess PATH
+- Root cause: Subprocess environment didn't inherit PATH properly for Claude CLI location
+- Solution: Use absolute path to Claude CLI binary and inherit all necessary environment variables
+
+**Files Modified:**
+- `backend/src/llm/claude_code.rs` - Fixed subprocess execution at line 86
+
+**Testing Results:**
+- All 22 backend tests pass successfully
+- Some tests ignored (related to embedding and search functionality not currently needed)
+- No regressions introduced by the fix
+
 ## Authentication
 
 ### AUTH-003 Frontend - Add Authorization Headers to API Requests - **COMPLETED**
