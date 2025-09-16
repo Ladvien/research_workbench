@@ -90,7 +90,7 @@ const AuthenticatedApp: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="relative h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar - only show for chat view */}
       {currentView === 'chat' && (
         <ConversationSidebar
@@ -100,7 +100,9 @@ const AuthenticatedApp: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={`flex flex-col h-full overflow-hidden transition-all duration-300 ${
+        currentView === 'chat' && sidebarOpen ? 'md:ml-80' : ''
+      }`}>
         {/* Navigation Header */}
         <Navigation
           currentView={currentView}

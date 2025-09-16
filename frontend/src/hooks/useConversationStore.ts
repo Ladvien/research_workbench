@@ -46,7 +46,7 @@ export const useConversationStore = create<ConversationState>()(
       conversations: [],
       currentMessages: [],
       streamingMessage: null,
-      selectedModel: 'gpt-4', // Default model
+      selectedModel: 'claude-code-opus', // Default model
       isLoading: false,
       isStreaming: false,
       error: null,
