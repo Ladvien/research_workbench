@@ -14,9 +14,10 @@ pub struct AnthropicService {
 }
 
 impl AnthropicService {
-    pub fn new(config: AppConfig) -> Result<Self, AppError> {
-        // TODO: Initialize proper Anthropic client when anthropic crate API is clarified
-        Ok(Self { config })
+    pub fn new(_config: AppConfig) -> Result<Self, AppError> {
+        // Anthropic client initialization will be implemented when the anthropic crate API is clarified
+        // For now, we use placeholder responses for development/testing
+        Ok(Self { config: _config })
     }
 }
 
@@ -48,7 +49,7 @@ impl LLMService for AnthropicService {
     }
 
     async fn chat_completion(&self, request: ChatRequest) -> Result<ChatResponse, AppError> {
-        // TODO: Implement actual Anthropic API call
+        // Anthropic API integration is not yet implemented - using placeholder response
         tracing::info!(
             "Anthropic chat completion for model: {} (placeholder)",
             request.model
@@ -74,7 +75,7 @@ impl LLMService for AnthropicService {
         &self,
         request: ChatRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamEvent, AppError>> + Send>>, AppError> {
-        // TODO: Implement actual Anthropic streaming
+        // Anthropic streaming integration is not yet implemented - using placeholder stream
         tracing::info!(
             "Anthropic streaming for model: {} (placeholder)",
             request.model

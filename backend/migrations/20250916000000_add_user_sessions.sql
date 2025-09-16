@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
 
+-- Critical composite indexes for session cleanup and limit enforcement
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_expires ON user_sessions(user_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_updated ON user_sessions(user_id, updated_at);
+
 -- Add trigger for updated_at
 CREATE TRIGGER update_user_sessions_updated_at
     BEFORE UPDATE ON user_sessions

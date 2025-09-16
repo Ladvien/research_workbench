@@ -60,7 +60,7 @@ describe('ApiClient with Cookie Authentication', () => {
       await apiClient.getConversations();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/conversations'),
+        expect.stringContaining('/api/v1/conversations'),
         expect.objectContaining({
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
@@ -75,7 +75,7 @@ describe('ApiClient with Cookie Authentication', () => {
       await apiClient.getConversations();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/conversations'),
+        expect.stringContaining('/api/v1/conversations'),
         expect.objectContaining({
           credentials: 'include',
         })
@@ -270,7 +270,7 @@ describe('ApiClient with Cookie Authentication', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/conversations'),
+        expect.stringContaining('/api/v1/conversations'),
         expect.objectContaining({
           method: 'POST',
           credentials: 'include',
@@ -288,7 +288,7 @@ describe('ApiClient with Cookie Authentication', () => {
       await apiClient.sendMessage('conv-1', 'Hello');
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/conversations/conv-1/messages'),
+        expect.stringContaining('/api/v1/conversations/conv-1/messages'),
         expect.objectContaining({
           method: 'POST',
           credentials: 'include',

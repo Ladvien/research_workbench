@@ -7,7 +7,6 @@ mod tests {
     use crate::models::JwtClaims;
     use chrono::{Duration, Utc};
     use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
-    use std::sync::Arc;
 
     #[test]
     fn test_jwt_token_generation_with_versioning() {

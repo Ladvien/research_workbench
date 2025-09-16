@@ -29,8 +29,8 @@ impl Database {
             .password(password);
 
         let pool = PgPoolOptions::new()
-            .max_connections(20)
-            .min_connections(5)
+            .max_connections(100)
+            .min_connections(20)
             .acquire_timeout(Duration::from_secs(3))
             .idle_timeout(Duration::from_secs(600))
             .max_lifetime(Duration::from_secs(1800))
@@ -49,8 +49,8 @@ impl Database {
         info!("Connecting to database...");
 
         let pool = PgPoolOptions::new()
-            .max_connections(20)
-            .min_connections(5)
+            .max_connections(100)
+            .min_connections(20)
             .acquire_timeout(Duration::from_secs(3))
             .idle_timeout(Duration::from_secs(600))
             .max_lifetime(Duration::from_secs(1800))
@@ -91,8 +91,8 @@ impl Default for DatabaseConfig {
         Self {
             url: std::env::var("DATABASE_URL")
                 .expect("DATABASE_URL environment variable is required but not set. Please set DATABASE_URL to a valid PostgreSQL connection string."),
-            max_connections: 20,
-            min_connections: 5,
+            max_connections: 100,
+            min_connections: 20,
             acquire_timeout: Duration::from_secs(3),
             idle_timeout: Duration::from_secs(600),
             max_lifetime: Duration::from_secs(1800),
@@ -112,8 +112,8 @@ impl DatabaseConfig {
 
         Ok(Self {
             url,
-            max_connections: 20,
-            min_connections: 5,
+            max_connections: 100,
+            min_connections: 20,
             acquire_timeout: Duration::from_secs(3),
             idle_timeout: Duration::from_secs(600),
             max_lifetime: Duration::from_secs(1800),

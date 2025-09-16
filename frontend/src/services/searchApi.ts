@@ -62,13 +62,13 @@ class SearchApiClient {
     if (similarityThreshold) params.append('similarity_threshold', similarityThreshold.toString());
 
     return this.request<SearchResponse>(
-      `/api/search?${params.toString()}`
+      `/api/v1/search?${params.toString()}`
     );
   }
 
   // Search messages using POST request with JSON body
   async searchMessagesPost(request: SearchRequest): Promise<ApiResponse<SearchResponse>> {
-    return this.request<SearchResponse>('/api/search', {
+    return this.request<SearchResponse>('/api/v1/search', {
       method: 'POST',
       body: JSON.stringify(request),
     });
@@ -76,19 +76,19 @@ class SearchApiClient {
 
   // Trigger background embedding generation job (admin only)
   async triggerEmbeddingJob(): Promise<ApiResponse<{ processed_count: number; success: boolean }>> {
-    return this.request<{ processed_count: number; success: boolean }>('/api/search/embedding-job', {
+    return this.request<{ processed_count: number; success: boolean }>('/api/v1/search/embedding-job', {
       method: 'POST',
     });
   }
 
   // Get search service health
   async getSearchHealth(): Promise<ApiResponse<{ status: string; service: string; timestamp: string }>> {
-    return this.request<{ status: string; service: string; timestamp: string }>('/api/search/health');
+    return this.request<{ status: string; service: string; timestamp: string }>('/api/v1/search/health');
   }
 
   // Get search statistics
   async getSearchStats(): Promise<ApiResponse<{ pending_embeddings: number; timestamp: string }>> {
-    return this.request<{ pending_embeddings: number; timestamp: string }>('/api/search/stats');
+    return this.request<{ pending_embeddings: number; timestamp: string }>('/api/v1/search/stats');
   }
 }
 

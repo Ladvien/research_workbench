@@ -52,7 +52,7 @@ export class AuthService {
    * User login
    */
   async login(request: LoginRequest): Promise<ApiResponse<AuthResponse>> {
-    return this.request<AuthResponse>('/api/auth/login', {
+    return this.request<AuthResponse>('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify(request),
     });
@@ -62,7 +62,7 @@ export class AuthService {
    * User registration
    */
   async register(request: RegisterRequest): Promise<ApiResponse<AuthResponse>> {
-    return this.request<AuthResponse>('/api/auth/register', {
+    return this.request<AuthResponse>('/api/v1/auth/register', {
       method: 'POST',
       body: JSON.stringify(request),
     });
@@ -72,7 +72,7 @@ export class AuthService {
    * User logout
    */
   async logout(): Promise<ApiResponse<void>> {
-    return this.request<void>('/api/auth/logout', {
+    return this.request<void>('/api/v1/auth/logout', {
       method: 'POST',
     });
   }
@@ -81,14 +81,14 @@ export class AuthService {
    * Get current authenticated user
    */
   async getCurrentUser(): Promise<ApiResponse<User>> {
-    return this.request<User>('/api/auth/me');
+    return this.request<User>('/api/v1/auth/me');
   }
 
   /**
    * Refresh access token
    */
   async refreshToken(): Promise<ApiResponse<AuthResponse>> {
-    return this.request<AuthResponse>('/api/auth/refresh', {
+    return this.request<AuthResponse>('/api/v1/auth/refresh', {
       method: 'POST',
     });
   }
@@ -97,7 +97,7 @@ export class AuthService {
    * Health check for auth service
    */
   async healthCheck(): Promise<ApiResponse<{ status: string }>> {
-    return this.request<{ status: string }>('/api/auth/health');
+    return this.request<{ status: string }>('/api/v1/auth/health');
   }
 }
 

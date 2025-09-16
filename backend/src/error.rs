@@ -3,8 +3,51 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
+use uuid::Uuid;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ErrorResponse {
+    pub error: ErrorDetails,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ErrorDetails {
+    pub code: String,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub request_id: String,
+}
+
+impl ErrorResponse {
+    pub fn new(code: &str, message: &str) -> Self {
+        Self {
+            error: ErrorDetails {
+                code: code.to_string(),
+                message: message.to_string(),
+                details: None,
+                timestamp: chrono::Utc::now(),
+                request_id: format!("req_{}", Uuid::new_v4().simple()),
+            },
+        }
+    }
+
+    pub fn with_details(code: &str, message: &str, details: serde_json::Value) -> Self {
+        Self {
+            error: ErrorDetails {
+                code: code.to_string(),
+                message: message.to_string(),
+                details: Some(details),
+                timestamp: chrono::Utc::now(),
+                request_id: format!("req_{}", Uuid::new_v4().simple()),
+            },
+        }
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum AppError {
@@ -53,58 +96,95 @@ pub enum AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let (status, error_message) = match self {
+        let (status, error_response) = match self {
             AppError::Internal(ref err) => {
                 tracing::error!("Internal server error: {}", err);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    ErrorResponse::new("INTERNAL_SERVER_ERROR", "Internal server error occurred"),
+                )
             }
             AppError::OpenAI(ref msg) => {
                 tracing::error!("OpenAI error: {}", msg);
-                (StatusCode::BAD_GATEWAY, msg.as_str())
+                (
+                    StatusCode::BAD_GATEWAY,
+                    ErrorResponse::new("EXTERNAL_API_ERROR", msg),
+                )
             }
             AppError::Anthropic(ref msg) => {
                 tracing::error!("Anthropic error: {}", msg);
-                (StatusCode::BAD_GATEWAY, msg.as_str())
+                (
+                    StatusCode::BAD_GATEWAY,
+                    ErrorResponse::new("EXTERNAL_API_ERROR", msg),
+                )
             }
-            AppError::BadRequest(ref msg) => (StatusCode::BAD_REQUEST, msg.as_str()),
-            AppError::RateLimit => (StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded"),
-            AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "Authentication required"),
-            AppError::NotFound(ref msg) => (StatusCode::NOT_FOUND, msg.as_str()),
-            AppError::Forbidden(ref msg) => (StatusCode::FORBIDDEN, msg.as_str()),
+            AppError::BadRequest(ref msg) => (
+                StatusCode::BAD_REQUEST,
+                ErrorResponse::new("BAD_REQUEST", msg),
+            ),
+            AppError::RateLimit => (
+                StatusCode::TOO_MANY_REQUESTS,
+                ErrorResponse::new("RATE_LIMIT_EXCEEDED", "Rate limit exceeded"),
+            ),
+            AppError::Unauthorized => (
+                StatusCode::UNAUTHORIZED,
+                ErrorResponse::new("UNAUTHORIZED", "Authentication required"),
+            ),
+            AppError::NotFound(ref msg) => (
+                StatusCode::NOT_FOUND,
+                ErrorResponse::new("NOT_FOUND", msg),
+            ),
+            AppError::Forbidden(ref msg) => (
+                StatusCode::FORBIDDEN,
+                ErrorResponse::new("FORBIDDEN", msg),
+            ),
             AppError::Database(ref msg) => {
                 tracing::error!("Database error: {}", msg);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Database error occurred")
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    ErrorResponse::new("DATABASE_ERROR", "Database error occurred"),
+                )
             }
-            AppError::Validation(ref msg) => (StatusCode::BAD_REQUEST, msg.as_str()),
-            AppError::AuthenticationError(ref msg) => (StatusCode::UNAUTHORIZED, msg.as_str()),
+            AppError::Validation(ref msg) => (
+                StatusCode::BAD_REQUEST,
+                ErrorResponse::new("VALIDATION_ERROR", msg),
+            ),
+            AppError::AuthenticationError(ref msg) => (
+                StatusCode::UNAUTHORIZED,
+                ErrorResponse::new("AUTHENTICATION_ERROR", msg),
+            ),
             AppError::ValidationError {
                 ref field,
                 ref message,
             } => {
+                let details = json!({
+                    "field": field,
+                    "reason": message
+                });
                 return (
-                    StatusCode::BAD_REQUEST,
-                    Json(json!({
-                        "error": "Validation failed",
-                        "field": field,
-                        "message": message,
-                        "status": 400,
-                    })),
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    Json(ErrorResponse::with_details(
+                        "VALIDATION_ERROR",
+                        &format!("Validation failed on field '{}'", field),
+                        details,
+                    )),
                 )
                     .into_response()
             }
             AppError::InternalServerError(ref msg) => {
                 tracing::error!("Internal server error: {}", msg);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    ErrorResponse::new("INTERNAL_SERVER_ERROR", "Internal server error occurred"),
+                )
             }
-            AppError::TooManyRequests(ref msg) => (StatusCode::TOO_MANY_REQUESTS, msg.as_str()),
+            AppError::TooManyRequests(ref msg) => (
+                StatusCode::TOO_MANY_REQUESTS,
+                ErrorResponse::new("TOO_MANY_REQUESTS", msg),
+            ),
         };
 
-        let body = Json(json!({
-            "error": error_message,
-            "status": status.as_u16(),
-        }));
-
-        (status, body).into_response()
+        (status, Json(error_response)).into_response()
     }
 }
 

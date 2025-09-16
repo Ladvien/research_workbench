@@ -80,12 +80,21 @@ pub async fn register(
         .await
         .map_err(|e| AppError::InternalServerError(format!("Session error: {}", e)))?;
 
-    // Set JWT token in HttpOnly cookie
+    // Set JWT token in HttpOnly cookie with environment-based security
+    let secure_flag = if app_state.config.cookie_security.secure {
+        "; Secure"
+    } else {
+        ""
+    };
+
     let response_builder = Response::builder().status(StatusCode::CREATED).header(
         header::SET_COOKIE,
         format!(
-            "token={}; HttpOnly; SameSite=Strict; Max-Age=86400; Path=/",
-            response.access_token
+            "token={}; HttpOnly; SameSite={}; Max-Age=86400; Path={}{}",
+            response.access_token,
+            app_state.config.cookie_security.same_site,
+            "/",
+            secure_flag
         ),
     );
 
@@ -127,14 +136,23 @@ pub async fn login(
         .await
         .map_err(|e| AppError::InternalServerError(format!("Session error: {}", e)))?;
 
-    // Set JWT token in HttpOnly cookie
+    // Set JWT token in HttpOnly cookie with environment-based security
+    let secure_flag = if app_state.config.cookie_security.secure {
+        "; Secure"
+    } else {
+        ""
+    };
+
     let response = Response::builder()
-        .status(StatusCode::OK)
+        .status(StatusCode::CREATED)
         .header(
             header::SET_COOKIE,
             format!(
-                "token={}; HttpOnly; SameSite=Strict; Max-Age=86400; Path=/",
-                response.access_token
+                "token={}; HttpOnly; SameSite={}; Max-Age=86400; Path={}{}",
+                response.access_token,
+                app_state.config.cookie_security.same_site,
+                "/",
+                secure_flag
             ),
         )
         .body(
@@ -151,19 +169,30 @@ pub async fn login(
 }
 
 // Logout endpoint
-pub async fn logout(session: Session) -> Result<Response, AppError> {
+pub async fn logout(State(app_state): State<AppState>, session: Session) -> Result<Response, AppError> {
     // Clear session
     session
         .flush()
         .await
         .map_err(|e| AppError::InternalServerError(format!("Session error: {}", e)))?;
 
-    // Clear JWT cookie
+    // Clear JWT cookie with same security settings
+    let secure_flag = if app_state.config.cookie_security.secure {
+        "; Secure"
+    } else {
+        ""
+    };
+
     let response = Response::builder()
-        .status(StatusCode::OK)
+        .status(StatusCode::NO_CONTENT)
         .header(
             header::SET_COOKIE,
-            "token=; HttpOnly; SameSite=Strict; Max-Age=0; Path=/",
+            format!(
+                "token=; HttpOnly; SameSite={}; Max-Age=0; Path={}{}",
+                app_state.config.cookie_security.same_site,
+                "/",
+                secure_flag
+            ),
         )
         .body(
             Json(json!({
@@ -214,7 +243,7 @@ pub async fn change_password(
 
     // Return success response
     let response = Response::builder()
-        .status(StatusCode::OK)
+        .status(StatusCode::ACCEPTED)
         .body(
             Json(json!({
                 "message": "Password changed successfully. All sessions have been invalidated."

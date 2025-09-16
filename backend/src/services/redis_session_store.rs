@@ -39,12 +39,12 @@ impl SessionStore for PersistentSessionStore {
                 .data
                 .get("ip_address")
                 .and_then(|v| v.as_str())
-                .map(String::from),
+                .map(|s| s.into()),
             user_agent: record
                 .data
                 .get("user_agent")
                 .and_then(|v| v.as_str())
-                .map(String::from),
+                .map(|s| s.into()),
         };
 
         self.session_manager

@@ -597,7 +597,6 @@ pub fn get_current_timestamp() -> u64 {
 mod tests {
     use super::*;
     use std::time::Duration;
-    use tokio_test;
 
     #[test]
     fn test_user_tier_multipliers() {

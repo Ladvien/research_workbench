@@ -23,8 +23,8 @@ async fn test_session_storage_and_retrieval() {
         user_id,
         created_at: Utc::now(),
         last_accessed: Utc::now(),
-        ip_address: Some("127.0.0.1".to_string()),
-        user_agent: Some("test-agent".to_string()),
+        ip_address: Some("127.0.0.1".into()),
+        user_agent: Some("test-agent".into()),
     };
 
     // Store session
@@ -46,7 +46,7 @@ async fn test_session_storage_and_retrieval() {
 
     let retrieved_data = retrieved_data.unwrap();
     assert_eq!(retrieved_data.user_id, user_id);
-    assert_eq!(retrieved_data.ip_address, Some("127.0.0.1".to_string()));
+    assert_eq!(retrieved_data.ip_address, Some("127.0.0.1".into()));
 }
 
 #[tokio::test]
@@ -95,8 +95,8 @@ async fn test_user_session_invalidation() {
             user_id,
             created_at: Utc::now(),
             last_accessed: Utc::now(),
-            ip_address: Some(format!("127.0.0.{}", i + 1)),
-            user_agent: Some(format!("agent-{}", i)),
+            ip_address: Some(format!("127.0.0.{}", i + 1).into()),
+            user_agent: Some(format!("agent-{}", i).into()),
         };
         session_manager
             .store_session(&session_id, session_data)
@@ -109,8 +109,8 @@ async fn test_user_session_invalidation() {
         user_id: other_user_id,
         created_at: Utc::now(),
         last_accessed: Utc::now(),
-        ip_address: Some("192.168.1.1".to_string()),
-        user_agent: Some("other-agent".to_string()),
+        ip_address: Some("192.168.1.1".into()),
+        user_agent: Some("other-agent".into()),
     };
     session_manager
         .store_session("other_user_session", other_session_data)
@@ -181,8 +181,8 @@ async fn test_session_cleanup() {
         user_id,
         created_at: Utc::now() - chrono::Duration::hours(2),
         last_accessed: Utc::now() - chrono::Duration::hours(2),
-        ip_address: Some("127.0.0.1".to_string()),
-        user_agent: Some("test-agent".to_string()),
+        ip_address: Some("127.0.0.1".into()),
+        user_agent: Some("test-agent".into()),
     };
 
     // Create a "fresh" session
@@ -190,8 +190,8 @@ async fn test_session_cleanup() {
         user_id,
         created_at: Utc::now(),
         last_accessed: Utc::now(),
-        ip_address: Some("127.0.0.2".to_string()),
-        user_agent: Some("test-agent".to_string()),
+        ip_address: Some("127.0.0.2".into()),
+        user_agent: Some("test-agent".into()),
     };
 
     // Store both sessions
@@ -249,8 +249,8 @@ async fn test_session_count_tracking() {
             user_id,
             created_at: Utc::now(),
             last_accessed: Utc::now(),
-            ip_address: Some(format!("127.0.0.{}", i)),
-            user_agent: Some(format!("agent-{}", i)),
+            ip_address: Some(format!("127.0.0.{}", i).into()),
+            user_agent: Some(format!("agent-{}", i).into()),
         };
         session_manager
             .store_session(&session_id, session_data)

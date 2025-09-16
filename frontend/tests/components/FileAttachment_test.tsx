@@ -30,7 +30,7 @@ const mockAttachments: AttachmentFile[] = [
     filename: 'image.png',
     contentType: 'image/png',
     sizeBytes: 1024 * 256,
-    downloadUrl: '/api/files/2',
+    downloadUrl: '/api/v1/files/2',
     createdAt: '2023-01-01T00:00:00Z',
   },
 ];
@@ -117,7 +117,7 @@ describe('FileAttachment', () => {
         messageId: 'msg-123',
         filename: 'small.txt',
         sizeBytes: 512, // 512 B
-        downloadUrl: '/api/files/1',
+        downloadUrl: '/api/v1/files/1',
         createdAt: '2023-01-01T00:00:00Z',
       },
       {
@@ -125,7 +125,7 @@ describe('FileAttachment', () => {
         messageId: 'msg-123',
         filename: 'medium.pdf',
         sizeBytes: 1024 * 1024 * 2, // 2 MB
-        downloadUrl: '/api/files/2',
+        downloadUrl: '/api/v1/files/2',
         createdAt: '2023-01-01T00:00:00Z',
       },
     ];
@@ -213,7 +213,7 @@ describe('FileAttachment', () => {
     await user.click(downloadButtons[0]);
 
     expect(createElementSpy).toHaveBeenCalledWith('a');
-    expect(mockLink.href).toBe('/api/files/1');
+    expect(mockLink.href).toBe('/api/v1/files/1');
     expect(mockLink.download).toBe('example.pdf');
     expect(mockLink.click).toHaveBeenCalled();
     expect(appendChildSpy).toHaveBeenCalledWith(mockLink);
@@ -232,7 +232,7 @@ describe('FileAttachment - File Size Formatting', () => {
       messageId: 'msg-123',
       filename: 'test.txt',
       sizeBytes: 512,
-      downloadUrl: '/api/files/1',
+      downloadUrl: '/api/v1/files/1',
       createdAt: '2023-01-01T00:00:00Z',
     };
 
@@ -246,7 +246,7 @@ describe('FileAttachment - File Size Formatting', () => {
       messageId: 'msg-123',
       filename: 'test.txt',
       sizeBytes: 1536, // 1.5 KB
-      downloadUrl: '/api/files/1',
+      downloadUrl: '/api/v1/files/1',
       createdAt: '2023-01-01T00:00:00Z',
     };
 
@@ -260,7 +260,7 @@ describe('FileAttachment - File Size Formatting', () => {
       messageId: 'msg-123',
       filename: 'test.txt',
       sizeBytes: 2 * 1024 * 1024, // 2 MB
-      downloadUrl: '/api/files/1',
+      downloadUrl: '/api/v1/files/1',
       createdAt: '2023-01-01T00:00:00Z',
     };
 

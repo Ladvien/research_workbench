@@ -71,7 +71,7 @@ mod rate_limit_tests {
 
     #[test]
     fn test_rate_limit_types() {
-        let config = create_test_config();
+        let _config = create_test_config();
 
         // Test that rate limit types work correctly
         match RateLimitType::Global {
@@ -121,13 +121,13 @@ mod rate_limit_tests {
     fn test_rate_limit_service_creation() {
         let config = create_test_config();
 
-        // Test with invalid Redis URL
-        let result = RateLimitService::new("invalid://url", config.clone());
-        assert!(result.is_err());
+        // Test with invalid Redis URL - service will be created but Redis client may be None
+        let _service1 = RateLimitService::new("invalid://url", config.clone());
+        // Service creation always succeeds, it just logs warnings for invalid Redis URLs
 
         // Test with valid Redis URL format (even if Redis server isn't running)
-        let result = RateLimitService::new("redis://localhost:6379", config);
-        assert!(result.is_ok());
+        let _service2 = RateLimitService::new("redis://localhost:6379", config);
+        // Service creation always succeeds
     }
 
     #[test]
@@ -137,7 +137,7 @@ mod rate_limit_tests {
             ..create_test_config()
         };
 
-        let service = RateLimitService::new("redis://localhost:6379", config).unwrap();
+        let service = RateLimitService::new("redis://localhost:6379", config);
 
         assert!(service.is_admin_override_allowed(&UserTier::Admin));
         assert!(!service.is_admin_override_allowed(&UserTier::Premium));
@@ -150,14 +150,14 @@ mod rate_limit_tests {
         };
 
         let service_no_override =
-            RateLimitService::new("redis://localhost:6379", config_no_override).unwrap();
+            RateLimitService::new("redis://localhost:6379", config_no_override);
         assert!(!service_no_override.is_admin_override_allowed(&UserTier::Admin));
     }
 
     #[tokio::test]
     async fn test_get_client_ip() {
         // Test X-Forwarded-For header
-        let mut request = Request::builder()
+        let request = Request::builder()
             .method(Method::GET)
             .uri("/")
             .header("x-forwarded-for", "192.168.1.100, 10.0.0.1")
@@ -168,7 +168,7 @@ mod rate_limit_tests {
         assert_eq!(ip, Some("192.168.1.100".to_string()));
 
         // Test X-Real-IP header
-        let mut request2 = Request::builder()
+        let request2 = Request::builder()
             .method(Method::GET)
             .uri("/")
             .header("x-real-ip", "192.168.1.200")
@@ -179,7 +179,7 @@ mod rate_limit_tests {
         assert_eq!(ip2, Some("192.168.1.200".to_string()));
 
         // Test fallback when no headers present
-        let mut request3 = Request::builder()
+        let request3 = Request::builder()
             .method(Method::GET)
             .uri("/")
             .body(Body::empty())
@@ -206,7 +206,7 @@ mod rate_limit_tests {
     #[ignore] // Ignore by default since it requires Redis
     async fn test_redis_rate_limiting_integration() {
         let config = create_test_config();
-        let service = RateLimitService::new("redis://localhost:6379", config).unwrap();
+        let service = RateLimitService::new("redis://localhost:6379", config);
 
         let key = "test_user_123";
         let user_tier = UserTier::Free;

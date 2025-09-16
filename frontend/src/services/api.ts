@@ -149,13 +149,13 @@ class ApiClient {
     if (pagination?.limit) params.append('limit', pagination.limit.toString());
 
     return this.request<Conversation[]>(
-      `/api/conversations?${params.toString()}`
+      `/api/v1/conversations?${params.toString()}`
     );
   }
 
   async createConversation(request: CreateConversationRequest): Promise<ApiResponse<Conversation>> {
     console.log('[ApiClient] Creating conversation with request:', request);
-    const response = await this.request<Conversation>('/api/conversations', {
+    const response = await this.request<Conversation>('/api/v1/conversations', {
       method: 'POST',
       body: JSON.stringify(request),
     });
@@ -164,18 +164,18 @@ class ApiClient {
   }
 
   async getConversation(id: string): Promise<ApiResponse<ConversationWithMessages>> {
-    return this.request<ConversationWithMessages>(`/api/conversations/${id}`);
+    return this.request<ConversationWithMessages>(`/api/v1/conversations/${id}`);
   }
 
   async updateConversationTitle(id: string, title: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/api/conversations/${id}/title`, {
+    return this.request<void>(`/api/v1/conversations/${id}/title`, {
       method: 'PATCH',
       body: JSON.stringify({ title }),
     });
   }
 
   async deleteConversation(id: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/api/conversations/${id}`, {
+    return this.request<void>(`/api/v1/conversations/${id}`, {
       method: 'DELETE',
     });
   }
@@ -183,12 +183,12 @@ class ApiClient {
   // Message endpoints
   async getMessages(conversationId: string): Promise<ApiResponse<{ messages: Message[]; conversation_id: string; total_count: number }>> {
     return this.request<{ messages: Message[]; conversation_id: string; total_count: number }>(
-      `/api/conversations/${conversationId}/messages`
+      `/api/v1/conversations/${conversationId}/messages`
     );
   }
 
   async sendMessage(conversationId: string, content: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/conversations/${conversationId}/messages`, {
+    return this.request<any>(`/api/v1/conversations/${conversationId}/messages`, {
       method: 'POST',
       body: JSON.stringify({ content }),
     });
@@ -213,7 +213,7 @@ class ApiClient {
         requestBody
       });
 
-      const response = await fetch(`${this.baseUrl}/api/conversations/${conversationId}/stream`, {
+      const response = await fetch(`${this.baseUrl}/api/v1/conversations/${conversationId}/stream`, {
         method: 'POST',
         headers: {
           ...baseHeaders,
@@ -304,7 +304,7 @@ class ApiClient {
     role: 'user' | 'assistant' | 'system'
   ): Promise<ApiResponse<Message>> {
     return this.request<Message>(
-      `/api/conversations/${conversationId}/messages/${parentId}/branch`,
+      `/api/v1/conversations/${conversationId}/messages/${parentId}/branch`,
       {
         method: 'POST',
         body: JSON.stringify({ content, role }),
@@ -314,7 +314,7 @@ class ApiClient {
 
   // Health check
   async healthCheck(): Promise<ApiResponse<{ status: string }>> {
-    return this.request<{ status: string }>('/health');
+    return this.request<{ status: string }>('/api/v1/health');
   }
 }
 

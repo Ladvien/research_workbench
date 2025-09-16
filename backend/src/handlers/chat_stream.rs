@@ -47,7 +47,7 @@ pub async fn stream_message(
     }
 
     // Save user message to database
-    let user_message = app_state
+    let _user_message = app_state
         .chat_service
         .send_message(user.id, conversation_id, request.content.clone())
         .await?;
@@ -113,7 +113,7 @@ pub async fn stream_message(
     // Split the content into words for simulated streaming
     let words: Vec<String> = content
         .split_whitespace()
-        .map(|w| format!("{} ", w))
+        .map(|w| format!("{w} "))
         .collect();
 
     let stream = futures::stream::iter(words.into_iter().enumerate())

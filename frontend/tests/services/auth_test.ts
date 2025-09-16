@@ -52,7 +52,7 @@ describe('AuthService', () => {
       const result = await authService.login(mockLoginRequest);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/auth/login',
+        '/api/v1/auth/login',
         {
           method: 'POST',
           headers: {
@@ -97,7 +97,7 @@ describe('AuthService', () => {
       const result = await authService.register(mockRegisterRequest);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/auth/register',
+        '/api/v1/auth/register',
         {
           method: 'POST',
           headers: {
@@ -137,7 +137,7 @@ describe('AuthService', () => {
       const result = await authService.logout();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/auth/logout',
+        '/api/v1/auth/logout',
         {
           method: 'POST',
           headers: {
@@ -179,7 +179,7 @@ describe('AuthService', () => {
       const result = await authService.getCurrentUser();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/auth/me',
+        '/api/v1/auth/me',
         {
           headers: {
             'Content-Type': 'application/json',
@@ -211,7 +211,7 @@ describe('AuthService', () => {
       const result = await authService.refreshToken();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/auth/refresh',
+        '/api/v1/auth/refresh',
         {
           method: 'POST',
           headers: {
@@ -259,7 +259,7 @@ describe('AuthService', () => {
       const result = await authService.healthCheck();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/auth/health',
+        '/api/v1/auth/health',
         {
           headers: {
             'Content-Type': 'application/json',

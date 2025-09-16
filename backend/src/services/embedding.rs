@@ -213,7 +213,6 @@ impl EmbeddingService {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     // Note: These would be integration tests requiring database setup
     // For now, we'll add unit test stubs

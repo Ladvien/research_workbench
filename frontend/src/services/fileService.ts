@@ -21,7 +21,7 @@ export class FileService {
     formData.append('file', file);
     formData.append('message_id', messageId);
 
-    const response = await fetch(`${API_BASE_URL}/api/upload`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/upload`, {
       method: 'POST',
       body: formData,
       credentials: 'include', // Include cookies for authentication
@@ -39,7 +39,7 @@ export class FileService {
    * Get attachments for a specific message
    */
   static async getMessageAttachments(messageId: string): Promise<AttachmentFile[]> {
-    const response = await fetch(`${API_BASE_URL}/api/messages/${messageId}/attachments`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/messages/${messageId}/attachments`, {
       credentials: 'include',
     });
 
@@ -66,7 +66,7 @@ export class FileService {
    * Delete an attachment
    */
   static async deleteAttachment(attachmentId: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/api/files/${attachmentId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/files/${attachmentId}`, {
       method: 'DELETE',
       credentials: 'include',
     });
@@ -81,7 +81,7 @@ export class FileService {
    * Get download URL for an attachment (already included in attachment data)
    */
   static getDownloadUrl(attachmentId: string): string {
-    return `${API_BASE_URL}/api/files/${attachmentId}`;
+    return `${API_BASE_URL}/api/v1/files/${attachmentId}`;
   }
 
   /**

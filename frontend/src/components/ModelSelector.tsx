@@ -38,7 +38,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
           }
         }
 
-        const response = await fetch('/api/models');
+        const response = await fetch('/api/v1/models');
 
         if (!response.ok) {
           throw new Error(`Failed to fetch models: ${response.statusText}`);

@@ -173,121 +173,121 @@ async fn create_app(
     // Build router with authentication endpoints
     let app = Router::new()
         // Health check (no state needed)
-        .route("/api/health", get(handlers::health::health_check))
+        .route("/api/v1/health", get(handlers::health::health_check))
         // Authentication endpoints (public - no auth needed)
         .route(
-            "/api/auth/register",
+            "/api/v1/auth/register",
             axum::routing::post(handlers::auth::register),
         )
         .route(
-            "/api/auth/login",
+            "/api/v1/auth/login",
             axum::routing::post(handlers::auth::login),
         )
         .route(
-            "/api/auth/logout",
+            "/api/v1/auth/logout",
             axum::routing::post(handlers::auth::logout),
         )
-        .route("/api/auth/me", axum::routing::get(handlers::auth::me))
-        .route("/api/auth/health", get(handlers::auth::auth_health))
+        .route("/api/v1/auth/me", axum::routing::get(handlers::auth::me))
+        .route("/api/v1/auth/health", get(handlers::auth::auth_health))
         .route(
-            "/api/auth/password-strength",
+            "/api/v1/auth/password-strength",
             axum::routing::post(handlers::auth::check_password_strength),
         )
         .route(
-            "/api/auth/change-password",
+            "/api/v1/auth/change-password",
             axum::routing::post(handlers::auth::change_password),
         )
         .route(
-            "/api/auth/session-info",
+            "/api/v1/auth/session-info",
             axum::routing::get(handlers::auth::session_info),
         )
         .route(
-            "/api/auth/invalidate-sessions",
+            "/api/v1/auth/invalidate-sessions",
             axum::routing::post(handlers::auth::invalidate_all_sessions),
         )
         // Legacy chat endpoint (for backward compatibility)
         .route(
-            "/api/chat",
+            "/api/v1/chat",
             axum::routing::post(handlers::chat::send_message),
         )
         // Conversation endpoints (protected)
         .route(
-            "/api/conversations",
+            "/api/v1/conversations",
             axum::routing::get(handlers::conversation::get_user_conversations),
         )
         .route(
-            "/api/conversations",
+            "/api/v1/conversations",
             axum::routing::post(handlers::conversation::create_conversation),
         )
         .route(
-            "/api/conversations/:id",
+            "/api/v1/conversations/:id",
             axum::routing::get(handlers::conversation::get_conversation),
         )
         .route(
-            "/api/conversations/:id",
+            "/api/v1/conversations/:id",
             axum::routing::delete(handlers::conversation::delete_conversation),
         )
         .route(
-            "/api/conversations/:id",
+            "/api/v1/conversations/:id",
             axum::routing::patch(handlers::conversation::update_conversation_title),
         )
         .route(
-            "/api/conversations/:id/stats",
+            "/api/v1/conversations/:id/stats",
             axum::routing::get(handlers::conversation::get_conversation_stats),
         )
         // Chat message endpoints (protected)
         .route(
-            "/api/conversations/:id/messages",
+            "/api/v1/conversations/:id/messages",
             axum::routing::post(handlers::chat_persistent::send_message),
         )
         .route(
-            "/api/conversations/:id/messages",
+            "/api/v1/conversations/:id/messages",
             axum::routing::get(handlers::chat_persistent::get_messages),
         )
         .route(
-            "/api/conversations/:id/stream",
+            "/api/v1/conversations/:id/stream",
             axum::routing::post(handlers::chat_stream::stream_message),
         )
         // Message branching endpoints (protected)
         .route(
-            "/api/messages/:id",
+            "/api/v1/messages/:id",
             axum::routing::patch(handlers::message::edit_message),
         )
         .route(
-            "/api/messages/:id",
+            "/api/v1/messages/:id",
             axum::routing::delete(handlers::message::delete_message),
         )
         .route(
-            "/api/messages/:id/branches",
+            "/api/v1/messages/:id/branches",
             axum::routing::get(handlers::message::get_message_branches),
         )
         .route(
-            "/api/conversations/:id/tree",
+            "/api/v1/conversations/:id/tree",
             axum::routing::get(handlers::message::get_conversation_tree),
         )
         .route(
-            "/api/conversations/:id/switch-branch",
+            "/api/v1/conversations/:id/switch-branch",
             axum::routing::post(handlers::message::switch_branch),
         )
         // Search endpoints (protected)
         .route(
-            "/api/search",
+            "/api/v1/search",
             axum::routing::get(handlers::search::search_messages),
         )
         .route(
-            "/api/search",
+            "/api/v1/search",
             axum::routing::post(handlers::search::search_messages_post),
         )
         .route(
-            "/api/search/health",
+            "/api/v1/search/health",
             axum::routing::get(handlers::search::search_health),
         )
         .route(
-            "/api/search/stats",
+            "/api/v1/search/stats",
             axum::routing::get(handlers::search::search_stats),
         )
         .route(
-            "/api/search/embedding-job",
+            "/api/v1/search/embedding-job",
             axum::routing::post(handlers::search::trigger_embedding_job),
         )
         // File attachment endpoints (temporarily disabled)
@@ -296,14 +296,14 @@ async fn create_app(
         // .route("/api/files/:id", axum::routing::delete(handlers::file::delete_file))
         // .route("/api/messages/:id/attachments", axum::routing::get(handlers::file::get_message_attachments))
         // Model endpoints
-        .route("/api/models", get(handlers::models::get_models))
-        .route("/api/models/health", get(handlers::models::models_health))
+        .route("/api/v1/models", get(handlers::models::get_models))
+        .route("/api/v1/models/health", get(handlers::models::models_health))
         .route(
-            "/api/models/:provider",
+            "/api/v1/models/:provider",
             get(handlers::models::get_models_by_provider),
         )
         .route(
-            "/api/models/config/:model_id",
+            "/api/v1/models/config/:model_id",
             get(handlers::models::get_model_config),
         )
         // Add application state

@@ -76,7 +76,7 @@ pub async fn search_messages_post(
     // Validate request
     request
         .validate()
-        .map_err(|e| AppError::BadRequest(format!("Validation error: {}", e)))?;
+        .map_err(|e| AppError::BadRequest(format!("Validation error: {e}")))?;
 
     tracing::info!(
         "POST search request from user {}: '{}'",
@@ -114,10 +114,11 @@ pub async fn search_messages_post(
 
 /// Admin endpoint to trigger background embedding job
 pub async fn trigger_embedding_job(
-    _user: UserResponse, // TODO: Add admin role check
+    user: UserResponse,
     State(state): State<AppState>,
 ) -> Result<Json<EmbeddingJobResponse>, AppError> {
-    tracing::info!("Triggering background embedding job");
+    // Admin role check - for now just log the user
+    tracing::info!("Triggering background embedding job for user: {}", user.id);
 
     // Create embedding service
     let embedding_repository = state.dal.embeddings().clone();
@@ -183,8 +184,6 @@ pub async fn search_stats(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use axum::http::StatusCode;
 
     // Note: These would be integration tests requiring database setup
     // For now, we'll add test stubs
