@@ -37,7 +37,7 @@ pub struct RateLimitConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            bind_address: "127.0.0.1:8080".parse().unwrap(),
+            bind_address: "0.0.0.0:4512".parse().unwrap(),
             openai_api_key: String::new(),
             openai_model: "gpt-4".to_string(),
             openai_max_tokens: 2048,
@@ -74,7 +74,7 @@ impl AppConfig {
         dotenvy::dotenv().ok();
 
         let bind_address = std::env::var("BIND_ADDRESS")
-            .unwrap_or_else(|_| "127.0.0.1:8080".to_string())
+            .unwrap_or_else(|_| "0.0.0.0:4512".to_string())
             .parse()?;
 
         let openai_api_key = std::env::var("OPENAI_API_KEY").unwrap_or_else(|_| String::new()); // Allow empty if not using OpenAI

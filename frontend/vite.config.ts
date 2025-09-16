@@ -7,8 +7,8 @@ import { config } from 'dotenv'
 config({ path: '../.env' })
 
 // Get frontend configuration from environment variables
-const frontendPort = parseInt(process.env.FRONTEND_PORT || '5173', 10)
-const frontendHost = process.env.FRONTEND_HOST || 'localhost'
+const frontendPort = parseInt(process.env.VITE_PORT || '4511', 10)
+const frontendHost = process.env.FRONTEND_HOST || '0.0.0.0'
 
 // https://vite.dev/config/
 export default defineConfig({

@@ -158,6 +158,11 @@ impl ClaudeCodeService {
             cmd.env("XDG_RUNTIME_DIR", xdg_runtime_dir);
         }
 
+        // Pass Claude Code OAuth token for authentication
+        if let Ok(oauth_token) = std::env::var("CLAUDE_CODE_OAUTH_TOKEN") {
+            cmd.env("CLAUDE_CODE_OAUTH_TOKEN", oauth_token);
+        }
+
         let command_debug = format!("{:?}", cmd);
         tracing::info!("Executing Claude Code CLI command: {}", command_debug);
 

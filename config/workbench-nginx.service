@@ -1,0 +1,15 @@
+[Unit]
+Description=Workbench Nginx Proxy
+After=network.target
+
+[Service]
+Type=forking
+PIDFile=/run/workbench-nginx.pid
+ExecStartPre=/usr/sbin/nginx -t -c /opt/workbench/config/nginx.conf
+ExecStart=/usr/sbin/nginx -c /opt/workbench/config/nginx.conf
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s QUIT $MAINPID
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
