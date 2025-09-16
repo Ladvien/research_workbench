@@ -54,10 +54,13 @@ All configuration is managed through environment variables in the `.env` file. C
 - `BIND_ADDRESS=0.0.0.0:8080` - Backend server address and port
 - `RUST_LOG=info` - Logging level (trace, debug, info, warn, error)
 
-#### Database Configuration
-- `DATABASE_URL` - Full PostgreSQL connection string
-- `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME` - Individual database settings
-- `DATABASE_USER`, `DATABASE_PASSWORD` - Database credentials
+#### Database Configuration (REQUIRED)
+- `DATABASE_URL` - **REQUIRED**: Full PostgreSQL connection string (e.g., `postgresql://username:password@host:port/database`)
+  - Must start with `postgresql://` or `postgres://`
+  - Application will fail to start if not provided
+- Alternative: Individual database settings (if DATABASE_URL not provided):
+  - `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME` - Database connection details
+  - `DATABASE_USER`, `DATABASE_PASSWORD` - Database credentials
 
 #### Redis Configuration
 - `REDIS_URL` - Full Redis connection string
@@ -246,9 +249,13 @@ If you get "port already in use" errors:
 3. Verify environment variable names match exactly
 
 ### Database Connection Issues
-1. Ensure PostgreSQL is running: `systemctl status postgresql`
-2. Check database credentials in `.env`
-3. Verify database exists: `psql -h localhost -U workbench -d workbench`
+1. **DATABASE_URL Required**: Ensure `DATABASE_URL` is set in `.env` file
+   - Must be a valid PostgreSQL connection string: `postgresql://username:password@host:port/database`
+   - Application will panic on startup if not provided
+2. Ensure PostgreSQL is running: `systemctl status postgresql`
+3. Check database credentials in `.env`
+4. Verify database exists: `psql -h localhost -U workbench -d workbench`
+5. Test connection: `psql "$DATABASE_URL" -c "SELECT 1"`
 
 ## Contributing
 

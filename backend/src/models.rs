@@ -1,8 +1,9 @@
+use crate::services::password::PasswordValidator;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
-use validator::Validate;
+use validator::{Validate, ValidationError};
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct User {
@@ -143,7 +144,7 @@ pub struct CreateUserRequest {
     pub email: String,
     #[validate(length(min = 3, max = 100))]
     pub username: String,
-    #[validate(length(min = 6))]
+    #[validate(custom(function = "validate_password"))]
     pub password: String,
 }
 
@@ -201,8 +202,16 @@ impl Default for PaginationParams {
 pub struct LoginRequest {
     #[validate(email)]
     pub email: String,
-    #[validate(length(min = 6))]
+    #[validate(custom(function = "validate_password"))]
     pub password: String,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct ChangePasswordRequest {
+    #[validate(custom(function = "validate_password"))]
+    pub current_password: String,
+    #[validate(custom(function = "validate_password"))]
+    pub new_password: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -236,8 +245,9 @@ pub struct JwtClaims {
     pub sub: String, // user_id
     pub email: String,
     pub username: String,
-    pub exp: usize, // expiration time
-    pub iat: usize, // issued at
+    pub exp: usize,       // expiration time
+    pub iat: usize,       // issued at
+    pub key_version: u32, // For secret rotation support
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -246,7 +256,7 @@ pub struct RegisterRequest {
     pub email: String,
     #[validate(length(min = 3, max = 100))]
     pub username: String,
-    #[validate(length(min = 6))]
+    #[validate(custom(function = "validate_password"))]
     pub password: String,
 }
 
@@ -408,4 +418,20 @@ impl SearchResultResponse {
 pub struct EmbeddingJobResponse {
     pub processed_count: usize,
     pub success: bool,
+}
+
+/// Custom password validator function for the validator crate
+fn validate_password(password: &str) -> Result<(), ValidationError> {
+    match PasswordValidator::validate(password) {
+        Ok(_) => Ok(()),
+        Err(error) => {
+            let mut validation_error = ValidationError::new("password_validation");
+            validation_error.message = Some(error.message.into());
+            validation_error.add_param(
+                "requirements".into(),
+                &serde_json::to_value(&error.requirements).unwrap_or_default(),
+            );
+            Err(validation_error)
+        }
+    }
 }

@@ -18,3 +18,9 @@ pub use services::DataAccessLayer;
 
 #[cfg(test)]
 pub mod tests;
+
+#[cfg(test)]
+pub mod test_jwt_security;
+
+#[cfg(test)]
+pub mod test_auth_service_jwt;

@@ -36,23 +36,39 @@ export const Register: React.FC<RegisterProps> = ({
     return emailRegex.test(email);
   };
 
-  const validatePassword = (password: string): { isValid: boolean; errors: string[] } => {
+  const validatePassword = (password: string): { isValid: boolean; errors: string[]; strength: PasswordStrength } => {
     const errors: string[] = [];
+    const requirements = {
+      minLength: password.length >= 12,
+      hasUppercase: /[A-Z]/.test(password),
+      hasLowercase: /[a-z]/.test(password),
+      hasDigit: /\d/.test(password),
+      hasSymbol: /[^A-Za-z0-9]/.test(password),
+      notCommon: !isCommonPassword(password)
+    };
 
-    if (password.length < 8) {
-      errors.push('At least 8 characters');
+    if (!requirements.minLength) {
+      errors.push('At least 12 characters');
     }
-    if (!/[A-Z]/.test(password)) {
-      errors.push('One uppercase letter');
+    if (!requirements.hasUppercase) {
+      errors.push('One uppercase letter (A-Z)');
     }
-    if (!/[a-z]/.test(password)) {
-      errors.push('One lowercase letter');
+    if (!requirements.hasLowercase) {
+      errors.push('One lowercase letter (a-z)');
     }
-    if (!/\d/.test(password)) {
-      errors.push('One number');
+    if (!requirements.hasDigit) {
+      errors.push('One number (0-9)');
+    }
+    if (!requirements.hasSymbol) {
+      errors.push('One symbol (!@#$%^&*()_+-=[]{}|;:,.<>?)');
+    }
+    if (!requirements.notCommon) {
+      errors.push('Password is too common, please choose a more unique password');
     }
 
-    return { isValid: errors.length === 0, errors };
+    const strength = calculatePasswordStrength(password, requirements);
+
+    return { isValid: errors.length === 0 && strength.score >= 70, errors, strength };
   };
 
   const validateField = (name: keyof RegisterFormData, value: string, allFormData: RegisterFormData): string | null => {
@@ -82,7 +98,7 @@ export const Register: React.FC<RegisterProps> = ({
         }
         const { isValid, errors } = validatePassword(value);
         if (!isValid) {
-          return `Password must have: ${errors.join(', ')}`;
+          return errors.length > 3 ? `Password requirements: ${errors.slice(0, 3).join(', ')}...` : `Password must have: ${errors.join(', ')}`;
         }
         return null;
       case 'confirmPassword':
@@ -144,20 +160,121 @@ export const Register: React.FC<RegisterProps> = ({
     await onSubmit(submitData);
   };
 
-  const getPasswordStrength = (password: string): { strength: 'weak' | 'medium' | 'strong'; score: number } => {
-    let score = 0;
-    if (password.length >= 8) score++;
-    if (/[A-Z]/.test(password)) score++;
-    if (/[a-z]/.test(password)) score++;
-    if (/\d/.test(password)) score++;
-    if (/[^A-Za-z0-9]/.test(password)) score++;
+  // Common passwords list (top 100 most common)
+  const commonPasswords = new Set([
+    'password', '123456', 'password123', 'admin', '12345678', 'qwerty', '123456789',
+    'letmein', '1234567890', 'football', 'iloveyou', 'admin123', 'welcome', 'monkey',
+    'login', 'abc123', 'starwars', '123123', 'dragon', 'passw0rd', 'master', 'hello',
+    'freedom', 'whatever', 'qazwsx', 'trustno1', '654321', 'jordan23', 'harley',
+    'password1', '1234', '12345', 'sunshine', 'iloveu', 'princess', '1qaz2wsx',
+    'shadow', 'baseball', 'batman', 'soccer', 'qwerty123', 'superman', '696969',
+    'hottie', 'aa123456', 'princess1', 'qwe123', 'loveme', 'hello123', 'zxcvbnm',
+    'password12', 'computer', 'liverpool', 'basketball', 'samsung', 'cookie',
+    'buster', 'taylor', 'michelle', 'jessica', 'samsung1', 'hunter', 'target123',
+    'banana', 'killer', 'secret', 'summer', 'love123', 'password2', 'ginger',
+    'chocolate', 'blessed', 'security', 'asshole', 'george', 'andrew', 'thomas',
+    'joshua', 'arsenal', 'honey', 'basketball1', 'orange', 'michelle1', 'mother',
+    'yellow', 'internet', 'service', 'chocolate1', 'golden', '1111', '2000',
+    'gateway', 'chelsea', 'diamond', 'jackson', 'junior', 'anthony', 'david',
+    'michael', 'robert', 'daniel', 'jennifer', 'matthew', 'christopher', 'amanda',
+    'sarah', 'patrick', 'crystal', 'richard', 'angela', 'charles', 'william',
+    'joseph', 'nicole', 'stephanie', 'elizabeth', 'brandon', 'heather', 'ashley'
+  ]);
 
-    if (score <= 2) return { strength: 'weak', score };
-    if (score <= 4) return { strength: 'medium', score };
-    return { strength: 'strong', score };
+  const isCommonPassword = (password: string): boolean => {
+    return commonPasswords.has(password.toLowerCase());
   };
 
-  const passwordStrength = getPasswordStrength(formData.password);
+  interface PasswordStrength {
+    score: number;
+    level: 'very-weak' | 'weak' | 'fair' | 'good' | 'strong' | 'very-strong';
+    feedback: string[];
+  }
+
+  const calculatePasswordStrength = (password: string, requirements: any): PasswordStrength => {
+    let score = 0;
+    const feedback: string[] = [];
+
+    // Base score for length
+    if (requirements.minLength) {
+      score += 30;
+      if (password.length >= 16) score += 10;
+      if (password.length >= 20) score += 10;
+    } else {
+      score = Math.max(0, Math.min(25, password.length * 2));
+      feedback.push(`Password needs ${12 - password.length} more characters`);
+    }
+
+    // Character diversity requirements
+    if (requirements.hasUppercase) score += 10;
+    else feedback.push('Add uppercase letters');
+
+    if (requirements.hasLowercase) score += 10;
+    else feedback.push('Add lowercase letters');
+
+    if (requirements.hasDigit) score += 10;
+    else feedback.push('Add numbers');
+
+    if (requirements.hasSymbol) score += 15;
+    else feedback.push('Add symbols (!@#$%^&*)');
+
+    // Common password penalty
+    if (requirements.notCommon) {
+      score += 15;
+    } else {
+      score = Math.max(0, score - 40);
+      feedback.push('Choose a more unique password');
+    }
+
+    // Pattern detection (basic)
+    if (hasObviousPatterns(password)) {
+      score = Math.max(0, score - 15);
+      feedback.push('Avoid obvious patterns');
+    }
+
+    // Determine level
+    let level: PasswordStrength['level'];
+    if (score <= 20) level = 'very-weak';
+    else if (score <= 40) level = 'weak';
+    else if (score <= 60) level = 'fair';
+    else if (score <= 80) level = 'good';
+    else if (score <= 95) level = 'strong';
+    else level = 'very-strong';
+
+    if (feedback.length === 0 && score >= 70) {
+      feedback.push('Strong password!');
+    }
+
+    return { score: Math.min(100, score), level, feedback };
+  };
+
+  const hasObviousPatterns = (password: string): boolean => {
+    const lower = password.toLowerCase();
+
+    // Check for sequential characters (abc, 123, etc.)
+    for (let i = 0; i < lower.length - 2; i++) {
+      const char1 = lower.charCodeAt(i);
+      const char2 = lower.charCodeAt(i + 1);
+      const char3 = lower.charCodeAt(i + 2);
+
+      if ((char2 === char1 + 1 && char3 === char2 + 1) ||
+          (char2 === char1 - 1 && char3 === char2 - 1)) {
+        return true;
+      }
+
+      // Check for repeated characters
+      if (char1 === char2 && char2 === char3) {
+        return true;
+      }
+    }
+
+    // Check for keyboard patterns
+    const patterns = ['qwerty', 'asdf', 'zxcv', '1234', 'qaz', 'wsx'];
+    return patterns.some(pattern => lower.includes(pattern));
+  };
+
+  const passwordValidation = validatePassword(formData.password);
+  const passwordStrength = passwordValidation.strength || { score: 0, level: 'very-weak', feedback: [] };
   const isFormValid = Object.keys(formData).every(key => formData[key as keyof RegisterFormData].trim()) &&
                      Object.keys(validationErrors).length === 0;
 

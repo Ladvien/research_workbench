@@ -3,6 +3,9 @@ pub mod chat;
 pub mod conversation;
 pub mod embedding;
 // pub mod file;  // Temporarily disabled
+pub mod password;
+pub mod redis_session_store;
+pub mod session;
 
 use crate::{database::Database, repositories::RepositoryManager};
 use std::sync::Arc;

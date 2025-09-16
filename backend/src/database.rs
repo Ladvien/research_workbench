@@ -89,7 +89,8 @@ pub struct DatabaseConfig {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
-            url: "postgresql://workbench:password@localhost:5432/workbench".to_string(),
+            url: std::env::var("DATABASE_URL")
+                .expect("DATABASE_URL environment variable is required but not set. Please set DATABASE_URL to a valid PostgreSQL connection string."),
             max_connections: 20,
             min_connections: 5,
             acquire_timeout: Duration::from_secs(3),
@@ -101,13 +102,83 @@ impl Default for DatabaseConfig {
 
 impl DatabaseConfig {
     pub fn from_env() -> Result<Self> {
-        let url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-            "postgresql://workbench:password@localhost:5432/workbench".to_string()
-        });
+        let url = std::env::var("DATABASE_URL")
+            .map_err(|_| anyhow::anyhow!("DATABASE_URL environment variable is required but not set. Please set DATABASE_URL to a valid PostgreSQL connection string."))?;
+
+        // Validate DATABASE_URL format
+        if !url.starts_with("postgresql://") && !url.starts_with("postgres://") {
+            return Err(anyhow::anyhow!("DATABASE_URL must be a valid PostgreSQL connection string starting with postgresql:// or postgres://"));
+        }
 
         Ok(Self {
             url,
-            ..Default::default()
+            max_connections: 20,
+            min_connections: 5,
+            acquire_timeout: Duration::from_secs(3),
+            idle_timeout: Duration::from_secs(600),
+            max_lifetime: Duration::from_secs(1800),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    #[test]
+    fn test_database_config_requires_env_var() {
+        // Save original value if it exists
+        let original_url = env::var("DATABASE_URL").ok();
+
+        // Remove DATABASE_URL from environment
+        env::remove_var("DATABASE_URL");
+
+        // Should panic without DATABASE_URL
+        let result = std::panic::catch_unwind(|| DatabaseConfig::default());
+        assert!(
+            result.is_err(),
+            "DatabaseConfig::default should panic without DATABASE_URL"
+        );
+
+        // Should return error from from_env
+        let result = DatabaseConfig::from_env();
+        assert!(
+            result.is_err(),
+            "DatabaseConfig::from_env should fail without DATABASE_URL"
+        );
+
+        // Restore original value if it existed
+        if let Some(url) = original_url {
+            env::set_var("DATABASE_URL", url);
+        }
+    }
+
+    #[test]
+    fn test_database_config_validates_url_format() {
+        // Save original value if it exists
+        let original_url = env::var("DATABASE_URL").ok();
+
+        // Test invalid URL format
+        env::set_var("DATABASE_URL", "invalid://not-postgres");
+        let result = DatabaseConfig::from_env();
+        assert!(result.is_err(), "Should reject invalid URL format");
+
+        // Test valid postgresql:// format
+        env::set_var("DATABASE_URL", "postgresql://user:pass@host:5432/db");
+        let result = DatabaseConfig::from_env();
+        assert!(result.is_ok(), "Should accept postgresql:// format");
+
+        // Test valid postgres:// format
+        env::set_var("DATABASE_URL", "postgres://user:pass@host:5432/db");
+        let result = DatabaseConfig::from_env();
+        assert!(result.is_ok(), "Should accept postgres:// format");
+
+        // Restore original value if it existed
+        if let Some(url) = original_url {
+            env::set_var("DATABASE_URL", url);
+        } else {
+            env::remove_var("DATABASE_URL");
+        }
     }
 }

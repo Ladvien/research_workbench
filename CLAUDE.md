@@ -35,6 +35,10 @@ workbench.lolzlab.com → Cloudflare → 192.168.1.102 (nginx) → 192.168.1.110
 - `scripts/` - Build and utility scripts
 - `docs/` - Documentation
 
+## Development Rules
+- Use specialized agents where possible
+- Parallize subagent deployment wherever possible
+
 ## Development Commands
 - Start nginx: `sudo nginx -c $(pwd)/config/nginx.conf`
 - Frontend dev: `cd frontend && VITE_PORT=4511 pnpm dev`

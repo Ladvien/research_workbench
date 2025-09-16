@@ -7,7 +7,12 @@ use axum::{
 };
 use redis::{AsyncCommands, Client};
 use serde_json::json;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
+// tower_governor is available if needed for more advanced rate limiting
 
 use crate::{app_state::AppState, config::RateLimitConfig, error::AppError};
 
@@ -88,39 +93,202 @@ impl RateLimitInfo {
     }
 }
 
-/// Redis-based rate limiting service
+/// Circuit breaker state for Redis connections
+#[derive(Debug, Clone)]
+pub enum CircuitBreakerState {
+    Closed,   // Normal operation
+    Open,     // Circuit is open, failing fast
+    HalfOpen, // Testing if service is back
+}
+
+/// Circuit breaker for Redis connections
+#[derive(Debug, Clone)]
+pub struct CircuitBreaker {
+    state: Arc<Mutex<CircuitBreakerState>>,
+    failure_count: Arc<Mutex<u32>>,
+    last_failure_time: Arc<Mutex<Option<Instant>>>,
+    failure_threshold: u32,
+    timeout_duration: Duration,
+}
+
+impl CircuitBreaker {
+    pub fn new(failure_threshold: u32, timeout_duration: Duration) -> Self {
+        Self {
+            state: Arc::new(Mutex::new(CircuitBreakerState::Closed)),
+            failure_count: Arc::new(Mutex::new(0)),
+            last_failure_time: Arc::new(Mutex::new(None)),
+            failure_threshold,
+            timeout_duration,
+        }
+    }
+
+    pub fn can_execute(&self) -> bool {
+        let mut state = self.state.lock().unwrap();
+        let last_failure = *self.last_failure_time.lock().unwrap();
+
+        match *state {
+            CircuitBreakerState::Closed => true,
+            CircuitBreakerState::Open => {
+                if let Some(last_failure_time) = last_failure {
+                    if last_failure_time.elapsed() >= self.timeout_duration {
+                        *state = CircuitBreakerState::HalfOpen;
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }
+            CircuitBreakerState::HalfOpen => true,
+        }
+    }
+
+    pub fn record_success(&self) {
+        let mut state = self.state.lock().unwrap();
+        let mut failure_count = self.failure_count.lock().unwrap();
+        let mut last_failure = self.last_failure_time.lock().unwrap();
+
+        *state = CircuitBreakerState::Closed;
+        *failure_count = 0;
+        *last_failure = None;
+    }
+
+    pub fn record_failure(&self) {
+        let mut state = self.state.lock().unwrap();
+        let mut failure_count = self.failure_count.lock().unwrap();
+        let mut last_failure = self.last_failure_time.lock().unwrap();
+
+        *failure_count += 1;
+        *last_failure = Some(Instant::now());
+
+        if *failure_count >= self.failure_threshold {
+            *state = CircuitBreakerState::Open;
+        }
+    }
+}
+
+/// In-memory rate limiter for fallback
+#[derive(Debug, Clone)]
+struct InMemoryRateLimit {
+    count: u32,
+    window_start: Instant,
+}
+
+/// In-memory rate limiting service
+#[derive(Clone)]
+pub struct InMemoryRateLimiter {
+    limits: Arc<Mutex<HashMap<String, InMemoryRateLimit>>>,
+    window_duration: Duration,
+}
+
+impl InMemoryRateLimiter {
+    pub fn new() -> Self {
+        Self {
+            limits: Arc::new(Mutex::new(HashMap::new())),
+            window_duration: Duration::from_secs(3600), // 1 hour window
+        }
+    }
+
+    pub fn check_rate_limit(&self, key: &str, limit: u32) -> Result<RateLimitInfo, AppError> {
+        let mut limits = self.limits.lock().unwrap();
+        let now = Instant::now();
+
+        let entry = limits.entry(key.to_string()).or_insert(InMemoryRateLimit {
+            count: 0,
+            window_start: now,
+        });
+
+        // Reset window if expired
+        if now.duration_since(entry.window_start) >= self.window_duration {
+            entry.count = 0;
+            entry.window_start = now;
+        }
+
+        entry.count += 1;
+
+        let remaining = if entry.count > limit {
+            0
+        } else {
+            limit - entry.count
+        };
+
+        let reset_time = get_current_timestamp() + self.window_duration.as_secs();
+
+        let retry_after = if remaining == 0 {
+            Some(reset_time - get_current_timestamp())
+        } else {
+            None
+        };
+
+        Ok(RateLimitInfo {
+            limit,
+            remaining,
+            reset_time,
+            retry_after,
+        })
+    }
+
+    pub fn cleanup_expired(&self) {
+        let mut limits = self.limits.lock().unwrap();
+        let now = Instant::now();
+
+        limits.retain(|_, entry| now.duration_since(entry.window_start) < self.window_duration);
+    }
+}
+
+/// Redis-based rate limiting service with circuit breaker
 #[derive(Clone)]
 pub struct RateLimitService {
-    redis_client: Client,
+    redis_client: Option<Client>,
+    in_memory_limiter: InMemoryRateLimiter,
+    circuit_breaker: CircuitBreaker,
     config: RateLimitConfig,
 }
 
 impl RateLimitService {
-    /// Create a new rate limiting service
-    pub fn new(redis_url: &str, config: RateLimitConfig) -> Result<Self, AppError> {
-        let redis_client = Client::open(redis_url).map_err(|e| {
-            AppError::Internal(anyhow::anyhow!("Failed to create Redis client: {}", e))
-        })?;
+    /// Create a new rate limiting service with Redis and fallback
+    pub fn new(redis_url: &str, config: RateLimitConfig) -> Self {
+        let redis_client = Client::open(redis_url)
+            .map_err(|e| {
+                tracing::warn!(
+                    "Failed to create Redis client: {}, falling back to in-memory",
+                    e
+                );
+                e
+            })
+            .ok();
 
-        Ok(Self {
+        let circuit_breaker = CircuitBreaker::new(
+            5,                       // failure threshold
+            Duration::from_secs(60), // timeout duration
+        );
+
+        Self {
             redis_client,
+            in_memory_limiter: InMemoryRateLimiter::new(),
+            circuit_breaker,
             config,
-        })
+        }
     }
 
-    /// Check rate limit for a specific key and limit type
+    /// Create a new rate limiting service with only in-memory fallback
+    pub fn new_in_memory_only(config: RateLimitConfig) -> Self {
+        Self {
+            redis_client: None,
+            in_memory_limiter: InMemoryRateLimiter::new(),
+            circuit_breaker: CircuitBreaker::new(5, Duration::from_secs(60)),
+            config,
+        }
+    }
+
+    /// Check rate limit for a specific key and limit type with fallback
     pub async fn check_rate_limit(
         &self,
         key: &str,
         limit_type: RateLimitType,
         user_tier: UserTier,
     ) -> Result<RateLimitInfo, AppError> {
-        let mut conn = self
-            .redis_client
-            .get_multiplexed_async_connection()
-            .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Redis connection failed: {}", e)))?;
-
         let base_limit = match limit_type {
             RateLimitType::Global => self.config.global_requests_per_hour,
             RateLimitType::Api => self.config.api_requests_per_hour,
@@ -128,6 +296,44 @@ impl RateLimitService {
         };
 
         let limit = base_limit * user_tier.multiplier(&self.config);
+
+        // Try Redis first if available and circuit breaker allows
+        if let Some(ref redis_client) = self.redis_client {
+            if self.circuit_breaker.can_execute() {
+                match self.check_redis_rate_limit(redis_client, key, limit).await {
+                    Ok(rate_info) => {
+                        self.circuit_breaker.record_success();
+                        return Ok(rate_info);
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "Redis rate limiting failed: {}, falling back to in-memory",
+                            e
+                        );
+                        self.circuit_breaker.record_failure();
+                    }
+                }
+            } else {
+                tracing::debug!("Circuit breaker is open, using in-memory rate limiting");
+            }
+        }
+
+        // Fallback to in-memory rate limiting
+        self.in_memory_limiter.check_rate_limit(key, limit)
+    }
+
+    /// Check rate limit using Redis
+    async fn check_redis_rate_limit(
+        &self,
+        redis_client: &Client,
+        key: &str,
+        limit: u32,
+    ) -> Result<RateLimitInfo, AppError> {
+        let mut conn = redis_client
+            .get_multiplexed_async_connection()
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("Redis connection failed: {}", e)))?;
+
         let window_key = format!("rate_limit:{}:{}", key, get_current_hour());
 
         // Use Redis INCR to atomically increment and get current count
@@ -163,6 +369,11 @@ impl RateLimitService {
         })
     }
 
+    /// Clean up expired in-memory entries
+    pub fn cleanup_expired(&self) {
+        self.in_memory_limiter.cleanup_expired();
+    }
+
     /// Check if user is admin and admin override is enabled
     pub fn is_admin_override_allowed(&self, user_tier: &UserTier) -> bool {
         self.config.admin_override_enabled && matches!(user_tier, UserTier::Admin)
@@ -177,7 +388,7 @@ pub enum RateLimitType {
     Upload,
 }
 
-/// Middleware for API-specific rate limiting (user-based)
+/// Middleware for API-specific rate limiting (user-based) with circuit breaker
 pub async fn api_rate_limit_middleware(
     State(app_state): State<AppState>,
     mut request: Request,
@@ -200,7 +411,7 @@ pub async fn api_rate_limit_middleware(
     let rate_service = RateLimitService::new(
         &app_state.config.redis_url,
         app_state.config.rate_limit.clone(),
-    )?;
+    );
 
     // Determine rate limiting key
     let key = if let Some(user) = request.extensions().get::<crate::models::UserResponse>() {
@@ -216,7 +427,7 @@ pub async fn api_rate_limit_middleware(
         return Ok(next.run(request).await);
     }
 
-    // Check rate limit
+    // Check rate limit with fallback
     let rate_info = rate_service
         .check_rate_limit(&key, RateLimitType::Api, user_tier)
         .await?;
@@ -261,7 +472,7 @@ pub async fn api_rate_limit_middleware(
     Ok(response)
 }
 
-/// Middleware for upload-specific rate limiting
+/// Middleware for upload-specific rate limiting with circuit breaker
 pub async fn upload_rate_limit_middleware(
     State(app_state): State<AppState>,
     mut request: Request,
@@ -282,7 +493,7 @@ pub async fn upload_rate_limit_middleware(
     let rate_service = RateLimitService::new(
         &app_state.config.redis_url,
         app_state.config.rate_limit.clone(),
-    )?;
+    );
 
     let key = if let Some(user) = request.extensions().get::<crate::models::UserResponse>() {
         format!("user:{}", user.id)
@@ -385,6 +596,8 @@ pub fn get_current_timestamp() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
+    use tokio_test;
 
     #[test]
     fn test_user_tier_multipliers() {
@@ -426,5 +639,93 @@ mod tests {
 
         assert!(next_hour > current_time);
         assert_eq!(next_hour, (current_hour + 1) * 3600);
+    }
+
+    #[test]
+    fn test_circuit_breaker() {
+        let breaker = CircuitBreaker::new(3, Duration::from_millis(100));
+
+        // Initially closed, should allow execution
+        assert!(breaker.can_execute());
+
+        // Record failures
+        breaker.record_failure();
+        assert!(breaker.can_execute()); // Still closed
+
+        breaker.record_failure();
+        assert!(breaker.can_execute()); // Still closed
+
+        breaker.record_failure();
+        assert!(!breaker.can_execute()); // Now open
+
+        // Wait for timeout and test half-open
+        std::thread::sleep(Duration::from_millis(150));
+        assert!(breaker.can_execute()); // Half-open
+
+        // Record success to close
+        breaker.record_success();
+        assert!(breaker.can_execute()); // Closed again
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_rate_limiter() {
+        let limiter = InMemoryRateLimiter::new();
+        let key = "test_key";
+        let limit = 5;
+
+        // First few requests should pass
+        for i in 1..=5 {
+            let result = limiter.check_rate_limit(key, limit).unwrap();
+            assert_eq!(result.limit, limit);
+            assert_eq!(result.remaining, limit - i);
+        }
+
+        // Next request should fail
+        let result = limiter.check_rate_limit(key, limit).unwrap();
+        assert_eq!(result.remaining, 0);
+        assert!(result.retry_after.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_rate_limit_service_fallback() {
+        let config = RateLimitConfig {
+            global_requests_per_hour: 1000,
+            api_requests_per_hour: 100,
+            uploads_per_hour: 10,
+            max_file_size_mb: 10,
+            premium_multiplier: 5,
+            admin_override_enabled: true,
+        };
+
+        // Test with invalid Redis URL (should fallback to in-memory)
+        let service = RateLimitService::new("redis://invalid:6379", config);
+
+        let result = service
+            .check_rate_limit("test_key", RateLimitType::Api, UserTier::Free)
+            .await;
+
+        assert!(result.is_ok());
+        let rate_info = result.unwrap();
+        assert_eq!(rate_info.limit, 100); // base limit for API
+        assert_eq!(rate_info.remaining, 99); // after first request
+    }
+
+    #[test]
+    fn test_rate_limit_service_in_memory_only() {
+        let config = RateLimitConfig {
+            global_requests_per_hour: 1000,
+            api_requests_per_hour: 100,
+            uploads_per_hour: 10,
+            max_file_size_mb: 10,
+            premium_multiplier: 5,
+            admin_override_enabled: true,
+        };
+
+        let service = RateLimitService::new_in_memory_only(config);
+
+        // Test admin override
+        assert!(service.is_admin_override_allowed(&UserTier::Admin));
+        assert!(!service.is_admin_override_allowed(&UserTier::Free));
+        assert!(!service.is_admin_override_allowed(&UserTier::Premium));
     }
 }

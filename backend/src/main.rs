@@ -16,11 +16,13 @@ mod services;
 use app_state::AppState;
 use config::AppConfig;
 use database::Database;
-// Temporarily disabled while Redis is not available
-// use middleware::rate_limit::{api_rate_limit_middleware, upload_rate_limit_middleware};
-use services::{auth::AuthService, DataAccessLayer};
+use middleware::rate_limit::{api_rate_limit_middleware, upload_rate_limit_middleware};
+use services::{
+    auth::AuthService, redis_session_store::PersistentSessionStore, session::SessionManager,
+    DataAccessLayer,
+};
 use time::Duration;
-use tower_sessions::{Expiry, MemoryStore, SessionManagerLayer};
+use tower_sessions::{Expiry, SessionManagerLayer};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -50,33 +52,72 @@ async fn main() -> anyhow::Result<()> {
 
         tracing::info!("Connecting to database at {}:{}", host, port);
         Database::new_with_options(&host, port, &name, &user, &pass).await?
-    } else if let Ok(database_url) = std::env::var("DATABASE_URL") {
+    } else {
+        // DATABASE_URL is required - fail if not provided
+        let database_url = std::env::var("DATABASE_URL")
+            .expect("DATABASE_URL environment variable is required but not set. Please set DATABASE_URL to a valid PostgreSQL connection string.");
+
+        // Validate DATABASE_URL format
+        if !database_url.starts_with("postgresql://") && !database_url.starts_with("postgres://") {
+            panic!("DATABASE_URL must be a valid PostgreSQL connection string starting with postgresql:// or postgres://");
+        }
+
         tracing::info!("Connecting to database...");
         Database::new(&database_url).await?
-    } else {
-        tracing::info!("Connecting to database...");
-        Database::new("postgresql://workbench:password@localhost:5432/workbench").await?
     };
 
     // Initialize data access layer
-    let dal = DataAccessLayer::new(database);
+    let dal = DataAccessLayer::new(database.clone());
 
     // Initialize admin user if configured
     initialize_admin_user(&dal).await?;
 
-    // Create memory store for sessions (for development)
-    // TODO: Replace with Redis store in production
-    tracing::info!("Setting up in-memory sessions...");
-    let session_store = MemoryStore::default();
+    // Create persistent session store with Redis primary and PostgreSQL fallback
+    tracing::info!("Setting up persistent session storage...");
+
+    // Create session manager with Redis and PostgreSQL fallback
+    let session_manager = SessionManager::new(
+        Some(config.redis_url.clone()),
+        Some(database.pool.clone()),
+        5, // max 5 sessions per user
+        config.session_timeout_hours,
+    );
+
+    // Sessions table created via migration 20250916000000_add_user_sessions.sql
+
+    let session_store = PersistentSessionStore::new(session_manager.clone());
+
+    // Parse SameSite setting from config
+    let same_site = match config.cookie_security.same_site.to_lowercase().as_str() {
+        "strict" => tower_sessions::cookie::SameSite::Strict,
+        "lax" => tower_sessions::cookie::SameSite::Lax,
+        "none" => tower_sessions::cookie::SameSite::None,
+        _ => {
+            tracing::warn!(
+                "Invalid COOKIE_SAME_SITE value '{}', defaulting to Strict",
+                config.cookie_security.same_site
+            );
+            tower_sessions::cookie::SameSite::Strict
+        }
+    };
+
+    tracing::info!(
+        "Configuring session cookies: secure={}, same_site={}, environment={}",
+        config.cookie_security.secure,
+        config.cookie_security.same_site,
+        config.cookie_security.environment
+    );
+
     let session_layer = SessionManagerLayer::new(session_store)
-        .with_secure(false) // Disabled for development (enable for production)
-        .with_same_site(tower_sessions::cookie::SameSite::Strict)
+        .with_secure(config.cookie_security.secure)
+        .with_same_site(same_site)
         .with_expiry(Expiry::OnInactivity(Duration::hours(
             config.session_timeout_hours as i64,
         )));
 
-    // Initialize auth service
-    let auth_service = AuthService::new(dal.users().clone(), config.jwt_secret.clone());
+    // Initialize auth service with session manager
+    let auth_service = AuthService::new(dal.users().clone(), config.jwt_config.clone())
+        .with_session_manager(session_manager.clone());
 
     // Create services
     let conversation_service = handlers::conversation::create_conversation_service(dal.clone());
@@ -93,6 +134,25 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Starting Workbench Server on {}", config.bind_address);
 
+    // Start background session cleanup task
+    let cleanup_session_manager = session_manager.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(3600)); // Every hour
+        loop {
+            interval.tick().await;
+            match cleanup_session_manager.cleanup_expired_sessions().await {
+                Ok(count) => {
+                    if count > 0 {
+                        tracing::info!("Cleaned up {} expired sessions", count);
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Failed to cleanup expired sessions: {}", e);
+                }
+            }
+        }
+    });
+
     // Build the application with all routes
     let app = create_app(app_state, session_layer, &config).await?;
 
@@ -107,7 +167,7 @@ async fn main() -> anyhow::Result<()> {
 
 async fn create_app(
     app_state: AppState,
-    session_layer: SessionManagerLayer<MemoryStore>,
+    session_layer: SessionManagerLayer<PersistentSessionStore>,
     config: &AppConfig,
 ) -> anyhow::Result<Router> {
     // Build router with authentication endpoints
@@ -129,6 +189,22 @@ async fn create_app(
         )
         .route("/api/auth/me", axum::routing::get(handlers::auth::me))
         .route("/api/auth/health", get(handlers::auth::auth_health))
+        .route(
+            "/api/auth/password-strength",
+            axum::routing::post(handlers::auth::check_password_strength),
+        )
+        .route(
+            "/api/auth/change-password",
+            axum::routing::post(handlers::auth::change_password),
+        )
+        .route(
+            "/api/auth/session-info",
+            axum::routing::get(handlers::auth::session_info),
+        )
+        .route(
+            "/api/auth/invalidate-sessions",
+            axum::routing::post(handlers::auth::invalidate_all_sessions),
+        )
         // Legacy chat endpoint (for backward compatibility)
         .route(
             "/api/chat",
@@ -234,12 +310,11 @@ async fn create_app(
         .with_state(app_state.clone())
         // Add session middleware
         .layer(session_layer)
-        // Add API rate limiting middleware only if Redis is available
-        // Comment out for now as Redis is not running
-        // .layer(axum_middleware::from_fn_with_state(
-        //     app_state.clone(),
-        //     api_rate_limit_middleware,
-        // ))
+        // Add API rate limiting middleware with Redis and in-memory fallback
+        .layer(axum_middleware::from_fn_with_state(
+            app_state.clone(),
+            api_rate_limit_middleware,
+        ))
         // Add CORS middleware
         .layer({
             let origins: Result<Vec<_>, _> = config

@@ -15,7 +15,7 @@ async fn test_message_tree_operations() -> Result<()> {
     }
 
     let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgresql://workbench:password@localhost:5432/workbench".to_string());
+        .expect("DATABASE_URL environment variable is required for tests. Please set DATABASE_URL to a valid PostgreSQL connection string.");
 
     let database = Database::new(&database_url).await?;
     let message_repo = MessageRepository::new(database);
@@ -162,7 +162,7 @@ async fn test_message_thread_traversal() -> Result<()> {
     }
 
     let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgresql://workbench:password@localhost:5432".to_string());
+        .expect("DATABASE_URL environment variable is required for tests. Please set DATABASE_URL to a valid PostgreSQL connection string.");
 
     let database = Database::new(&database_url).await?;
     let message_repo = MessageRepository::new(database);

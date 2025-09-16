@@ -14,7 +14,7 @@ use validator::Validate;
 use crate::{
     app_state::AppState,
     error::AppError,
-    models::{LoginRequest, RegisterRequest, UserResponse},
+    models::{ChangePasswordRequest, LoginRequest, RegisterRequest, UserResponse},
 };
 
 // Simple in-memory rate limiting for auth endpoints
@@ -191,5 +191,99 @@ pub async fn auth_health() -> Result<Json<serde_json::Value>, AppError> {
         "status": "ok",
         "service": "auth",
         "timestamp": chrono::Utc::now()
+    })))
+}
+
+// Change password endpoint (protected route)
+pub async fn change_password(
+    State(app_state): State<AppState>,
+    user: UserResponse, // This comes from the auth middleware
+    Json(payload): Json<ChangePasswordRequest>,
+) -> Result<Response, AppError> {
+    // Validate request
+    payload.validate().map_err(|e| AppError::ValidationError {
+        field: "payload".to_string(),
+        message: format!("Validation failed: {}", e),
+    })?;
+
+    // Change password and invalidate sessions
+    app_state
+        .auth_service
+        .change_password(user.id, &payload.current_password, &payload.new_password)
+        .await?;
+
+    // Return success response
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .body(
+            Json(json!({
+                "message": "Password changed successfully. All sessions have been invalidated."
+            }))
+            .into_response()
+            .into_body(),
+        )
+        .map_err(|e| AppError::InternalServerError(format!("Failed to build response: {}", e)))?;
+
+    Ok(response)
+}
+
+// Get session info for current user (protected route)
+pub async fn session_info(
+    State(app_state): State<AppState>,
+    user: UserResponse,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let session_count = app_state
+        .auth_service
+        .get_user_session_count(user.id)
+        .await?;
+
+    Ok(Json(json!({
+        "user_id": user.id,
+        "active_sessions": session_count,
+        "max_sessions": 5
+    })))
+}
+
+// Invalidate all sessions for current user (protected route)
+pub async fn invalidate_all_sessions(
+    State(app_state): State<AppState>,
+    user: UserResponse,
+) -> Result<Response, AppError> {
+    app_state
+        .auth_service
+        .invalidate_user_sessions(user.id)
+        .await?;
+
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .body(
+            Json(json!({
+                "message": "All sessions have been invalidated."
+            }))
+            .into_response()
+            .into_body(),
+        )
+        .map_err(|e| AppError::InternalServerError(format!("Failed to build response: {}", e)))?;
+
+    Ok(response)
+}
+
+// Password strength check endpoint
+pub async fn check_password_strength(
+    Json(payload): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let password = payload
+        .get("password")
+        .and_then(|p| p.as_str())
+        .ok_or_else(|| AppError::ValidationError {
+            field: "password".to_string(),
+            message: "Password field is required".to_string(),
+        })?;
+
+    let strength = crate::services::password::PasswordValidator::analyze_strength(password);
+
+    Ok(Json(json!({
+        "strength": strength,
+        "valid": strength.score >= 70
     })))
 }
