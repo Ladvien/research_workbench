@@ -536,6 +536,9 @@ mod tests {
         assert!(!config.cookie_security.secure);
         assert_eq!(config.cookie_security.same_site, "Strict");
         assert_eq!(config.cookie_security.environment, "development");
+
+        // Clean up
+        std::env::remove_var("JWT_SECRET");
     }
 
     #[test]
@@ -557,6 +560,7 @@ mod tests {
         assert_eq!(config.cookie_security.environment, "production");
 
         // Clean up
+        std::env::remove_var("JWT_SECRET");
         std::env::remove_var("ENVIRONMENT");
     }
 
@@ -579,6 +583,7 @@ mod tests {
         assert_eq!(config.cookie_security.environment, "development");
 
         // Clean up
+        std::env::remove_var("JWT_SECRET");
         std::env::remove_var("ENVIRONMENT");
         std::env::remove_var("COOKIE_SECURE");
         std::env::remove_var("COOKIE_SAME_SITE");
@@ -612,6 +617,7 @@ mod tests {
             );
             assert_eq!(config.cookie_security.environment, env_val.to_lowercase());
 
+            std::env::remove_var("JWT_SECRET");
             std::env::remove_var("ENVIRONMENT");
         }
     }
