@@ -60,7 +60,7 @@ impl ApiUsageRepository {
                 COUNT(*) as total_requests
             FROM api_usage
             WHERE user_id = $1 AND created_at >= $2 AND created_at <= $3
-            "#
+            "#,
         )
         .bind(user_id)
         .bind(start)
@@ -70,10 +70,16 @@ impl ApiUsageRepository {
         .map_err(|e| AppError::Database(format!("Failed to get usage stats: {}", e)))?;
 
         Ok(UsageStats {
-            total_prompt_tokens: row.try_get::<Option<i64>, _>("total_prompt_tokens")?.unwrap_or(0) as u64,
-            total_completion_tokens: row.try_get::<Option<i64>, _>("total_completion_tokens")?.unwrap_or(0) as u64,
+            total_prompt_tokens: row
+                .try_get::<Option<i64>, _>("total_prompt_tokens")?
+                .unwrap_or(0) as u64,
+            total_completion_tokens: row
+                .try_get::<Option<i64>, _>("total_completion_tokens")?
+                .unwrap_or(0) as u64,
             total_tokens: row.try_get::<Option<i64>, _>("total_tokens")?.unwrap_or(0) as u64,
-            total_cost_cents: row.try_get::<Option<i64>, _>("total_cost_cents")?.unwrap_or(0) as u64,
+            total_cost_cents: row
+                .try_get::<Option<i64>, _>("total_cost_cents")?
+                .unwrap_or(0) as u64,
             total_requests: row.try_get::<i64, _>("total_requests")? as u64,
         })
     }
@@ -102,7 +108,7 @@ impl ApiUsageRepository {
             WHERE user_id = $1 AND created_at >= $2 AND created_at <= $3
             GROUP BY model, provider
             ORDER BY total_tokens DESC
-            "#
+            "#,
         )
         .bind(user_id)
         .bind(start)
@@ -114,13 +120,32 @@ impl ApiUsageRepository {
         let mut result = Vec::new();
         for row in rows {
             result.push(ModelUsage {
-                model: row.try_get("model").map_err(|e| AppError::Database(e.to_string()))?,
-                provider: row.try_get("provider").map_err(|e| AppError::Database(e.to_string()))?,
-                prompt_tokens: row.try_get::<Option<i64>, _>("prompt_tokens").map_err(|e| AppError::Database(e.to_string()))?.unwrap_or(0) as u64,
-                completion_tokens: row.try_get::<Option<i64>, _>("completion_tokens").map_err(|e| AppError::Database(e.to_string()))?.unwrap_or(0) as u64,
-                total_tokens: row.try_get::<Option<i64>, _>("total_tokens").map_err(|e| AppError::Database(e.to_string()))?.unwrap_or(0) as u64,
-                cost_cents: row.try_get::<Option<i64>, _>("cost_cents").map_err(|e| AppError::Database(e.to_string()))?.unwrap_or(0) as u64,
-                requests: row.try_get::<i64, _>("requests").map_err(|e| AppError::Database(e.to_string()))? as u64,
+                model: row
+                    .try_get("model")
+                    .map_err(|e| AppError::Database(e.to_string()))?,
+                provider: row
+                    .try_get("provider")
+                    .map_err(|e| AppError::Database(e.to_string()))?,
+                prompt_tokens: row
+                    .try_get::<Option<i64>, _>("prompt_tokens")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .unwrap_or(0) as u64,
+                completion_tokens: row
+                    .try_get::<Option<i64>, _>("completion_tokens")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .unwrap_or(0) as u64,
+                total_tokens: row
+                    .try_get::<Option<i64>, _>("total_tokens")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .unwrap_or(0) as u64,
+                cost_cents: row
+                    .try_get::<Option<i64>, _>("cost_cents")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .unwrap_or(0) as u64,
+                requests: row
+                    .try_get::<i64, _>("requests")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    as u64,
             });
         }
         Ok(result)
@@ -135,7 +160,7 @@ impl ApiUsageRepository {
         let start = Utc::now() - chrono::Duration::days(days as i64);
 
         let rows = sqlx::query(
-        r#"
+            r#"
             SELECT
                 DATE(created_at) as usage_date,
                 COALESCE(SUM(tokens_prompt), 0) as prompt_tokens,
@@ -147,8 +172,8 @@ impl ApiUsageRepository {
             WHERE user_id = $1 AND created_at >= $2
             GROUP BY DATE(created_at)
             ORDER BY usage_date ASC
-            "#
-    )
+            "#,
+        )
         .bind(user_id)
         .bind(start)
         .fetch_all(&self.db.pool)
@@ -158,12 +183,30 @@ impl ApiUsageRepository {
         let mut result = Vec::new();
         for row in rows {
             result.push(DailyUsage {
-                date: row.try_get::<Option<chrono::NaiveDate>, _>("usage_date").map_err(|e| AppError::Database(e.to_string()))?.unwrap(),
-                prompt_tokens: row.try_get::<Option<i64>, _>("prompt_tokens").map_err(|e| AppError::Database(e.to_string()))?.unwrap_or(0) as u64,
-                completion_tokens: row.try_get::<Option<i64>, _>("completion_tokens").map_err(|e| AppError::Database(e.to_string()))?.unwrap_or(0) as u64,
-                total_tokens: row.try_get::<Option<i64>, _>("total_tokens").map_err(|e| AppError::Database(e.to_string()))?.unwrap_or(0) as u64,
-                cost_cents: row.try_get::<Option<i64>, _>("cost_cents").map_err(|e| AppError::Database(e.to_string()))?.unwrap_or(0) as u64,
-                requests: row.try_get::<i64, _>("requests").map_err(|e| AppError::Database(e.to_string()))? as u64,
+                date: row
+                    .try_get::<Option<chrono::NaiveDate>, _>("usage_date")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .unwrap(),
+                prompt_tokens: row
+                    .try_get::<Option<i64>, _>("prompt_tokens")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .unwrap_or(0) as u64,
+                completion_tokens: row
+                    .try_get::<Option<i64>, _>("completion_tokens")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .unwrap_or(0) as u64,
+                total_tokens: row
+                    .try_get::<Option<i64>, _>("total_tokens")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .unwrap_or(0) as u64,
+                cost_cents: row
+                    .try_get::<Option<i64>, _>("cost_cents")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .unwrap_or(0) as u64,
+                requests: row
+                    .try_get::<i64, _>("requests")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    as u64,
             });
         }
         Ok(result)
@@ -210,7 +253,7 @@ impl ApiUsageRepository {
         let query = if let Some(conv_id) = conversation_id {
             // Get usage for specific conversation
             sqlx::query(
-        r#"
+                r#"
                 SELECT
                     c.id as conversation_id,
                     c.title,
@@ -229,16 +272,16 @@ impl ApiUsageRepository {
                     AND au.created_at <= COALESCE(c.updated_at, NOW())
                 WHERE c.user_id = $1 AND c.id = $2
                 GROUP BY c.id, c.title, c.model, c.provider
-                "#
-    )
-        .bind(user_id)
-        .bind(conv_id)
+                "#,
+            )
+            .bind(user_id)
+            .bind(conv_id)
             .fetch_all(&self.db.pool)
             .await
         } else {
             // Get usage for all conversations
             sqlx::query(
-        r#"
+                r#"
                 SELECT
                     c.id as conversation_id,
                     c.title,
@@ -258,9 +301,9 @@ impl ApiUsageRepository {
                 WHERE c.user_id = $1
                 GROUP BY c.id, c.title, c.model, c.provider
                 ORDER BY total_tokens DESC
-                "#
-    )
-        .bind(user_id)
+                "#,
+            )
+            .bind(user_id)
             .fetch_all(&self.db.pool)
             .await
         };
@@ -271,15 +314,38 @@ impl ApiUsageRepository {
         let mut result = Vec::new();
         for row in rows {
             result.push(ConversationUsage {
-                conversation_id: row.try_get("conversation_id").map_err(|e| AppError::Database(e.to_string()))?,
-                title: row.try_get("title").map_err(|e| AppError::Database(e.to_string()))?,
-                model: row.try_get("model").map_err(|e| AppError::Database(e.to_string()))?,
-                provider: row.try_get("provider").map_err(|e| AppError::Database(e.to_string()))?,
-                prompt_tokens: row.try_get::<Option<i64>, _>("prompt_tokens").map_err(|e| AppError::Database(e.to_string()))?.unwrap_or(0) as u64,
-                completion_tokens: row.try_get::<Option<i64>, _>("completion_tokens").map_err(|e| AppError::Database(e.to_string()))?.unwrap_or(0) as u64,
-                total_tokens: row.try_get::<Option<i64>, _>("total_tokens").map_err(|e| AppError::Database(e.to_string()))?.unwrap_or(0) as u64,
-                cost_cents: row.try_get::<Option<i64>, _>("cost_cents").map_err(|e| AppError::Database(e.to_string()))?.unwrap_or(0) as u64,
-                requests: row.try_get::<i64, _>("requests").map_err(|e| AppError::Database(e.to_string()))? as u64,
+                conversation_id: row
+                    .try_get("conversation_id")
+                    .map_err(|e| AppError::Database(e.to_string()))?,
+                title: row
+                    .try_get("title")
+                    .map_err(|e| AppError::Database(e.to_string()))?,
+                model: row
+                    .try_get("model")
+                    .map_err(|e| AppError::Database(e.to_string()))?,
+                provider: row
+                    .try_get("provider")
+                    .map_err(|e| AppError::Database(e.to_string()))?,
+                prompt_tokens: row
+                    .try_get::<Option<i64>, _>("prompt_tokens")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .unwrap_or(0) as u64,
+                completion_tokens: row
+                    .try_get::<Option<i64>, _>("completion_tokens")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .unwrap_or(0) as u64,
+                total_tokens: row
+                    .try_get::<Option<i64>, _>("total_tokens")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .unwrap_or(0) as u64,
+                cost_cents: row
+                    .try_get::<Option<i64>, _>("cost_cents")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .unwrap_or(0) as u64,
+                requests: row
+                    .try_get::<i64, _>("requests")
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    as u64,
             });
         }
         Ok(result)

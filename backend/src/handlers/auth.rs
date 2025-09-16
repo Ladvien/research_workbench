@@ -38,7 +38,8 @@ fn check_auth_rate_limit(key: &str) -> Result<(), AppError> {
             if now.duration_since(*timestamp) < AUTH_WINDOW_DURATION {
                 if *count >= MAX_AUTH_ATTEMPTS {
                     return Err(AppError::TooManyRequests(
-                        "Too many authentication attempts. Please try again in 5 minutes.".to_string()
+                        "Too many authentication attempts. Please try again in 5 minutes."
+                            .to_string(),
                     ));
                 }
                 *count += 1;

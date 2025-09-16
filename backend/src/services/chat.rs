@@ -63,6 +63,15 @@ impl ChatService {
         }
     }
 
+    pub async fn send_assistant_message(
+        &self,
+        conversation_id: Uuid,
+        content: String,
+    ) -> Result<CreateMessageResponse> {
+        self.create_assistant_response(conversation_id, content, None, None)
+            .await
+    }
+
     pub async fn create_assistant_response(
         &self,
         conversation_id: Uuid,

@@ -1,4 +1,4 @@
-import { AnalyticsOverview, CostBreakdown, UsageTrends, ConversationUsage, AnalyticsQuery } from '../types/analytics';
+import { AnalyticsOverview, CostBreakdown, UsageTrends, ConversationUsage, AnalyticsQuery } from '../types';
 
 const API_BASE_URL = '/api';
 

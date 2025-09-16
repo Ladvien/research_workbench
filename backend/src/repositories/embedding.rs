@@ -22,7 +22,7 @@ impl EmbeddingRepository {
             INSERT INTO message_embeddings (message_id, embedding)
             VALUES ($1, $2)
             RETURNING id, message_id, embedding, created_at
-            "#
+            "#,
         )
         .bind(message_id)
         .bind(&embedding)
@@ -42,7 +42,7 @@ impl EmbeddingRepository {
             SELECT id, message_id, embedding, created_at
             FROM message_embeddings
             WHERE message_id = $1
-            "#
+            "#,
         )
         .bind(message_id)
         .fetch_optional(&self.db)
@@ -63,7 +63,7 @@ impl EmbeddingRepository {
             SET embedding = $2, created_at = NOW()
             WHERE message_id = $1
             RETURNING id, message_id, embedding, created_at
-            "#
+            "#,
         )
         .bind(message_id)
         .bind(&embedding)
@@ -86,7 +86,7 @@ impl EmbeddingRepository {
             ON CONFLICT (message_id)
             DO UPDATE SET embedding = EXCLUDED.embedding, created_at = NOW()
             RETURNING id, message_id, embedding, created_at
-            "#
+            "#,
         )
         .bind(message_id)
         .bind(&embedding)
@@ -109,7 +109,7 @@ impl EmbeddingRepository {
             WHERE me.id IS NULL AND m.is_active = true
             ORDER BY m.created_at ASC
             LIMIT $1
-            "#
+            "#,
         )
         .bind(limit)
         .fetch_all(&self.db)
@@ -151,7 +151,7 @@ impl EmbeddingRepository {
                 AND 1 - (me.embedding <=> $1::vector) >= $3
                 ORDER BY similarity DESC
                 LIMIT $4
-                "#
+                "#,
             )
             .bind(&query_embedding)
             .bind(user_id)
@@ -177,7 +177,7 @@ impl EmbeddingRepository {
                 AND 1 - (me.embedding <=> $1::vector) >= $2
                 ORDER BY similarity DESC
                 LIMIT $3
-                "#
+                "#,
             )
             .bind(&query_embedding)
             .bind(threshold)
@@ -191,13 +191,11 @@ impl EmbeddingRepository {
     }
 
     pub async fn delete_by_message_id(&self, message_id: Uuid) -> Result<bool, AppError> {
-        let result = sqlx::query(
-            "DELETE FROM message_embeddings WHERE message_id = $1"
-        )
-        .bind(message_id)
-        .execute(&self.db)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        let result = sqlx::query("DELETE FROM message_embeddings WHERE message_id = $1")
+            .bind(message_id)
+            .execute(&self.db)
+            .await
+            .map_err(|e| AppError::Database(e.to_string()))?;
 
         Ok(result.rows_affected() > 0)
     }
@@ -223,7 +221,12 @@ impl sqlx::FromRow<'_, sqlx::postgres::PgRow> for SearchResult {
             content: row.try_get("content")?,
             role: {
                 let role_str: String = row.try_get("role")?;
-                role_str.parse().map_err(|e| sqlx::Error::Decode(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, e))))?
+                role_str.parse().map_err(|e| {
+                    sqlx::Error::Decode(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        e,
+                    )))
+                })?
             },
             created_at: row.try_get("created_at")?,
             conversation_id: row.try_get("conversation_id")?,

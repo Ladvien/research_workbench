@@ -11,7 +11,7 @@ import {
 } from '../types';
 import { authService } from './auth';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 class ApiClient {
   private baseUrl: string;
@@ -154,10 +154,13 @@ class ApiClient {
   }
 
   async createConversation(request: CreateConversationRequest): Promise<ApiResponse<Conversation>> {
-    return this.request<Conversation>('/api/conversations', {
+    console.log('[ApiClient] Creating conversation with request:', request);
+    const response = await this.request<Conversation>('/api/conversations', {
       method: 'POST',
       body: JSON.stringify(request),
     });
+    console.log('[ApiClient] Create conversation response:', response);
+    return response;
   }
 
   async getConversation(id: string): Promise<ApiResponse<ConversationWithMessages>> {
@@ -203,6 +206,13 @@ class ApiClient {
     try {
       const baseHeaders = this.getBaseHeaders();
 
+      const requestBody = { content };
+      console.log('[ApiClient] Streaming message request:', {
+        conversationId,
+        contentLength: content.length,
+        requestBody
+      });
+
       const response = await fetch(`${this.baseUrl}/api/conversations/${conversationId}/stream`, {
         method: 'POST',
         headers: {
@@ -210,7 +220,7 @@ class ApiClient {
           'Accept': 'text/event-stream',
           'Cache-Control': 'no-cache',
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify(requestBody),
         credentials: 'include',
         signal: abortSignal,
       });
@@ -261,11 +271,15 @@ class ApiClient {
                 if (data.type === 'token' && data.data?.content) {
                   onToken(data.data.content);
                 } else if (data.type === 'done') {
+                  console.log('[ApiClient] Stream complete, messageId:', data.data?.messageId);
                   onComplete(data.data?.messageId);
                   return;
                 } else if (data.type === 'error') {
+                  console.error('[ApiClient] Stream error:', data.data?.message);
                   onError(data.data?.message || 'Unknown error');
                   return;
+                } else {
+                  console.log('[ApiClient] Unknown stream event type:', data);
                 }
               } catch (parseError) {
                 console.warn('Failed to parse SSE data:', line);

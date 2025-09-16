@@ -28,7 +28,7 @@ impl ConversationRepository {
 
         let conversations = sqlx::query_as::<_, Conversation>(
             r#"
-            SELECT id, user_id, title, model, created_at, updated_at, metadata
+            SELECT id, user_id, title, model, provider, created_at, updated_at, metadata
             FROM conversations
             WHERE user_id = $1
             ORDER BY updated_at DESC
@@ -52,7 +52,7 @@ impl ConversationRepository {
         // First get the conversation
         let conversation = sqlx::query_as::<_, Conversation>(
             r#"
-            SELECT id, user_id, title, model, created_at, updated_at, metadata
+            SELECT id, user_id, title, model, provider, created_at, updated_at, metadata
             FROM conversations
             WHERE id = $1 AND user_id = $2
             "#,
@@ -93,17 +93,31 @@ impl ConversationRepository {
         let id = Uuid::new_v4();
         let metadata = request.metadata.unwrap_or_else(|| serde_json::json!({}));
 
+        // Determine provider based on model
+        let provider = if request.model.starts_with("gpt-") {
+            "openai"
+        } else if request.model.starts_with("claude-") {
+            if request.model.contains("code") {
+                "claude_code"
+            } else {
+                "anthropic"
+            }
+        } else {
+            "openai" // default
+        };
+
         let conversation = sqlx::query_as::<_, Conversation>(
             r#"
-            INSERT INTO conversations (id, user_id, title, model, metadata)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, user_id, title, model, created_at, updated_at, metadata
+            INSERT INTO conversations (id, user_id, title, model, provider, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, user_id, title, model, provider, created_at, updated_at, metadata
             "#,
         )
         .bind(id)
         .bind(user_id)
         .bind(&request.title)
         .bind(&request.model)
+        .bind(provider)
         .bind(&metadata)
         .fetch_one(&self.database.pool)
         .await?;
@@ -144,7 +158,7 @@ impl Repository<Conversation, Uuid> for ConversationRepository {
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Conversation>> {
         let conversation = sqlx::query_as::<_, Conversation>(
             r#"
-            SELECT id, user_id, title, model, created_at, updated_at, metadata
+            SELECT id, user_id, title, model, provider, created_at, updated_at, metadata
             FROM conversations
             WHERE id = $1
             "#,
@@ -159,15 +173,16 @@ impl Repository<Conversation, Uuid> for ConversationRepository {
     async fn create(&self, conversation: Conversation) -> Result<Conversation> {
         let created = sqlx::query_as::<_, Conversation>(
             r#"
-            INSERT INTO conversations (id, user_id, title, model, metadata)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, user_id, title, model, created_at, updated_at, metadata
+            INSERT INTO conversations (id, user_id, title, model, provider, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, user_id, title, model, provider, created_at, updated_at, metadata
             "#,
         )
         .bind(conversation.id)
         .bind(conversation.user_id)
         .bind(&conversation.title)
         .bind(&conversation.model)
+        .bind(&conversation.provider)
         .bind(&conversation.metadata)
         .fetch_one(&self.database.pool)
         .await?;
@@ -179,14 +194,15 @@ impl Repository<Conversation, Uuid> for ConversationRepository {
         let updated = sqlx::query_as::<_, Conversation>(
             r#"
             UPDATE conversations
-            SET title = $2, model = $3, metadata = $4, updated_at = NOW()
+            SET title = $2, model = $3, provider = $4, metadata = $5, updated_at = NOW()
             WHERE id = $1
-            RETURNING id, user_id, title, model, created_at, updated_at, metadata
+            RETURNING id, user_id, title, model, provider, created_at, updated_at, metadata
             "#,
         )
         .bind(conversation.id)
         .bind(&conversation.title)
         .bind(&conversation.model)
+        .bind(&conversation.provider)
         .bind(&conversation.metadata)
         .fetch_one(&self.database.pool)
         .await?;

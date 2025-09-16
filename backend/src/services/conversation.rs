@@ -128,8 +128,16 @@ impl ConversationService {
                 | "gpt-4-turbo"
                 | "gpt-3.5-turbo"
                 | "claude-3-opus"
+                | "claude-3-opus-20240229"
                 | "claude-3-sonnet"
+                | "claude-3-sonnet-20240229"
                 | "claude-3-haiku"
+                | "claude-3-haiku-20240307"
+                | "claude-3-5-sonnet-20241022"
+                | "claude-3-5-sonnet-20240620"
+                | "claude-code-sonnet"
+                | "claude-code-haiku"
+                | "claude-code-opus"
         )
     }
 

@@ -159,6 +159,19 @@ async fn create_app(
             "/api/conversations/:id/stats",
             axum::routing::get(handlers::conversation::get_conversation_stats),
         )
+        // Chat message endpoints (protected)
+        .route(
+            "/api/conversations/:id/messages",
+            axum::routing::post(handlers::chat_persistent::send_message),
+        )
+        .route(
+            "/api/conversations/:id/messages",
+            axum::routing::get(handlers::chat_persistent::get_messages),
+        )
+        .route(
+            "/api/conversations/:id/stream",
+            axum::routing::post(handlers::chat_stream::stream_message),
+        )
         // Message branching endpoints (protected)
         .route(
             "/api/messages/:id",
@@ -209,8 +222,14 @@ async fn create_app(
         // Model endpoints
         .route("/api/models", get(handlers::models::get_models))
         .route("/api/models/health", get(handlers::models::models_health))
-        .route("/api/models/:provider", get(handlers::models::get_models_by_provider))
-        .route("/api/models/config/:model_id", get(handlers::models::get_model_config))
+        .route(
+            "/api/models/:provider",
+            get(handlers::models::get_models_by_provider),
+        )
+        .route(
+            "/api/models/config/:model_id",
+            get(handlers::models::get_model_config),
+        )
         // Add application state
         .with_state(app_state.clone())
         // Add session middleware
@@ -223,15 +242,27 @@ async fn create_app(
         // ))
         // Add CORS middleware
         .layer({
-            let origins: Result<Vec<_>, _> = config.cors_origins
+            let origins: Result<Vec<_>, _> = config
+                .cors_origins
                 .iter()
                 .map(|origin| origin.parse())
                 .collect();
 
             tower_http::cors::CorsLayer::new()
-                .allow_origin(origins.unwrap_or_else(|_| vec!["http://localhost:4510".parse().unwrap()]))
-                .allow_methods([axum::http::Method::GET, axum::http::Method::POST, axum::http::Method::PUT, axum::http::Method::DELETE, axum::http::Method::OPTIONS])
-                .allow_headers([axum::http::header::CONTENT_TYPE, axum::http::header::AUTHORIZATION])
+                .allow_origin(
+                    origins.unwrap_or_else(|_| vec!["http://localhost:4510".parse().unwrap()]),
+                )
+                .allow_methods([
+                    axum::http::Method::GET,
+                    axum::http::Method::POST,
+                    axum::http::Method::PUT,
+                    axum::http::Method::DELETE,
+                    axum::http::Method::OPTIONS,
+                ])
+                .allow_headers([
+                    axum::http::header::CONTENT_TYPE,
+                    axum::http::header::AUTHORIZATION,
+                ])
                 .allow_credentials(true)
         })
         // Add tracing middleware
@@ -254,13 +285,19 @@ async fn initialize_admin_user(dal: &DataAccessLayer) -> anyhow::Result<()> {
     let admin_password = match std::env::var("ADMIN_PASSWORD") {
         Ok(password) if !password.is_empty() => password,
         _ => {
-            tracing::warn!("ADMIN_EMAIL configured but no ADMIN_PASSWORD, skipping admin user initialization");
+            tracing::warn!(
+                "ADMIN_EMAIL configured but no ADMIN_PASSWORD, skipping admin user initialization"
+            );
             return Ok(());
         }
     };
 
     // Extract username from email (part before @)
-    let admin_username = admin_email.split('@').next().unwrap_or(&admin_email).to_string();
+    let admin_username = admin_email
+        .split('@')
+        .next()
+        .unwrap_or(&admin_email)
+        .to_string();
 
     // Check if admin user already exists by email
     let existing_user_by_email = dal.users().find_by_email(&admin_email).await?;

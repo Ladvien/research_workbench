@@ -23,6 +23,21 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
     const fetchModels = async () => {
       try {
         setLoading(true);
+
+        // Log current selected model from store
+        console.log('[ModelSelector] Current selected model from store:', selectedModel);
+
+        // Also check localStorage directly
+        const storedData = localStorage.getItem('workbench-conversation-store');
+        if (storedData) {
+          try {
+            const parsed = JSON.parse(storedData);
+            console.log('[ModelSelector] LocalStorage state:', parsed);
+          } catch (e) {
+            console.error('[ModelSelector] Failed to parse localStorage:', e);
+          }
+        }
+
         const response = await fetch('/api/models');
 
         if (!response.ok) {
@@ -179,6 +194,12 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                 ${selectedModel === model.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}
               `}
               onClick={() => {
+                console.log('[ModelSelector] User selected model:', {
+                  modelId: model.id,
+                  modelName: model.name,
+                  provider: model.provider,
+                  previousModel: selectedModel
+                });
                 setSelectedModel(model.id);
                 setIsOpen(false);
               }}

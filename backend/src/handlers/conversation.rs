@@ -19,7 +19,10 @@ pub async fn create_conversation(
     user: UserResponse, // This comes from our auth middleware
     Json(request): Json<CreateConversationRequest>,
 ) -> Result<Json<Value>, AppError> {
-    let conversation = app_state.conversation_service.create_conversation(user.id, request).await?;
+    let conversation = app_state
+        .conversation_service
+        .create_conversation(user.id, request)
+        .await?;
     Ok(Json(serde_json::to_value(conversation)?))
 }
 

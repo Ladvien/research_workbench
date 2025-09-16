@@ -25,7 +25,7 @@ import {
   UsageTrends,
   ConversationUsage,
   AnalyticsQuery,
-} from '../types/analytics';
+} from '../types';
 
 interface AnalyticsDashboardProps {
   className?: string;

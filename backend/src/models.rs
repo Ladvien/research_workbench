@@ -40,7 +40,7 @@ pub struct Message {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "text")]
+#[sqlx(type_name = "varchar")]
 #[serde(rename_all = "lowercase")]
 pub enum MessageRole {
     #[sqlx(rename = "user")]

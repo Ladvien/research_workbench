@@ -186,3 +186,6 @@ export interface AuthState {
   refreshToken: () => Promise<boolean>;
   clearError: () => void;
 }
+// Re-export everything from analytics and chat
+export * from './analytics';
+export * from './chat';

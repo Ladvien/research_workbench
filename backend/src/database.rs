@@ -1,5 +1,8 @@
 use anyhow::Result;
-use sqlx::{postgres::{PgConnectOptions, PgPoolOptions}, Pool, Postgres};
+use sqlx::{
+    postgres::{PgConnectOptions, PgPoolOptions},
+    Pool, Postgres,
+};
 use std::time::Duration;
 use tracing::info;
 

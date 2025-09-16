@@ -7,7 +7,10 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use uuid::Uuid;
 
-use super::{ChatMessage, ChatRequest, ChatResponse, LLMService, ModelInfo, Provider, StreamEvent, StreamEventType, Usage};
+use super::{
+    ChatMessage, ChatRequest, ChatResponse, LLMService, ModelInfo, Provider, StreamEvent,
+    StreamEventType, Usage,
+};
 use crate::config::AppConfig;
 use crate::error::AppError;
 
@@ -22,12 +25,19 @@ struct ClaudeCodeResponse {
     #[serde(rename = "type")]
     response_type: String,
     subtype: Option<String>,
+    is_error: Option<bool>,
+    duration_ms: Option<u64>,
+    duration_api_ms: Option<u64>,
+    num_turns: Option<u32>,
     result: String,
     session_id: Option<String>,
+    total_cost_usd: Option<f64>,
     #[serde(default)]
     usage: Option<ClaudeCodeUsage>,
     #[serde(rename = "modelUsage")]
     model_usage: Option<std::collections::HashMap<String, ClaudeCodeModelUsage>>,
+    permission_denials: Option<Vec<serde_json::Value>>,
+    uuid: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -68,7 +78,11 @@ impl ClaudeCodeService {
         self
     }
 
-    async fn execute_claude_command(&self, prompt: &str, stream: bool) -> Result<tokio::process::Child, AppError> {
+    async fn execute_claude_command(
+        &self,
+        prompt: &str,
+        stream: bool,
+    ) -> Result<(tokio::process::Child, String), AppError> {
         let mut cmd = Command::new("claude");
 
         // Add basic flags
@@ -103,24 +117,36 @@ impl ClaudeCodeService {
         // Add the prompt
         cmd.arg(prompt);
 
-        // Configure stdio
+        // Configure stdio and working directory
         cmd.stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .stdin(Stdio::null());
+            .stdin(Stdio::null())
+            .current_dir("/mnt/datadrive_m2/research_workbench");
 
-        tracing::debug!("Executing Claude Code CLI command: {:?}", cmd);
+        // Ensure the subprocess has the HOME environment variable so claude can find credentials
+        // Force HOME to be ladvien's home directory
+        cmd.env("HOME", "/home/ladvien");
+
+        // Also set USER for good measure
+        cmd.env("USER", "ladvien");
+
+        // Claude CLI will use credentials from ~/.claude/.credentials.json
+        // Don't override OAuth token as environment variable
+
+        let command_debug = format!("{:?}", cmd);
+        tracing::info!("Executing Claude Code CLI command: {}", command_debug);
 
         let child = cmd.spawn().map_err(|e| {
             tracing::error!("Failed to spawn Claude Code CLI process: {}", e);
             AppError::InternalServerError(format!("Claude Code CLI not available: {}", e))
         })?;
 
-        Ok(child)
+        Ok((child, command_debug))
     }
 
     fn convert_usage(
         usage: Option<ClaudeCodeUsage>,
-        model_usage: Option<&std::collections::HashMap<String, ClaudeCodeModelUsage>>
+        model_usage: Option<&std::collections::HashMap<String, ClaudeCodeModelUsage>>,
     ) -> Option<Usage> {
         // Prefer model_usage if available, fallback to usage
         if let Some(model_usage_map) = model_usage {
@@ -141,9 +167,9 @@ impl ClaudeCodeService {
         usage.map(|u| Usage {
             prompt_tokens: u.input_tokens.unwrap_or(0),
             completion_tokens: u.output_tokens.unwrap_or(0),
-            total_tokens: u.total_tokens.unwrap_or(
-                u.input_tokens.unwrap_or(0) + u.output_tokens.unwrap_or(0)
-            ),
+            total_tokens: u
+                .total_tokens
+                .unwrap_or(u.input_tokens.unwrap_or(0) + u.output_tokens.unwrap_or(0)),
         })
     }
 
@@ -207,33 +233,60 @@ impl LLMService for ClaudeCodeService {
 
     async fn chat_completion(&self, request: ChatRequest) -> Result<ChatResponse, AppError> {
         if !self.config.claude_code_enabled {
-            return Err(AppError::BadRequest("Claude Code integration is disabled".to_string()));
+            return Err(AppError::BadRequest(
+                "Claude Code integration is disabled".to_string(),
+            ));
         }
 
         let prompt = Self::build_prompt_from_messages(&request.messages);
-        let child = self.execute_claude_command(&prompt, false).await?;
+        tracing::info!("Claude Code chat_completion prompt: '{}'", prompt);
+        let (child, command_debug) = self.execute_claude_command(&prompt, false).await?;
 
         let output = child.wait_with_output().await.map_err(|e| {
             tracing::error!("Failed to wait for Claude Code CLI process: {}", e);
             AppError::InternalServerError(format!("Claude Code CLI execution failed: {}", e))
         })?;
 
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        // If command failed but we have JSON output, try to parse it for error details
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            tracing::error!("Claude Code CLI failed with status {}: {}", output.status, stderr);
+            tracing::error!("Claude Code CLI failed with status {}", output.status);
+            tracing::error!("Claude Code CLI stderr: '{}'", stderr);
+            tracing::error!("Claude Code CLI stdout: '{}'", stdout);
+            tracing::error!(
+                "Claude Code CLI working directory: /mnt/datadrive_m2/research_workbench"
+            );
+            tracing::error!("Claude Code CLI command: {}", command_debug);
+
+            // Try to parse the JSON response to get a more specific error
+            if let Ok(claude_response) = serde_json::from_str::<ClaudeCodeResponse>(&stdout) {
+                if claude_response.is_error.unwrap_or(false) {
+                    tracing::error!("Claude Code API error: {}", claude_response.result);
+                    return Err(AppError::InternalServerError(format!(
+                        "Claude Code API error: {}",
+                        claude_response.result
+                    )));
+                }
+            }
+
             return Err(AppError::InternalServerError(format!(
-                "Claude Code CLI failed: {}", stderr
+                "Claude Code CLI failed with status {}: stderr: '{}', stdout: '{}'",
+                output.status, stderr, stdout
             )));
         }
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
         tracing::debug!("Claude Code CLI response: {}", stdout);
 
-        let claude_response: ClaudeCodeResponse = serde_json::from_str(&stdout)
-            .map_err(|e| {
-                tracing::error!("Failed to parse Claude Code CLI JSON response: {} - Response: {}", e, stdout);
-                AppError::InternalServerError(format!("Failed to parse Claude Code response: {}", e))
-            })?;
+        let claude_response: ClaudeCodeResponse = serde_json::from_str(&stdout).map_err(|e| {
+            tracing::error!(
+                "Failed to parse Claude Code CLI JSON response: {} - Response: {}",
+                e,
+                stdout
+            );
+            AppError::InternalServerError(format!("Failed to parse Claude Code response: {}", e))
+        })?;
 
         Ok(ChatResponse {
             message: ChatMessage {
@@ -251,11 +304,13 @@ impl LLMService for ClaudeCodeService {
         request: ChatRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamEvent, AppError>> + Send>>, AppError> {
         if !self.config.claude_code_enabled {
-            return Err(AppError::BadRequest("Claude Code integration is disabled".to_string()));
+            return Err(AppError::BadRequest(
+                "Claude Code integration is disabled".to_string(),
+            ));
         }
 
         let prompt = Self::build_prompt_from_messages(&request.messages);
-        let mut child = self.execute_claude_command(&prompt, true).await?;
+        let (mut child, _command_debug) = self.execute_claude_command(&prompt, true).await?;
 
         let stdout = child.stdout.take().ok_or_else(|| {
             AppError::InternalServerError("Failed to capture Claude Code CLI stdout".to_string())

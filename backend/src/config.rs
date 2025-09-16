@@ -61,7 +61,10 @@ impl Default for AppConfig {
                 premium_multiplier: 5,
                 admin_override_enabled: true,
             },
-            cors_origins: vec!["http://localhost:4510".to_string(), "https://workbench.lolzlab.com".to_string()],
+            cors_origins: vec![
+                "http://localhost:4510".to_string(),
+                "https://workbench.lolzlab.com".to_string(),
+            ],
         }
     }
 }
@@ -74,8 +77,7 @@ impl AppConfig {
             .unwrap_or_else(|_| "127.0.0.1:8080".to_string())
             .parse()?;
 
-        let openai_api_key = std::env::var("OPENAI_API_KEY")
-            .unwrap_or_else(|_| String::new()); // Allow empty if not using OpenAI
+        let openai_api_key = std::env::var("OPENAI_API_KEY").unwrap_or_else(|_| String::new()); // Allow empty if not using OpenAI
 
         let openai_model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4".to_string());
 
@@ -89,8 +91,8 @@ impl AppConfig {
             .parse()
             .unwrap_or(0.7);
 
-        let anthropic_api_key = std::env::var("ANTHROPIC_API_KEY")
-            .unwrap_or_else(|_| String::new()); // Allow empty if not using Anthropic
+        let anthropic_api_key =
+            std::env::var("ANTHROPIC_API_KEY").unwrap_or_else(|_| String::new()); // Allow empty if not using Anthropic
 
         let anthropic_model = std::env::var("ANTHROPIC_MODEL")
             .unwrap_or_else(|_| "claude-3-sonnet-20240229".to_string());
@@ -118,8 +120,9 @@ impl AppConfig {
             .parse()
             .unwrap_or(3600);
 
-        let jwt_secret = std::env::var("JWT_SECRET")
-            .map_err(|_| anyhow::anyhow!("JWT_SECRET environment variable not set - required for production"))?;
+        let jwt_secret = std::env::var("JWT_SECRET").map_err(|_| {
+            anyhow::anyhow!("JWT_SECRET environment variable not set - required for production")
+        })?;
 
         // Validate JWT secret strength (minimum 256 bits / 32 bytes)
         if jwt_secret.len() < 32 {

@@ -161,6 +161,10 @@ export const useConversationStore = create<ConversationState>()(
           // Create a new conversation first with title generated from first message
           try {
             const generatedTitle = generateTitleFromMessage(content);
+            console.log('[ConversationStore] Creating new conversation with:', {
+              title: generatedTitle,
+              model: selectedModel
+            });
             const conversationId = await get().createConversation({
               title: generatedTitle,
               model: selectedModel,
@@ -220,10 +224,21 @@ export const useConversationStore = create<ConversationState>()(
       sendStreamingMessage: async (content: string) => {
         const { currentConversationId, selectedModel } = get();
 
+        console.log('[ConversationStore] sendStreamingMessage called:', {
+          content: content.substring(0, 100) + '...',
+          currentConversationId,
+          selectedModel,
+          isNewConversation: !currentConversationId
+        });
+
         if (!currentConversationId) {
           // Create a new conversation first with title generated from first message
           try {
             const generatedTitle = generateTitleFromMessage(content);
+            console.log('[ConversationStore] Creating new conversation with:', {
+              title: generatedTitle,
+              model: selectedModel
+            });
             const conversationId = await get().createConversation({
               title: generatedTitle,
               model: selectedModel,
@@ -273,6 +288,11 @@ export const useConversationStore = create<ConversationState>()(
           set({ streamingMessage: initialStreamingMessage });
 
           // Start streaming
+          console.log('[ConversationStore] Starting stream with:', {
+            conversationId: currentConversationId,
+            contentLength: content.length,
+            model: selectedModel
+          });
           await apiClient.streamMessage(
             currentConversationId,
             content,
