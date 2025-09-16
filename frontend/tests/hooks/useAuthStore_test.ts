@@ -77,7 +77,7 @@ describe('useAuthStore', () => {
       });
 
       expect(fetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/auth/login',
+        'http://localhost:8080/api/v1/auth/login',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -161,7 +161,7 @@ describe('useAuthStore', () => {
       });
 
       expect(fetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/auth/register',
+        'http://localhost:8080/api/v1/auth/register',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -211,7 +211,7 @@ describe('useAuthStore', () => {
       });
 
       expect(fetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/auth/logout',
+        'http://localhost:8080/api/v1/auth/logout',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -324,7 +324,7 @@ describe('useAuthStore', () => {
       });
 
       expect(fetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/auth/me',
+        'http://localhost:8080/api/v1/auth/me',
         expect.objectContaining({
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },

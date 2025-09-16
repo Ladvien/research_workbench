@@ -103,7 +103,10 @@ async fn test_redis_connection_failure_on_store() {
         .store_session(session_id, session_data)
         .await;
 
-    assert!(result.is_ok(), "Session storage should succeed with in-memory fallback");
+    assert!(
+        result.is_ok(),
+        "Session storage should succeed with in-memory fallback"
+    );
 
     // Verify session can be retrieved
     let retrieved = session_manager.get_session(session_id).await;
@@ -302,7 +305,10 @@ async fn test_redis_recovery_after_failure() {
         let result = session_manager
             .store_session(&session_id, session_data)
             .await;
-        assert!(result.is_ok(), "Session store should work during 'Redis failure'");
+        assert!(
+            result.is_ok(),
+            "Session store should work during 'Redis failure'"
+        );
     }
 
     // Verify sessions exist
@@ -326,7 +332,10 @@ async fn test_redis_recovery_after_failure() {
         let result = session_manager
             .store_session(&session_id, session_data)
             .await;
-        assert!(result.is_ok(), "Session store should work after 'Redis recovery'");
+        assert!(
+            result.is_ok(),
+            "Session store should work after 'Redis recovery'"
+        );
     }
 
     // Verify all sessions exist
@@ -436,7 +445,10 @@ async fn test_session_cleanup_during_redis_failure() {
 
     // Run cleanup during "Redis failure"
     let cleanup_result = session_manager.cleanup_expired_sessions().await;
-    assert!(cleanup_result.is_ok(), "Cleanup should work during Redis failure");
+    assert!(
+        cleanup_result.is_ok(),
+        "Cleanup should work during Redis failure"
+    );
 
     // With 1-hour timeout, sessions older than 1 hour should be cleaned
     // Note: In-memory implementation may have different cleanup behavior
@@ -501,7 +513,10 @@ async fn test_atomic_operations_during_redis_failure() {
         .get_user_session_count(user_id)
         .await
         .unwrap();
-    assert!(final_count <= 5, "Session limit should be enforced atomically");
+    assert!(
+        final_count <= 5,
+        "Session limit should be enforced atomically"
+    );
 }
 
 #[tokio::test]
@@ -519,9 +534,7 @@ async fn test_redis_failure_error_handling() {
 
     // Test error handling for user with no sessions
     let user_id = Uuid::new_v4();
-    let count_result = session_manager
-        .get_user_session_count(user_id)
-        .await;
+    let count_result = session_manager.get_user_session_count(user_id).await;
     assert!(count_result.is_ok());
     assert_eq!(count_result.unwrap(), 0);
 

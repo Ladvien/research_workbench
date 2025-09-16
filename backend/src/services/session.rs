@@ -24,8 +24,8 @@ pub struct SessionData {
     pub user_id: Uuid,
     pub created_at: DateTime<Utc>,
     pub last_accessed: DateTime<Utc>,
-    pub ip_address: Option<Arc<str>>,  // Use Arc<str> to reduce allocations
-    pub user_agent: Option<Arc<str>>,  // Use Arc<str> to reduce allocations
+    pub ip_address: Option<Arc<str>>, // Use Arc<str> to reduce allocations
+    pub user_agent: Option<Arc<str>>, // Use Arc<str> to reduce allocations
 }
 
 #[derive(Debug, Clone)]
@@ -33,7 +33,7 @@ pub struct SessionManager {
     redis_client: Option<RedisClient>,
     postgres_pool: Option<PgPool>,
     // Fallback in-memory store for when both Redis and Postgres are unavailable
-    memory_store: Arc<RwLock<HashMap<Arc<str>, SessionData>>>,  // Use Arc<str> keys
+    memory_store: Arc<RwLock<HashMap<Arc<str>, SessionData>>>, // Use Arc<str> keys
     max_sessions_per_user: usize,
     session_timeout_hours: u64,
 }
@@ -88,7 +88,7 @@ impl SessionManager {
                 // Require authentication in production
                 if url.username().is_empty() || url.password().is_none() {
                     return Err(AppError::InternalServerError(
-                        "Redis authentication required in production environment".to_string()
+                        "Redis authentication required in production environment".to_string(),
                     ));
                 }
 
@@ -111,16 +111,17 @@ impl SessionManager {
 
                     // Check for common weak passwords
                     let weak_passwords = &[
-                        "password", "redis", "admin", "root", "123456", "qwerty",
-                        "default", "secret", "foobared", // foobared is Redis default
+                        "password", "redis", "admin", "root", "123456", "qwerty", "default",
+                        "secret", "foobared", // foobared is Redis default
                     ];
 
                     let password_lower = password.to_lowercase();
                     for weak_password in weak_passwords {
                         if password_lower.contains(weak_password) {
-                            return Err(AppError::InternalServerError(
-                                format!("Weak Redis password detected in production: contains '{}'", weak_password)
-                            ));
+                            return Err(AppError::InternalServerError(format!(
+                                "Weak Redis password detected in production: contains '{}'",
+                                weak_password
+                            )));
                         }
                     }
 
@@ -155,7 +156,7 @@ impl SessionManager {
                 }
             } else {
                 return Err(AppError::InternalServerError(
-                    "Invalid Redis URL format".to_string()
+                    "Invalid Redis URL format".to_string(),
                 ));
             }
         }
@@ -230,9 +231,9 @@ impl SessionManager {
             let session_data_clone = session_data.clone();
             let timeout_hours = self.session_timeout_hours;
 
-            let result = tokio::task::spawn_blocking(move || {
-                serde_json::to_value(&session_data_clone)
-            }).await;
+            let result =
+                tokio::task::spawn_blocking(move || serde_json::to_value(&session_data_clone))
+                    .await;
 
             match result {
                 Ok(Ok(json_data)) => {
@@ -261,10 +262,13 @@ impl SessionManager {
                     } else {
                         tracing::warn!("Failed to store session in PostgreSQL: {:?}", db_result);
                     }
-                },
+                }
                 Ok(Err(e)) => {
-                    return Err(AppError::InternalServerError(format!("Serialization error: {}", e)));
-                },
+                    return Err(AppError::InternalServerError(format!(
+                        "Serialization error: {}",
+                        e
+                    )));
+                }
                 Err(e) => {
                     tracing::warn!("Task join error: {}", e);
                 }
@@ -304,7 +308,8 @@ impl SessionManager {
                         // Use spawn_blocking for heavy deserialization
                         let deserialization = tokio::task::spawn_blocking(move || {
                             serde_json::from_str::<SessionData>(&data)
-                        }).await;
+                        })
+                        .await;
 
                         match deserialization {
                             Ok(Ok(session_data)) => {
@@ -318,7 +323,7 @@ impl SessionManager {
                                 tracing::warn!("Task join error during deserialization: {}", e);
                             }
                         }
-                    },
+                    }
                     Ok(None) => {
                         tracing::debug!("Session {} not found in Redis", session_id);
                     }
@@ -400,11 +405,15 @@ impl SessionManager {
                         pipe.del(&session_key).ignore();
                         pipe.srem(&user_sessions_key, session_id).ignore();
 
-                        let result: Result<(), redis::RedisError> = pipe.query_async(&mut conn).await;
+                        let result: Result<(), redis::RedisError> =
+                            pipe.query_async(&mut conn).await;
 
                         if result.is_ok() {
                             any_success = true;
-                            tracing::debug!("Session {} deleted from Redis with set cleanup", session_id);
+                            tracing::debug!(
+                                "Session {} deleted from Redis with set cleanup",
+                                session_id
+                            );
                         }
                     }
                 } else {
@@ -635,16 +644,24 @@ impl SessionManager {
                                 pipe.get(key);
                             }
 
-                            let session_data_results: Result<Vec<Option<String>>, redis::RedisError> =
-                                pipe.query_async(&mut conn).await;
+                            let session_data_results: Result<
+                                Vec<Option<String>>,
+                                redis::RedisError,
+                            > = pipe.query_async(&mut conn).await;
 
                             if let Ok(session_data_list) = session_data_results {
                                 let mut user_sessions = Vec::new();
 
                                 for (i, data_opt) in session_data_list.into_iter().enumerate() {
                                     if let Some(data_str) = data_opt {
-                                        if let Ok(session_data) = serde_json::from_str::<SessionData>(&data_str) {
-                                            user_sessions.push((session_keys[i].clone(), session_ids[i].clone(), session_data.last_accessed));
+                                        if let Ok(session_data) =
+                                            serde_json::from_str::<SessionData>(&data_str)
+                                        {
+                                            user_sessions.push((
+                                                session_keys[i].clone(),
+                                                session_ids[i].clone(),
+                                                session_data.last_accessed,
+                                            ));
                                         }
                                     }
                                 }
@@ -652,20 +669,24 @@ impl SessionManager {
                                 // Sort by last_accessed and remove oldest sessions
                                 if user_sessions.len() > self.max_sessions_per_user {
                                     user_sessions.sort_by(|a, b| a.2.cmp(&b.2));
-                                    let sessions_to_remove = user_sessions.len() - self.max_sessions_per_user;
+                                    let sessions_to_remove =
+                                        user_sessions.len() - self.max_sessions_per_user;
 
                                     // Use atomic pipeline to prevent race conditions
                                     let mut pipe = redis::pipe();
                                     pipe.atomic(); // This makes the pipeline use MULTI/EXEC for atomicity
 
-                                    for (session_key, session_id, _) in user_sessions.iter().take(sessions_to_remove) {
+                                    for (session_key, session_id, _) in
+                                        user_sessions.iter().take(sessions_to_remove)
+                                    {
                                         // Remove from session data
                                         pipe.del(session_key).ignore();
                                         // Remove from user sessions set
                                         pipe.srem(&user_sessions_key, session_id).ignore();
                                     }
 
-                                    let result: Result<(), redis::RedisError> = pipe.query_async(&mut conn).await;
+                                    let result: Result<(), redis::RedisError> =
+                                        pipe.query_async(&mut conn).await;
 
                                     if result.is_err() {
                                         tracing::warn!(
@@ -797,8 +818,7 @@ mod performance_tests {
         }
 
         let session_manager = SessionManager::new(
-            redis_url,
-            None, // Skip PostgreSQL for this benchmark
+            redis_url, None, // Skip PostgreSQL for this benchmark
             5,    // max_sessions_per_user
             24,   // session_timeout_hours
         );
@@ -822,33 +842,60 @@ mod performance_tests {
                 user_agent: Some("Benchmark".into()),
             };
 
-            session_manager.store_session(&session_id, session_data).await.unwrap();
+            session_manager
+                .store_session(&session_id, session_data)
+                .await
+                .unwrap();
         }
 
         let creation_time = start.elapsed();
-        println!("✅ Created {} sessions in {:?} ({:.2} sessions/ms)",
-                 num_sessions, creation_time,
-                 num_sessions as f64 / creation_time.as_millis().max(1) as f64);
+        println!(
+            "✅ Created {} sessions in {:?} ({:.2} sessions/ms)",
+            num_sessions,
+            creation_time,
+            num_sessions as f64 / creation_time.as_millis().max(1) as f64
+        );
 
         // Benchmark session count (should be O(1))
         let start = Instant::now();
-        let count = session_manager.get_user_session_count(user_id).await.unwrap();
+        let count = session_manager
+            .get_user_session_count(user_id)
+            .await
+            .unwrap();
         let count_time = start.elapsed();
-        println!("✅ Session count ({}) retrieved in {:?} (O(1) operation)", count, count_time);
+        println!(
+            "✅ Session count ({}) retrieved in {:?} (O(1) operation)",
+            count, count_time
+        );
 
         // Verify that sessions were limited correctly during storage
-        assert!(count <= 5, "Sessions should be limited to 5, but found {}", count);
-        println!("✅ Session limit correctly enforced: {} sessions remain", count);
+        assert!(
+            count <= 5,
+            "Sessions should be limited to 5, but found {}",
+            count
+        );
+        println!(
+            "✅ Session limit correctly enforced: {} sessions remain",
+            count
+        );
 
         // Benchmark batch session invalidation
         let start = Instant::now();
-        session_manager.invalidate_user_sessions(user_id).await.unwrap();
+        session_manager
+            .invalidate_user_sessions(user_id)
+            .await
+            .unwrap();
         let invalidation_time = start.elapsed();
-        println!("✅ Batch invalidation of {} sessions completed in {:?}",
-                 count, invalidation_time);
+        println!(
+            "✅ Batch invalidation of {} sessions completed in {:?}",
+            count, invalidation_time
+        );
 
         // Verify all sessions are gone
-        let final_count = session_manager.get_user_session_count(user_id).await.unwrap();
+        let final_count = session_manager
+            .get_user_session_count(user_id)
+            .await
+            .unwrap();
         assert_eq!(final_count, 0, "All sessions should be invalidated");
         println!("✅ All sessions successfully invalidated");
     }
@@ -882,7 +929,9 @@ mod performance_tests {
         println!("🚀 Session Management Performance Optimizations Implemented:");
         println!();
         println!("   ✅ CRITICAL [PERFORMANCE-001]: N+1 query elimination");
-        println!("       - Replaced individual Redis DEL operations with batch pipeline operations");
+        println!(
+            "       - Replaced individual Redis DEL operations with batch pipeline operations"
+        );
         println!("       - Use Redis sets for O(1) user session tracking");
         println!("       - Batch Redis operations reduce round trips from N to 1");
         println!();

@@ -91,10 +91,7 @@ pub async fn register(
         header::SET_COOKIE,
         format!(
             "token={}; HttpOnly; SameSite={}; Max-Age=86400; Path={}{}",
-            response.access_token,
-            app_state.config.cookie_security.same_site,
-            "/",
-            secure_flag
+            response.access_token, app_state.config.cookie_security.same_site, "/", secure_flag
         ),
     );
 
@@ -149,10 +146,7 @@ pub async fn login(
             header::SET_COOKIE,
             format!(
                 "token={}; HttpOnly; SameSite={}; Max-Age=86400; Path={}{}",
-                response.access_token,
-                app_state.config.cookie_security.same_site,
-                "/",
-                secure_flag
+                response.access_token, app_state.config.cookie_security.same_site, "/", secure_flag
             ),
         )
         .body(
@@ -169,7 +163,10 @@ pub async fn login(
 }
 
 // Logout endpoint
-pub async fn logout(State(app_state): State<AppState>, session: Session) -> Result<Response, AppError> {
+pub async fn logout(
+    State(app_state): State<AppState>,
+    session: Session,
+) -> Result<Response, AppError> {
     // Clear session
     session
         .flush()
@@ -189,9 +186,7 @@ pub async fn logout(State(app_state): State<AppState>, session: Session) -> Resu
             header::SET_COOKIE,
             format!(
                 "token=; HttpOnly; SameSite={}; Max-Age=0; Path={}{}",
-                app_state.config.cookie_security.same_site,
-                "/",
-                secure_flag
+                app_state.config.cookie_security.same_site, "/", secure_flag
             ),
         )
         .body(

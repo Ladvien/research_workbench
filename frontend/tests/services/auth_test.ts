@@ -280,7 +280,7 @@ describe('AuthService', () => {
       await customAuthService.login(mockLoginRequest);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.example.com/api/auth/login',
+        'https://api.example.com/api/v1/auth/login',
         expect.any(Object)
       );
     });

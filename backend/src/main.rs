@@ -16,7 +16,7 @@ mod services;
 use app_state::AppState;
 use config::AppConfig;
 use database::Database;
-use middleware::rate_limit::{api_rate_limit_middleware, upload_rate_limit_middleware};
+use middleware::rate_limit::api_rate_limit_middleware;
 use services::{
     auth::AuthService, redis_session_store::PersistentSessionStore, session::SessionManager,
     DataAccessLayer,
@@ -297,7 +297,10 @@ async fn create_app(
         // .route("/api/messages/:id/attachments", axum::routing::get(handlers::file::get_message_attachments))
         // Model endpoints
         .route("/api/v1/models", get(handlers::models::get_models))
-        .route("/api/v1/models/health", get(handlers::models::models_health))
+        .route(
+            "/api/v1/models/health",
+            get(handlers::models::models_health),
+        )
         .route(
             "/api/v1/models/:provider",
             get(handlers::models::get_models_by_provider),

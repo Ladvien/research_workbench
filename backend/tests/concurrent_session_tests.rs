@@ -68,8 +68,8 @@ async fn test_race_condition_session_limit_enforcement() {
     }
 
     // Wait for all attempts to complete
-    let results: Vec<Result<(), AppError>> =
-        futures::future::join_all(handles).await
+    let results: Vec<Result<(), AppError>> = futures::future::join_all(handles)
+        .await
         .into_iter()
         .map(|r| r.unwrap())
         .collect();
@@ -84,13 +84,22 @@ async fn test_race_condition_session_limit_enforcement() {
         .unwrap();
 
     // Should not exceed the limit of 3 sessions
-    assert!(final_count <= 3, "Session count {} exceeds limit of 3", final_count);
+    assert!(
+        final_count <= 3,
+        "Session count {} exceeds limit of 3",
+        final_count
+    );
 
     // Some sessions should have been created
-    assert!(successful_creations > 0, "At least some sessions should be created");
+    assert!(
+        successful_creations > 0,
+        "At least some sessions should be created"
+    );
 
-    println!("Race condition test: {} successful creations, {} final sessions",
-             successful_creations, final_count);
+    println!(
+        "Race condition test: {} successful creations, {} final sessions",
+        successful_creations, final_count
+    );
 }
 
 #[tokio::test]
@@ -126,8 +135,8 @@ async fn test_rapid_parallel_session_creation() {
         }
 
         // Wait for batch to complete
-        let batch_results: Vec<Result<(), AppError>> =
-            futures::future::join_all(batch_handles).await
+        let batch_results: Vec<Result<(), AppError>> = futures::future::join_all(batch_handles)
+            .await
             .into_iter()
             .map(|r| r.unwrap())
             .collect();
@@ -141,7 +150,11 @@ async fn test_rapid_parallel_session_creation() {
             .await
             .unwrap();
 
-        assert!(count_after_batch <= 3, "Session limit violated after batch {}", batch);
+        assert!(
+            count_after_batch <= 3,
+            "Session limit violated after batch {}",
+            batch
+        );
 
         // Small delay between batches
         sleep(Duration::from_millis(10)).await;
@@ -153,7 +166,11 @@ async fn test_rapid_parallel_session_creation() {
         .await
         .unwrap();
 
-    assert!(final_count <= 3, "Final session count {} exceeds limit", final_count);
+    assert!(
+        final_count <= 3,
+        "Final session count {} exceeds limit",
+        final_count
+    );
     assert!(final_count > 0, "Should have at least one session");
 }
 
@@ -223,7 +240,14 @@ async fn test_concurrent_session_operations_mixed() {
                     session_manager
                         .get_session(&session_id)
                         .await
-                        .map(|result| if result.is_some() { "get_found" } else { "get_notfound" }.to_string())
+                        .map(|result| {
+                            if result.is_some() {
+                                "get_found"
+                            } else {
+                                "get_notfound"
+                            }
+                            .to_string()
+                        })
                         .unwrap_or_else(|_| "get_failed".to_string())
                 }
                 2 => {
@@ -251,7 +275,8 @@ async fn test_concurrent_session_operations_mixed() {
     }
 
     // Wait for all operations to complete
-    let results: Vec<String> = futures::future::join_all(handles).await
+    let results: Vec<String> = futures::future::join_all(handles)
+        .await
         .into_iter()
         .map(|r| r.unwrap())
         .collect();
@@ -262,8 +287,10 @@ async fn test_concurrent_session_operations_mixed() {
     let deletes = results.iter().filter(|r| r.starts_with("delete")).count();
     let counts = results.iter().filter(|r| r.starts_with("count")).count();
 
-    println!("Mixed operations: {} creates, {} gets, {} deletes, {} counts",
-             creates, gets, deletes, counts);
+    println!(
+        "Mixed operations: {} creates, {} gets, {} deletes, {} counts",
+        creates, gets, deletes, counts
+    );
 
     // Final verification - session limit should still be enforced
     let final_count = session_manager
@@ -301,7 +328,9 @@ async fn test_session_eviction_under_load() {
                     user_id,
                     created_at: chrono::Utc::now(),
                     last_accessed: chrono::Utc::now(),
-                    ip_address: Some(format!("203.0.113.{}", (wave * sessions_per_wave + i) % 255).into()),
+                    ip_address: Some(
+                        format!("203.0.113.{}", (wave * sessions_per_wave + i) % 255).into(),
+                    ),
                     user_agent: Some(format!("eviction-agent-{}-{}", wave, i).into()),
                 };
 
@@ -317,8 +346,8 @@ async fn test_session_eviction_under_load() {
         }
 
         // Wait for wave to complete
-        let wave_results: Vec<Result<(), AppError>> =
-            futures::future::join_all(wave_handles).await
+        let wave_results: Vec<Result<(), AppError>> = futures::future::join_all(wave_handles)
+            .await
             .into_iter()
             .map(|r| r.unwrap())
             .collect();
@@ -339,10 +368,17 @@ async fn test_session_eviction_under_load() {
             .await
             .unwrap();
 
-        println!("Wave {}: {} existing from this wave, {} total sessions",
-                 wave, existing_sessions, total_count);
+        println!(
+            "Wave {}: {} existing from this wave, {} total sessions",
+            wave, existing_sessions, total_count
+        );
 
-        assert!(total_count <= 3, "Session limit violated in wave {}: {}", wave, total_count);
+        assert!(
+            total_count <= 3,
+            "Session limit violated in wave {}: {}",
+            wave,
+            total_count
+        );
 
         // Small delay between waves
         sleep(Duration::from_millis(50)).await;
@@ -362,11 +398,21 @@ async fn test_session_eviction_under_load() {
         .unwrap();
 
     assert_eq!(final_existing, final_count, "Session count mismatch");
-    assert!(final_count <= 3, "Final session count exceeds limit: {}", final_count);
-    assert!(final_count > 0, "Should have at least one session remaining");
+    assert!(
+        final_count <= 3,
+        "Final session count exceeds limit: {}",
+        final_count
+    );
+    assert!(
+        final_count > 0,
+        "Should have at least one session remaining"
+    );
 
-    println!("Eviction test complete: {} sessions remaining out of {} created",
-             final_count, all_session_ids.len());
+    println!(
+        "Eviction test complete: {} sessions remaining out of {} created",
+        final_count,
+        all_session_ids.len()
+    );
 }
 
 #[tokio::test]
@@ -378,8 +424,11 @@ async fn test_concurrent_user_session_invalidation() {
     // Create sessions for both users
     for user_id in [user1_id, user2_id] {
         for i in 0..3 {
-            let session_id = format!("invalidation_user_{}_session_{}",
-                                   if user_id == user1_id { 1 } else { 2 }, i);
+            let session_id = format!(
+                "invalidation_user_{}_session_{}",
+                if user_id == user1_id { 1 } else { 2 },
+                i
+            );
             let session_data = SessionData {
                 user_id,
                 created_at: chrono::Utc::now(),
@@ -444,9 +493,7 @@ async fn test_concurrent_user_session_invalidation() {
     // Concurrently operate on user2 sessions
     let session_manager_clone = Arc::clone(&session_manager);
     handles.push(tokio::spawn(async move {
-        let _count = session_manager_clone
-            .get_user_session_count(user2_id)
-            .await;
+        let _count = session_manager_clone.get_user_session_count(user2_id).await;
         Ok(()) // Return same type as other handles
     }));
 
@@ -467,10 +514,15 @@ async fn test_concurrent_user_session_invalidation() {
     assert_eq!(user2_final_count, 3, "User2 sessions should be unaffected");
 
     // User1 should have some sessions (the new ones created after/during invalidation)
-    assert!(user1_final_count <= 3, "User1 session limit should be enforced");
+    assert!(
+        user1_final_count <= 3,
+        "User1 session limit should be enforced"
+    );
 
-    println!("Concurrent invalidation: User1 final count: {}, User2 final count: {}",
-             user1_final_count, user2_final_count);
+    println!(
+        "Concurrent invalidation: User1 final count: {}, User2 final count: {}",
+        user1_final_count, user2_final_count
+    );
 }
 
 #[tokio::test]
@@ -505,18 +557,21 @@ async fn test_high_concurrency_stress() {
 
             let get_result = session_manager.get_session(&session_id).await;
 
-            let count_result = session_manager
-                .get_user_session_count(user_id)
-                .await;
+            let count_result = session_manager.get_user_session_count(user_id).await;
 
-            (store_result.is_ok(), get_result.is_ok(), count_result.is_ok())
+            (
+                store_result.is_ok(),
+                get_result.is_ok(),
+                count_result.is_ok(),
+            )
         });
 
         handles.push(handle);
     }
 
     // Wait for all operations to complete
-    let results: Vec<(bool, bool, bool)> = futures::future::join_all(handles).await
+    let results: Vec<(bool, bool, bool)> = futures::future::join_all(handles)
+        .await
         .into_iter()
         .map(|r| r.unwrap())
         .collect();
@@ -526,16 +581,27 @@ async fn test_high_concurrency_stress() {
     let successful_gets = results.iter().filter(|(_, get, _)| *get).count();
     let successful_counts = results.iter().filter(|(_, _, count)| *count).count();
 
-    println!("Stress test: {}/{} stores, {}/{} gets, {}/{} counts successful",
-             successful_stores, num_concurrent_ops,
-             successful_gets, num_concurrent_ops,
-             successful_counts, num_concurrent_ops);
+    println!(
+        "Stress test: {}/{} stores, {}/{} gets, {}/{} counts successful",
+        successful_stores,
+        num_concurrent_ops,
+        successful_gets,
+        num_concurrent_ops,
+        successful_counts,
+        num_concurrent_ops
+    );
 
     // All count operations should succeed
-    assert_eq!(successful_counts, num_concurrent_ops, "All count operations should succeed");
+    assert_eq!(
+        successful_counts, num_concurrent_ops,
+        "All count operations should succeed"
+    );
 
     // Most get operations should succeed
-    assert!(successful_gets > num_concurrent_ops / 2, "Most get operations should succeed");
+    assert!(
+        successful_gets > num_concurrent_ops / 2,
+        "Most get operations should succeed"
+    );
 
     // Session limit should be enforced
     let final_count = session_manager
@@ -543,7 +609,11 @@ async fn test_high_concurrency_stress() {
         .await
         .unwrap();
 
-    assert!(final_count <= 3, "Session limit violated under stress: {}", final_count);
+    assert!(
+        final_count <= 3,
+        "Session limit violated under stress: {}",
+        final_count
+    );
 }
 
 #[tokio::test]
@@ -567,7 +637,11 @@ async fn test_atomic_session_replacement() {
         .unwrap();
 
     // Verify initial session
-    let initial_retrieved = session_manager.get_session(session_id).await.unwrap().unwrap();
+    let initial_retrieved = session_manager
+        .get_session(session_id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(initial_retrieved.ip_address, Some("192.0.2.1".into()));
 
     // Concurrently update the same session
@@ -595,21 +669,32 @@ async fn test_atomic_session_replacement() {
     }
 
     // Wait for all updates
-    let update_results: Vec<Result<(), AppError>> =
-        futures::future::join_all(handles).await
+    let update_results: Vec<Result<(), AppError>> = futures::future::join_all(handles)
+        .await
         .into_iter()
         .map(|r| r.unwrap())
         .collect();
 
     let successful_updates = update_results.iter().filter(|r| r.is_ok()).count();
-    println!("Atomic replacement: {} successful updates", successful_updates);
+    println!(
+        "Atomic replacement: {} successful updates",
+        successful_updates
+    );
 
     // Verify final state
-    let final_session = session_manager.get_session(session_id).await.unwrap().unwrap();
+    let final_session = session_manager
+        .get_session(session_id)
+        .await
+        .unwrap()
+        .unwrap();
 
     // Should have one of the updated IP addresses
     let ip_str = final_session.ip_address.as_ref().unwrap().as_ref();
-    assert!(ip_str.starts_with("203.0.113."), "Final IP should be from updates: {}", ip_str);
+    assert!(
+        ip_str.starts_with("203.0.113."),
+        "Final IP should be from updates: {}",
+        ip_str
+    );
 
     // Session count should still be 1
     let final_count = session_manager

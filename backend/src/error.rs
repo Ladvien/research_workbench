@@ -130,14 +130,12 @@ impl IntoResponse for AppError {
                 StatusCode::UNAUTHORIZED,
                 ErrorResponse::new("UNAUTHORIZED", "Authentication required"),
             ),
-            AppError::NotFound(ref msg) => (
-                StatusCode::NOT_FOUND,
-                ErrorResponse::new("NOT_FOUND", msg),
-            ),
-            AppError::Forbidden(ref msg) => (
-                StatusCode::FORBIDDEN,
-                ErrorResponse::new("FORBIDDEN", msg),
-            ),
+            AppError::NotFound(ref msg) => {
+                (StatusCode::NOT_FOUND, ErrorResponse::new("NOT_FOUND", msg))
+            }
+            AppError::Forbidden(ref msg) => {
+                (StatusCode::FORBIDDEN, ErrorResponse::new("FORBIDDEN", msg))
+            }
             AppError::Database(ref msg) => {
                 tracing::error!("Database error: {}", msg);
                 (
@@ -169,7 +167,7 @@ impl IntoResponse for AppError {
                         details,
                     )),
                 )
-                    .into_response()
+                    .into_response();
             }
             AppError::InternalServerError(ref msg) => {
                 tracing::error!("Internal server error: {}", msg);

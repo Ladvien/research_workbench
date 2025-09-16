@@ -106,7 +106,7 @@ describe('AuthContext', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/auth/me',
+          'http://localhost:8080/api/v1/auth/me',
           expect.objectContaining({
             credentials: 'include',
           })
@@ -152,7 +152,7 @@ describe('AuthContext', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/auth/login',
+        'http://localhost:8080/api/v1/auth/login',
         expect.objectContaining({
           method: 'POST',
           credentials: 'include',
@@ -274,7 +274,7 @@ describe('AuthContext', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/auth/register',
+        'http://localhost:8080/api/v1/auth/register',
         expect.objectContaining({
           method: 'POST',
           credentials: 'include',
@@ -359,7 +359,7 @@ describe('AuthContext', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/auth/logout',
+        'http://localhost:8080/api/v1/auth/logout',
         expect.objectContaining({
           method: 'POST',
           credentials: 'include',

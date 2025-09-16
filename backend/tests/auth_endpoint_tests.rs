@@ -18,9 +18,7 @@ use serde_json::{json, Value};
 use tower::ServiceBuilder;
 use tower_sessions::{MemoryStore, SessionManagerLayer};
 
-use workbench_server::{
-    handlers::auth,
-};
+use workbench_server::handlers::auth;
 
 /// Create a minimal test router for auth endpoints
 fn create_test_router() -> Router {
@@ -31,7 +29,10 @@ fn create_test_router() -> Router {
     // Create a minimal router with just the auth endpoints we want to test
     Router::new()
         .route("/api/v1/auth/health", get(auth::auth_health))
-        .route("/api/v1/auth/check-password-strength", post(auth::check_password_strength))
+        .route(
+            "/api/v1/auth/check-password-strength",
+            post(auth::check_password_strength),
+        )
         .layer(ServiceBuilder::new().layer(session_layer))
 }
 
@@ -144,15 +145,21 @@ async fn test_password_strength_various_patterns() {
             .json(&request)
             .await;
 
-        assert_eq!(response.status_code(), StatusCode::OK,
-                   "Password '{}' caused unexpected status", password);
+        assert_eq!(
+            response.status_code(),
+            StatusCode::OK,
+            "Password '{}' caused unexpected status",
+            password
+        );
 
         let strength_response: Value = response.json();
         let is_valid = strength_response["valid"].as_bool().unwrap();
 
-        assert_eq!(is_valid, should_be_valid,
-                   "Password '{}' validation mismatch: expected {}, got {}",
-                   password, should_be_valid, is_valid);
+        assert_eq!(
+            is_valid, should_be_valid,
+            "Password '{}' validation mismatch: expected {}, got {}",
+            password, should_be_valid, is_valid
+        );
     }
 }
 
@@ -270,11 +277,19 @@ async fn test_multiple_password_strength_requests() {
             .json(&request)
             .await;
 
-        assert_eq!(response.status_code(), StatusCode::OK, "Request {} failed", i);
+        assert_eq!(
+            response.status_code(),
+            StatusCode::OK,
+            "Request {} failed",
+            i
+        );
 
         let response_data: Value = response.json();
-        assert!(response_data["valid"].as_bool().unwrap(),
-                "Password for request {} should be valid", i);
+        assert!(
+            response_data["valid"].as_bool().unwrap(),
+            "Password for request {} should be valid",
+            i
+        );
     }
 }
 
@@ -334,8 +349,13 @@ async fn test_endpoint_routing() {
             _ => panic!("Unsupported method: {}", method),
         };
 
-        assert_ne!(response.status_code(), StatusCode::NOT_FOUND,
-                   "Endpoint {} {} should exist", method, path);
+        assert_ne!(
+            response.status_code(),
+            StatusCode::NOT_FOUND,
+            "Endpoint {} {} should exist",
+            method,
+            path
+        );
     }
 
     // Test invalid endpoints
@@ -343,13 +363,17 @@ async fn test_endpoint_routing() {
         "/api/v1/auth/nonexistent",
         "/api/v1/auth/health/extra",
         "/api/auth/health", // Wrong API version
-        "/auth/health", // Missing API prefix
+        "/auth/health",     // Missing API prefix
     ];
 
     for path in invalid_endpoints {
         let response = server.get(path).await;
-        assert_eq!(response.status_code(), StatusCode::NOT_FOUND,
-                   "Endpoint {} should not exist", path);
+        assert_eq!(
+            response.status_code(),
+            StatusCode::NOT_FOUND,
+            "Endpoint {} should not exist",
+            path
+        );
     }
 }
 
@@ -359,10 +383,7 @@ async fn test_method_not_allowed() {
     let server = TestServer::new(app).unwrap();
 
     // Test wrong HTTP method for health endpoint
-    let response = server
-        .post("/api/v1/auth/health")
-        .json(&json!({}))
-        .await;
+    let response = server.post("/api/v1/auth/health").json(&json!({})).await;
 
     assert_eq!(response.status_code(), StatusCode::METHOD_NOT_ALLOWED);
 
@@ -389,8 +410,9 @@ async fn test_large_request_handling() {
         .await;
 
     // Should handle large requests gracefully
-    assert!(response.status_code().is_success() ||
-            response.status_code() == StatusCode::BAD_REQUEST);
+    assert!(
+        response.status_code().is_success() || response.status_code() == StatusCode::BAD_REQUEST
+    );
 
     // Test with deeply nested JSON (potential attack)
     let mut nested_json = json!({"password": "Test123!"});
