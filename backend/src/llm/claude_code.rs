@@ -141,7 +141,11 @@ impl ClaudeCodeService {
         }
 
         // Claude-specific environment variables (if they exist)
-        for var in ["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SSE_PORT"] {
+        for var in [
+            "CLAUDECODE",
+            "CLAUDE_CODE_ENTRYPOINT",
+            "CLAUDE_CODE_SSE_PORT",
+        ] {
             if let Ok(value) = std::env::var(var) {
                 tracing::debug!("Preserving environment variable: {}={}", var, value);
                 cmd.env(var, value);
@@ -150,7 +154,11 @@ impl ClaudeCodeService {
 
         // Get the final command for debugging
         let args: Vec<String> = std::iter::once("/home/ladvien/.npm-global/bin/claude".to_string())
-            .chain(cmd.as_std().get_args().map(|s| s.to_string_lossy().to_string()))
+            .chain(
+                cmd.as_std()
+                    .get_args()
+                    .map(|s| s.to_string_lossy().to_string()),
+            )
             .collect();
         let command_debug = format!("Command: {:?}", args);
         tracing::info!("Executing Claude Code CLI: {}", command_debug);
@@ -169,7 +177,10 @@ impl ClaudeCodeService {
             AppError::InternalServerError(format!("Claude Code CLI not available: {}", e))
         })?;
 
-        tracing::debug!("Claude Code CLI process spawned successfully, PID: {:?}", child.id());
+        tracing::debug!(
+            "Claude Code CLI process spawned successfully, PID: {:?}",
+            child.id()
+        );
         Ok((child, command_debug))
     }
 
@@ -273,12 +284,18 @@ impl LLMService for ClaudeCodeService {
 
         // Add timeout to prevent hanging - Claude Code should respond within 120 seconds
         let timeout_duration = Duration::from_secs(120);
-        tracing::debug!("Waiting for Claude Code CLI response with timeout: {:?}", timeout_duration);
+        tracing::debug!(
+            "Waiting for Claude Code CLI response with timeout: {:?}",
+            timeout_duration
+        );
 
         let output = timeout(timeout_duration, child.wait_with_output())
             .await
             .map_err(|_| {
-                tracing::error!("Claude Code CLI process timed out after {:?}", timeout_duration);
+                tracing::error!(
+                    "Claude Code CLI process timed out after {:?}",
+                    timeout_duration
+                );
                 AppError::InternalServerError(format!(
                     "Claude Code CLI process timed out after {:?}",
                     timeout_duration

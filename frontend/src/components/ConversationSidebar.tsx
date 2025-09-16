@@ -221,17 +221,15 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
 
   if (!isOpen) {
     return (
-      <div className="fixed left-0 top-0 z-40 h-full">
-        <button
-          onClick={onToggle}
-          className="mt-4 ml-4 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg hover:shadow-xl transition-shadow"
-          title="Open conversations"
-        >
+      <button
+        onClick={onToggle}
+        className="fixed left-4 top-24 z-40 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg hover:shadow-xl transition-shadow"
+        title="Open conversations (⌘B / Ctrl+B)"
+      >
           <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
-      </div>
     );
   }
 
@@ -246,7 +244,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       {/* Sidebar */}
       <div className={`fixed left-0 top-0 z-40 h-full w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
-      } md:relative md:translate-x-0`}>
+      }`}>
 
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
@@ -266,11 +264,11 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
             </button>
             <button
               onClick={onToggle}
-              className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors md:hidden"
-              title="Close sidebar"
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              title="Collapse sidebar (⌘B / Ctrl+B)"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
           </div>

@@ -73,7 +73,10 @@ pub async fn stream_message(
         .chat_service
         .get_conversation_messages(user.id, conversation_id)
         .await?;
-    tracing::debug!("Loaded {} messages for conversation context", messages.len());
+    tracing::debug!(
+        "Loaded {} messages for conversation context",
+        messages.len()
+    );
 
     // Convert messages to LLM format
     let chat_messages: Vec<ChatMessage> = messages
@@ -170,31 +173,39 @@ pub async fn stream_message(
                     }
                 })
                 .to_string(),
-            )
+            ),
         )
     });
 
     // Then send all words as token events
-    let word_stream = futures::stream::iter(words.into_iter().enumerate())
-        .map(move |(i, word)| {
-            tracing::debug!("Sending token {} for message ID: {}: '{}'", i, message_id, word.trim());
-            Ok::<Event, Infallible>(
-                Event::default().data(
-                    serde_json::json!({
-                        "type": "token",
-                        "data": {
-                            "content": word
-                        }
-                    })
-                    .to_string(),
-                )
-            )
-        });
+    let word_stream = futures::stream::iter(words.into_iter().enumerate()).map(move |(i, word)| {
+        tracing::debug!(
+            "Sending token {} for message ID: {}: '{}'",
+            i,
+            message_id,
+            word.trim()
+        );
+        Ok::<Event, Infallible>(
+            Event::default().data(
+                serde_json::json!({
+                    "type": "token",
+                    "data": {
+                        "content": word
+                    }
+                })
+                .to_string(),
+            ),
+        )
+    });
 
-    let stream = start_stream.chain(word_stream)
+    let stream = start_stream
+        .chain(word_stream)
         .chain(futures::stream::once(async move {
             // Send completion event
-            tracing::debug!("Sending stream completion event for message ID: {}", message_id);
+            tracing::debug!(
+                "Sending stream completion event for message ID: {}",
+                message_id
+            );
             Ok::<Event, Infallible>(
                 Event::default().data(
                     serde_json::json!({
