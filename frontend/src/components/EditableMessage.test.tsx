@@ -5,13 +5,17 @@ import { EditableMessage } from './EditableMessage';
 import type { Message as MessageType, BranchInfo } from '../types/chat';
 import { BranchingAPI } from '../utils/branchingApi';
 
-// Mock the MarkdownTextPrimitive component
-vi.mock('@assistant-ui/react-markdown', () => ({
-  MarkdownTextPrimitive: ({ text, className }: { text: string; className?: string }) => (
-    <div data-testid="markdown-content" className={className}>
-      {text}
-    </div>
+// Mock the ReactMarkdown component to render content directly
+vi.mock('react-markdown', () => ({
+  default: ({ children, className }: { children: string; className?: string }) => (
+    <span className={className}>
+      {children}
+    </span>
   ),
+}));
+
+vi.mock('remark-gfm', () => ({
+  default: vi.fn(),
 }));
 
 // Mock the BranchingAPI
@@ -54,9 +58,8 @@ describe('EditableMessage Component', () => {
       const message = createMockMessage({ content: '# Hello\n**Bold text**' });
       render(<EditableMessage message={message} />);
 
-      const markdown = screen.getByTestId('markdown-content');
-      // The MarkdownTextPrimitive removes newlines when rendering
-      expect(markdown).toHaveTextContent('# Hello **Bold text**');
+      // The mock ReactMarkdown renders content directly
+      expect(screen.getByText('# Hello **Bold text**')).toBeInTheDocument();
     });
 
     it('shows edit and delete buttons for user messages when editable', () => {
@@ -139,7 +142,7 @@ describe('EditableMessage Component', () => {
 
       await waitFor(() => {
         expect(screen.queryByPlaceholderText('Edit your message...')).not.toBeInTheDocument();
-        expect(screen.getByTestId('markdown-content')).toBeInTheDocument();
+        expect(screen.getByText('Test message content')).toBeInTheDocument();
       });
     });
 

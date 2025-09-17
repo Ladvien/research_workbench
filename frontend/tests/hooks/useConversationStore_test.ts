@@ -141,7 +141,8 @@ describe('useConversationStore', () => {
 
       expect(result.current.currentMessages).toEqual([]);
       expect(result.current.isLoading).toBe(false);
-      expect(result.current.error).toBe('Conversation not found');
+      // Error is set to null for 404s, as they clear invalid state
+      expect(result.current.error).toBe(null);
     });
   });
 
@@ -184,11 +185,11 @@ describe('useConversationStore', () => {
       await act(async () => {
         await expect(result.current.createConversation({
           title: 'New Conversation',
-          model: 'gpt-4'
+          model: 'claude-code-opus'
         })).rejects.toThrow('Failed to create conversation');
       });
 
-      expect(result.current.error).toBe('Failed to create conversation');
+      expect(result.current.error).toBe('Unable to start a new conversation. Please try again.');
     });
   });
 
@@ -218,7 +219,7 @@ describe('useConversationStore', () => {
 
       expect(mockApiClient.createConversation).toHaveBeenCalledWith({
         title: 'Hello world',
-        model: 'gpt-4'
+        model: 'claude-code-opus'
       });
     });
 
@@ -309,7 +310,7 @@ describe('useConversationStore', () => {
           .rejects.toThrow('Failed to update title');
       });
 
-      expect(result.current.error).toBe('Failed to update title');
+      expect(result.current.error).toBe('An unexpected error occurred. Please try again.');
     });
   });
 
@@ -380,7 +381,7 @@ describe('useConversationStore', () => {
           .rejects.toThrow('Failed to delete conversation');
       });
 
-      expect(result.current.error).toBe('Failed to delete conversation');
+      expect(result.current.error).toBe('An unexpected error occurred. Please try again.');
     });
   });
 
@@ -410,7 +411,7 @@ describe('useConversationStore', () => {
 
       expect(mockApiClient.createConversation).toHaveBeenCalledWith({
         title: 'Hi there',
-        model: 'gpt-4'
+        model: 'claude-code-opus'
       });
     });
 
@@ -439,7 +440,7 @@ describe('useConversationStore', () => {
 
       expect(mockApiClient.createConversation).toHaveBeenCalledWith({
         title: 'Hello world',
-        model: 'gpt-4'
+        model: 'claude-code-opus'
       });
     });
 
@@ -470,7 +471,7 @@ describe('useConversationStore', () => {
 
       const createCall = mockApiClient.createConversation.mock.calls[0][0];
       expect(createCall.title.length).toBeLessThanOrEqual(40);
-      expect(createCall.title).not.toEndWith(' '); // Should not end with space
+      expect(createCall.title).not.toMatch(/ $/); // Should not end with space
       expect(createCall.title.split(' ').length).toBeGreaterThan(1); // Should contain multiple words
     });
   });

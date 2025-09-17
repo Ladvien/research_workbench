@@ -2,6 +2,7 @@
 import { vi, beforeAll, afterEach, afterAll } from 'vitest';
 import '@testing-library/jest-dom';
 import { configure, cleanup } from '@testing-library/react';
+import { server } from './mocks/server';
 
 // Configure React 18+ test environment
 (global as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -118,6 +119,9 @@ global.ResizeObserver = vi.fn().mockImplementation((callback) => ({
 
 // AGENT-5 Enhanced cleanup with performance optimizations
 afterEach(async () => {
+  // Reset MSW handlers
+  server.resetHandlers();
+
   // Use microtask queue for faster cleanup
   await new Promise(resolve => queueMicrotask(resolve));
 
@@ -138,6 +142,9 @@ afterEach(async () => {
 
 // AGENT-5 Performance monitoring and optimization
 afterAll(() => {
+  // Stop MSW server
+  server.close();
+
   // Clean up any remaining resources
   vi.clearAllTimers();
   vi.restoreAllMocks();
@@ -150,6 +157,9 @@ afterAll(() => {
 
 // Configure React 18+ test environment before all tests
 beforeAll(async () => {
+  // Start MSW server
+  server.listen({ onUnhandledRequest: 'error' });
+
   // Import and configure React's act() for testing
   const { act } = await import('@testing-library/react');
 
