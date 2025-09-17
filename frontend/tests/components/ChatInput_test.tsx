@@ -10,7 +10,16 @@ describe('ChatInput', () => {
 
     expect(screen.getByPlaceholderText('Type your message...')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
-    expect(screen.getByText('Press Enter to send, Shift+Enter for new line')).toBeInTheDocument();
+    expect(screen.getByText('Press Enter to send • Shift+Enter or Alt+Enter for new line')).toBeInTheDocument();
+  });
+
+  it('auto-focuses the textarea on mount', () => {
+    const mockOnSendMessage = vi.fn();
+
+    render(<ChatInput onSendMessage={mockOnSendMessage} />);
+
+    const textarea = screen.getByPlaceholderText('Type your message...');
+    expect(document.activeElement).toBe(textarea);
   });
 
   it('renders with custom placeholder', () => {
@@ -64,6 +73,24 @@ describe('ChatInput', () => {
     expect(mockOnSendMessage).not.toHaveBeenCalled();
     // Note: DOM won't automatically add newline, but the handler prevents submission
     expect(input).toHaveValue('Hello, world!');
+  });
+
+  it('inserts newline when Alt+Enter is pressed', () => {
+    const mockOnSendMessage = vi.fn();
+
+    render(<ChatInput onSendMessage={mockOnSendMessage} />);
+
+    const textarea = screen.getByPlaceholderText('Type your message...');
+
+    // Set initial value and cursor position
+    fireEvent.change(textarea, { target: { value: 'Hello' } });
+
+    // Simulate Alt+Enter
+    fireEvent.keyDown(textarea, { key: 'Enter', altKey: true });
+
+    expect(mockOnSendMessage).not.toHaveBeenCalled();
+    // The component should have added a newline
+    expect(textarea).toHaveValue('Hello\n');
   });
 
   it('does not call onSendMessage with empty or whitespace-only text', () => {

@@ -1,4 +1,4 @@
-import React, { useState, type KeyboardEvent } from 'react';
+import React, { useState, useRef, useEffect, type KeyboardEvent } from 'react';
 import { LoadingSpinner } from './LoadingSpinner';
 
 interface ChatInputProps {
@@ -13,6 +13,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   placeholder = "Type your message..."
 }) => {
   const [message, setMessage] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-focus the textarea when component mounts
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,10 +29,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Alt + Enter: Insert new line
+    if (e.key === 'Enter' && e.altKey) {
+      e.preventDefault();
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newMessage = message.substring(0, start) + '\n' + message.substring(end);
+      setMessage(newMessage);
+      // Set cursor position after the newline
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + 1;
+      }, 0);
+    }
+    // Enter (without Shift): Send message
+    else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
+    // Shift + Enter: Default behavior (new line)
   };
 
   return (
@@ -34,6 +55,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       <form onSubmit={handleSubmit} className="flex items-end space-x-3">
         <div className="flex-1">
           <textarea
+            ref={textareaRef}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -56,7 +78,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             }}
           />
           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Press Enter to send, Shift+Enter for new line
+            Press Enter to send • Shift+Enter or Alt+Enter for new line
           </div>
         </div>
 

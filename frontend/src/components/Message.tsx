@@ -1,7 +1,5 @@
 import React from 'react';
-import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown';
 import type { Message as MessageType } from '../types/chat';
 
 interface MessageProps {
@@ -14,37 +12,6 @@ export const Message: React.FC<MessageProps> = ({ message }) => {
   const isUser = role === 'user';
   const isAssistant = role === 'assistant';
   const isSystem = role === 'system';
-
-  // Custom components for markdown rendering
-  const components = {
-    code: ({ node, inline, className, children, ...props }: any) => {
-      const match = /language-(\w+)/.exec(className || '');
-      const language = match ? match[1] : '';
-
-      if (!inline && language) {
-        return (
-          <SyntaxHighlighter
-            style={tomorrow}
-            language={language}
-            PreTag="div"
-            className="rounded-md text-sm"
-            {...props}
-          >
-            {String(children).replace(/\n$/, '')}
-          </SyntaxHighlighter>
-        );
-      }
-
-      return (
-        <code
-          className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono"
-          {...props}
-        >
-          {children}
-        </code>
-      );
-    },
-  };
 
   return (
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
@@ -68,13 +35,14 @@ export const Message: React.FC<MessageProps> = ({ message }) => {
           </div>
         )}
 
-        {/* Message content */}
+        {/* Message content with assistant-ui markdown */}
         <div className={`prose prose-sm max-w-none ${
           isUser ? 'prose-invert' : 'dark:prose-invert'
         }`}>
-          <ReactMarkdown components={components}>
-            {content}
-          </ReactMarkdown>
+          <MarkdownTextPrimitive
+            text={content}
+            className={isUser ? 'text-white' : ''}
+          />
         </div>
 
         {/* Timestamp */}
