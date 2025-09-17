@@ -34,9 +34,9 @@ test.describe('Markdown Rendering', () => {
 
     const messageContent = page.locator('[data-testid="markdown-content"]').first();
 
-    // Check for bold and italic elements
-    await expect(messageContent.locator('strong')).toContainText('Bold text');
-    await expect(messageContent.locator('em')).toContainText('italic text');
+    // Check for bold and italic elements with more specific selectors
+    await expect(messageContent.locator('strong').first()).toContainText('Bold text');
+    await expect(messageContent.locator('em').first()).toContainText('italic text');
     await expect(messageContent.locator('strong em, em strong')).toContainText('bold italic');
   });
 

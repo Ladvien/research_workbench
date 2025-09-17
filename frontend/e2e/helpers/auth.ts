@@ -1,33 +1,44 @@
 import { Page } from '@playwright/test';
 
 /**
- * Helper function to login before tests
+ * Helper function to ensure user is logged in
+ * With global setup, this should mostly just verify the auth state
  */
 export async function login(page: Page) {
-  // Navigate to the app
-  await page.goto('http://workbench.lolzlab.com');
-
-  // Wait for the login page to load
-  await page.waitForLoadState('networkidle');
-
-  // Check if already logged in
-  const isLoggedIn = await page.locator('textarea[placeholder*="Type your message"]').isVisible({ timeout: 1000 }).catch(() => false);
-
-  if (isLoggedIn) {
-    return; // Already logged in
+  // Navigate to the app if not already there
+  if (page.url() !== 'https://workbench.lolzlab.com/' && !page.url().startsWith('https://workbench.lolzlab.com/')) {
+    await page.goto('https://workbench.lolzlab.com');
+    await page.waitForLoadState('networkidle');
   }
 
-  // Fill in login credentials
-  await page.fill('input[type="email"]', 'cthomasbrittain@yahoo.com');
-  await page.fill('input[type="password"]', 'IVMPEscH33EhfnlPZcAwpkfR');
+  // Wait a moment for the app to initialize
+  await page.waitForTimeout(1000);
 
-  // Click sign in button
-  await page.click('button:has-text("Sign in")');
+  // Check if chat interface is visible (should be if auth state is loaded)
+  const isLoggedIn = await page.locator('textarea[placeholder*="Type your message"]')
+    .isVisible({ timeout: 5000 })
+    .catch(() => false);
 
-  // Wait for navigation to complete and chat interface to appear
-  // The app stays at the root URL after login
-  await page.waitForTimeout(2000); // Give time for login to process
-  await page.waitForSelector('textarea[placeholder*="Type your message"]', { timeout: 10000 });
+  if (!isLoggedIn) {
+    // Auth state might not be loaded, try manual login
+    console.warn('Auth state not loaded, attempting manual login...');
+
+    // Check for login form
+    const hasLoginForm = await page.locator('input[type="email"]')
+      .isVisible({ timeout: 2000 })
+      .catch(() => false);
+
+    if (hasLoginForm) {
+      await page.fill('input[type="email"]', 'cthomasbrittain@yahoo.com');
+      await page.fill('input[type="password"]', 'IVMPEscH33EhfnlPZcAwpkfR');
+      await page.click('button:has-text("Sign in")');
+
+      // Wait for login with longer timeout
+      await page.waitForSelector('textarea[placeholder*="Type your message"]', { timeout: 20000 });
+    } else {
+      throw new Error('Login form not found and not logged in');
+    }
+  }
 }
 
 /**
