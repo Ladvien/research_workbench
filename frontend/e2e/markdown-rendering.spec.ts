@@ -1,263 +1,302 @@
 import { test, expect } from '@playwright/test';
-import { login } from './helpers/auth';
 
 test.describe('Markdown Rendering', () => {
   test.beforeEach(async ({ page }) => {
-    // Login before each test
-    await login(page);
+    await page.goto('/');
   });
 
-  test('renders markdown headings correctly', async ({ page }) => {
-    // Start a new conversation with markdown content
-    const input = page.locator('textarea[placeholder*="Type your message"]');
-    await input.fill('# Heading 1\n## Heading 2\n### Heading 3');
-    await input.press('Enter');
+  test('should render markdown headers correctly', async ({ page }) => {
+    // Send a message with markdown headers
+    await page.fill('textarea[placeholder*="Type your message"]', 'Show me markdown headers');
+    await page.click('button:has-text("Send")');
 
-    // Wait for the message to appear
-    await page.waitForSelector('[data-testid="markdown-content"]', { timeout: 5000 });
+    // Wait for response
+    await page.waitForTimeout(5000);
 
-    // Check that markdown is rendered as HTML
-    const messageContent = page.locator('[data-testid="markdown-content"]').first();
+    // Check that headers are rendered as HTML elements
+    const h1Elements = await page.locator('[data-testid="markdown-content"] h1').count();
+    const h2Elements = await page.locator('[data-testid="markdown-content"] h2').count();
 
-    // Verify headings are rendered
-    await expect(messageContent.locator('h1')).toContainText('Heading 1');
-    await expect(messageContent.locator('h2')).toContainText('Heading 2');
-    await expect(messageContent.locator('h3')).toContainText('Heading 3');
+    expect(h1Elements).toBeGreaterThan(0);
+    expect(h2Elements).toBeGreaterThan(0);
   });
 
-  test('renders bold and italic text', async ({ page }) => {
-    const input = page.locator('textarea[placeholder*="Type your message"]');
-    await input.fill('**Bold text** and *italic text* and ***bold italic***');
-    await input.press('Enter');
+  test('should render bold and italic text correctly', async ({ page }) => {
+    // Send a message asking for text formatting
+    await page.fill('textarea[placeholder*="Type your message"]', 'Show me **bold** and *italic* text');
+    await page.click('button:has-text("Send")');
 
-    await page.waitForSelector('[data-testid="markdown-content"]', { timeout: 5000 });
+    // Wait for response
+    await page.waitForTimeout(5000);
 
-    const messageContent = page.locator('[data-testid="markdown-content"]').first();
+    // Check for bold and italic elements
+    const strongElements = await page.locator('[data-testid="markdown-content"] strong').count();
+    const emElements = await page.locator('[data-testid="markdown-content"] em').count();
 
-    // Check for bold and italic elements with more specific selectors
-    await expect(messageContent.locator('strong').first()).toContainText('Bold text');
-    await expect(messageContent.locator('em').first()).toContainText('italic text');
-    await expect(messageContent.locator('strong em, em strong')).toContainText('bold italic');
+    expect(strongElements).toBeGreaterThan(0);
+    expect(emElements).toBeGreaterThan(0);
   });
 
-  test('renders code blocks with syntax highlighting', async ({ page }) => {
-    const input = page.locator('textarea[placeholder*="Type your message"]');
-    const codeMessage = '```javascript\nconst greeting = "Hello World";\nconsole.log(greeting);\n```';
-    await input.fill(codeMessage);
-    await input.press('Enter');
+  test('should render code blocks with syntax highlighting', async ({ page }) => {
+    // Send a message asking for code
+    await page.fill('textarea[placeholder*="Type your message"]', 'Show me a JavaScript code example');
+    await page.click('button:has-text("Send")');
 
-    await page.waitForSelector('[data-testid="markdown-content"]', { timeout: 5000 });
+    // Wait for response
+    await page.waitForTimeout(5000);
 
-    const messageContent = page.locator('[data-testid="markdown-content"]').first();
+    // Check for code block elements
+    const codeBlocks = await page.locator('[data-testid="markdown-content"] pre').count();
+    expect(codeBlocks).toBeGreaterThan(0);
 
-    // Check for code block
-    const codeBlock = messageContent.locator('pre code');
-    await expect(codeBlock).toBeVisible();
-    await expect(codeBlock).toContainText('const greeting');
-    await expect(codeBlock).toContainText('console.log');
+    // Check for syntax highlighter
+    const syntaxHighlighter = await page.locator('[data-testid="markdown-content"] .prism-code').count();
+    expect(syntaxHighlighter).toBeGreaterThan(0);
   });
 
-  test('renders inline code', async ({ page }) => {
-    const input = page.locator('textarea[placeholder*="Type your message"]');
-    await input.fill('Use `npm install` to install dependencies');
-    await input.press('Enter');
+  test('should render inline code correctly', async ({ page }) => {
+    // Send a message with inline code
+    await page.fill('textarea[placeholder*="Type your message"]', 'What is `console.log()`?');
+    await page.click('button:has-text("Send")');
 
-    await page.waitForSelector('[data-testid="markdown-content"]', { timeout: 5000 });
+    // Wait for response
+    await page.waitForTimeout(5000);
 
-    const messageContent = page.locator('[data-testid="markdown-content"]').first();
+    // Check for inline code elements
+    const inlineCode = await page.locator('[data-testid="markdown-content"] code').count();
+    expect(inlineCode).toBeGreaterThan(0);
 
-    // Check for inline code
-    await expect(messageContent.locator('code')).toContainText('npm install');
+    // Check that inline code has proper styling
+    const codeElement = await page.locator('[data-testid="markdown-content"] code').first();
+    const className = await codeElement.getAttribute('class');
+    expect(className).toContain('bg-gray-100');
   });
 
-  test('renders lists correctly', async ({ page }) => {
-    const input = page.locator('textarea[placeholder*="Type your message"]');
-    const listMessage = `
-Unordered list:
-- Item 1
-- Item 2
-- Item 3
+  test('should render lists correctly', async ({ page }) => {
+    // Send a message asking for lists
+    await page.fill('textarea[placeholder*="Type your message"]', 'Show me unordered and ordered lists');
+    await page.click('button:has-text("Send")');
 
-Ordered list:
-1. First item
-2. Second item
-3. Third item
-`;
-    await input.fill(listMessage);
-    await input.press('Enter');
+    // Wait for response
+    await page.waitForTimeout(5000);
 
-    await page.waitForSelector('[data-testid="markdown-content"]', { timeout: 5000 });
+    // Check for list elements
+    const ulElements = await page.locator('[data-testid="markdown-content"] ul').count();
+    const olElements = await page.locator('[data-testid="markdown-content"] ol').count();
+    const liElements = await page.locator('[data-testid="markdown-content"] li').count();
 
-    const messageContent = page.locator('[data-testid="markdown-content"]').first();
-
-    // Check for unordered list
-    const ulList = messageContent.locator('ul');
-    await expect(ulList).toBeVisible();
-    await expect(ulList.locator('li')).toHaveCount(3);
-
-    // Check for ordered list
-    const olList = messageContent.locator('ol');
-    await expect(olList).toBeVisible();
-    await expect(olList.locator('li')).toHaveCount(3);
+    expect(ulElements).toBeGreaterThan(0);
+    expect(olElements).toBeGreaterThan(0);
+    expect(liElements).toBeGreaterThan(0);
   });
 
-  test('renders links as clickable', async ({ page }) => {
-    const input = page.locator('textarea[placeholder*="Type your message"]');
-    await input.fill('[Click here](https://example.com) to visit the site');
-    await input.press('Enter');
+  test('should render links correctly', async ({ page }) => {
+    // Send a message asking for links
+    await page.fill('textarea[placeholder*="Type your message"]', 'Show me a markdown link example');
+    await page.click('button:has-text("Send")');
 
-    await page.waitForSelector('[data-testid="markdown-content"]', { timeout: 5000 });
+    // Wait for response
+    await page.waitForTimeout(5000);
 
-    const messageContent = page.locator('[data-testid="markdown-content"]').first();
+    // Check for link elements
+    const links = await page.locator('[data-testid="markdown-content"] a').count();
+    expect(links).toBeGreaterThan(0);
 
-    // Check for link
-    const link = messageContent.locator('a');
-    await expect(link).toContainText('Click here');
-    await expect(link).toHaveAttribute('href', 'https://example.com');
+    // Check link attributes
+    const firstLink = await page.locator('[data-testid="markdown-content"] a').first();
+    const target = await firstLink.getAttribute('target');
+    const rel = await firstLink.getAttribute('rel');
+
+    expect(target).toBe('_blank');
+    expect(rel).toContain('noopener');
   });
 
-  test('renders blockquotes', async ({ page }) => {
-    const input = page.locator('textarea[placeholder*="Type your message"]');
-    await input.fill('> This is a blockquote\n> with multiple lines');
-    await input.press('Enter');
+  test('should render tables correctly', async ({ page }) => {
+    // Send a message asking for tables
+    await page.fill('textarea[placeholder*="Type your message"]', 'Show me a markdown table');
+    await page.click('button:has-text("Send")');
 
-    await page.waitForSelector('[data-testid="markdown-content"]', { timeout: 5000 });
+    // Wait for response
+    await page.waitForTimeout(5000);
 
-    const messageContent = page.locator('[data-testid="markdown-content"]').first();
+    // Check for table elements
+    const tables = await page.locator('[data-testid="markdown-content"] table').count();
+    const tableHeaders = await page.locator('[data-testid="markdown-content"] th').count();
+    const tableCells = await page.locator('[data-testid="markdown-content"] td').count();
 
-    // Check for blockquote
-    const blockquote = messageContent.locator('blockquote');
-    await expect(blockquote).toBeVisible();
-    await expect(blockquote).toContainText('This is a blockquote');
+    expect(tables).toBeGreaterThan(0);
+    expect(tableHeaders).toBeGreaterThan(0);
+    expect(tableCells).toBeGreaterThan(0);
   });
 
-  test('renders horizontal rules', async ({ page }) => {
-    const input = page.locator('textarea[placeholder*="Type your message"]');
-    await input.fill('Text above\n\n---\n\nText below');
-    await input.press('Enter');
+  test('should render blockquotes correctly', async ({ page }) => {
+    // Send a message asking for blockquotes
+    await page.fill('textarea[placeholder*="Type your message"]', 'Show me a blockquote example');
+    await page.click('button:has-text("Send")');
 
-    await page.waitForSelector('[data-testid="markdown-content"]', { timeout: 5000 });
+    // Wait for response
+    await page.waitForTimeout(5000);
 
-    const messageContent = page.locator('[data-testid="markdown-content"]').first();
+    // Check for blockquote elements
+    const blockquotes = await page.locator('[data-testid="markdown-content"] blockquote').count();
+    expect(blockquotes).toBeGreaterThan(0);
 
-    // Check for horizontal rule
-    const hr = messageContent.locator('hr');
-    await expect(hr).toBeVisible();
+    // Check blockquote styling
+    const blockquote = await page.locator('[data-testid="markdown-content"] blockquote').first();
+    const className = await blockquote.getAttribute('class');
+    expect(className).toContain('border-l-4');
   });
 
-  test('renders tables', async ({ page }) => {
-    const input = page.locator('textarea[placeholder*="Type your message"]');
-    const tableMessage = `
-| Header 1 | Header 2 |
-|----------|----------|
-| Cell 1   | Cell 2   |
-| Cell 3   | Cell 4   |
-`;
-    await input.fill(tableMessage);
-    await input.press('Enter');
+  test('should render horizontal rules correctly', async ({ page }) => {
+    // Send a message asking for horizontal rules
+    await page.fill('textarea[placeholder*="Type your message"]', 'Show me a horizontal rule ---');
+    await page.click('button:has-text("Send")');
 
-    await page.waitForSelector('[data-testid="markdown-content"]', { timeout: 5000 });
+    // Wait for response
+    await page.waitForTimeout(5000);
 
-    const messageContent = page.locator('[data-testid="markdown-content"]').first();
-
-    // Check for table
-    const table = messageContent.locator('table');
-    await expect(table).toBeVisible();
-    await expect(table.locator('thead th')).toHaveCount(2);
-    await expect(table.locator('tbody tr')).toHaveCount(2);
+    // Check for hr elements
+    const hrs = await page.locator('[data-testid="markdown-content"] hr').count();
+    expect(hrs).toBeGreaterThan(0);
   });
 
-  test('preserves markdown in edit mode', async ({ page }) => {
+  test('should render task lists with checkboxes', async ({ page }) => {
+    // Send a message asking for task lists
+    await page.fill('textarea[placeholder*="Type your message"]', 'Show me a task list with checkboxes');
+    await page.click('button:has-text("Send")');
+
+    // Wait for response
+    await page.waitForTimeout(5000);
+
+    // Check for checkbox inputs
+    const checkboxes = await page.locator('[data-testid="markdown-content"] input[type="checkbox"]').count();
+    expect(checkboxes).toBeGreaterThan(0);
+
+    // Check that checkboxes are disabled
+    const firstCheckbox = await page.locator('[data-testid="markdown-content"] input[type="checkbox"]').first();
+    const isDisabled = await firstCheckbox.isDisabled();
+    expect(isDisabled).toBe(true);
+  });
+
+  test('should render math expressions with KaTeX', async ({ page }) => {
+    // Send a message with math
+    await page.fill('textarea[placeholder*="Type your message"]', 'Show me a math equation like $E=mc^2$');
+    await page.click('button:has-text("Send")');
+
+    // Wait for response
+    await page.waitForTimeout(5000);
+
+    // Check for KaTeX elements
+    const katexElements = await page.locator('[data-testid="markdown-content"] .katex').count();
+    expect(katexElements).toBeGreaterThan(0);
+  });
+
+  test('should handle streaming markdown correctly', async ({ page }) => {
+    // Send a message
+    await page.fill('textarea[placeholder*="Type your message"]', 'Tell me about markdown');
+    await page.click('button:has-text("Send")');
+
+    // Check for streaming indicator
+    await page.waitForSelector('text=Streaming...', { timeout: 5000 });
+
+    // Wait for streaming to complete
+    await page.waitForSelector('text=Streaming...', { state: 'hidden', timeout: 10000 });
+
+    // Verify markdown is properly rendered after streaming
+    const markdownContent = await page.locator('[data-testid="markdown-content"]').last();
+    const htmlContent = await markdownContent.innerHTML();
+
+    // Should contain HTML elements, not raw markdown
+    expect(htmlContent).not.toContain('##');
+    expect(htmlContent).not.toContain('**');
+    expect(htmlContent).toContain('<');
+  });
+
+  test('should preserve markdown formatting when editing messages', async ({ page }) => {
     // Send a message with markdown
-    const input = page.locator('textarea[placeholder*="Type your message"]');
-    const originalMarkdown = '# Title\n**Bold** and *italic*';
-    await input.fill(originalMarkdown);
-    await input.press('Enter');
+    await page.fill('textarea[placeholder*="Type your message"]', '# Test Header');
+    await page.click('button:has-text("Send")');
 
     // Wait for message to appear
-    await page.waitForSelector('[data-testid="markdown-content"]', { timeout: 5000 });
+    await page.waitForTimeout(2000);
 
-    // Enter edit mode
-    const editButton = page.locator('button[title="Edit message"]').first();
-    await editButton.hover(); // Buttons appear on hover
-    await editButton.click();
+    // Hover over user message to show edit button
+    const userMessage = await page.locator('.bg-blue-500').first();
+    await userMessage.hover();
 
-    // Check that textarea contains original markdown
-    const editTextarea = page.locator('textarea[placeholder="Edit your message..."]');
-    await expect(editTextarea).toHaveValue(originalMarkdown);
+    // Click edit button
+    await page.click('button[title="Edit message"]');
 
-    // Modify the markdown
-    await editTextarea.fill('## Updated Title\n***Bold and italic***');
-    await page.locator('button:has-text("Save")').click();
+    // Check that the edit textarea contains raw markdown
+    const textarea = await page.locator('textarea').first();
+    const content = await textarea.inputValue();
+    expect(content).toBe('# Test Header');
 
-    // Check that updated markdown is rendered
-    await page.waitForSelector('[data-testid="markdown-content"]', { timeout: 5000 });
-    const updatedContent = page.locator('[data-testid="markdown-content"]').first();
-    await expect(updatedContent.locator('h2')).toContainText('Updated Title');
-    await expect(updatedContent.locator('strong em, em strong')).toContainText('Bold and italic');
+    // Cancel edit
+    await page.click('button:has-text("Cancel")');
+
+    // Verify markdown is still rendered
+    const h1 = await page.locator('[data-testid="markdown-content"] h1').count();
+    expect(h1).toBeGreaterThan(0);
   });
 
-  test('handles malformed markdown gracefully', async ({ page }) => {
-    const input = page.locator('textarea[placeholder*="Type your message"]');
-    const malformedMarkdown = '**Unclosed bold and [unclosed link and `unclosed code';
-    await input.fill(malformedMarkdown);
-    await input.press('Enter');
+  test('should handle complex nested markdown structures', async ({ page }) => {
+    const complexMarkdown = `
+# Main Header
+## Subheader with **bold** and *italic*
+- List item with \`inline code\`
+  - Nested item with [link](https://example.com)
+    - Double nested with ***bold italic***
+> Blockquote with multiple lines
+> And continuation
 
-    // Should still display the content without crashing
-    await page.waitForSelector('[data-testid="markdown-content"]', { timeout: 5000 });
-    const messageContent = page.locator('[data-testid="markdown-content"]').first();
-    await expect(messageContent).toBeVisible();
+| Col1 | Col2 |
+|------|------|
+| Data | More |
+    `;
 
-    // Content should be present even if not perfectly formatted
-    await expect(messageContent).toContainText('Unclosed bold');
+    await page.fill('textarea[placeholder*="Type your message"]', complexMarkdown);
+    await page.click('button:has-text("Send")');
+
+    // Wait for response
+    await page.waitForTimeout(5000);
+
+    // Verify all elements are rendered
+    const userMarkdown = await page.locator('[data-testid="markdown-content"]').nth(-2);
+
+    const h1 = await userMarkdown.locator('h1').count();
+    const h2 = await userMarkdown.locator('h2').count();
+    const ul = await userMarkdown.locator('ul').count();
+    const code = await userMarkdown.locator('code').count();
+    const link = await userMarkdown.locator('a').count();
+    const blockquote = await userMarkdown.locator('blockquote').count();
+    const table = await userMarkdown.locator('table').count();
+
+    expect(h1).toBe(1);
+    expect(h2).toBe(1);
+    expect(ul).toBeGreaterThan(0);
+    expect(code).toBeGreaterThan(0);
+    expect(link).toBeGreaterThan(0);
+    expect(blockquote).toBe(1);
+    expect(table).toBe(1);
   });
 
-  test('renders emoji in markdown', async ({ page }) => {
-    const input = page.locator('textarea[placeholder*="Type your message"]');
-    await input.fill('Hello 👋 **World** 🌍');
-    await input.press('Enter');
+  test('should apply correct prose classes for different message roles', async ({ page }) => {
+    // Send a message
+    await page.fill('textarea[placeholder*="Type your message"]', 'Test message');
+    await page.click('button:has-text("Send")');
 
-    await page.waitForSelector('[data-testid="markdown-content"]', { timeout: 5000 });
-    const messageContent = page.locator('[data-testid="markdown-content"]').first();
+    // Wait for response
+    await page.waitForTimeout(5000);
 
-    // Check that emojis are preserved
-    await expect(messageContent).toContainText('👋');
-    await expect(messageContent).toContainText('🌍');
-    await expect(messageContent.locator('strong')).toContainText('World');
-  });
+    // Check user message has correct variant classes
+    const userMarkdown = await page.locator('.bg-blue-500 [data-testid="markdown-content"]').first();
+    const userClasses = await userMarkdown.getAttribute('class');
+    expect(userClasses).toContain('prose-invert');
 
-  test('handles mixed content types', async ({ page }) => {
-    const input = page.locator('textarea[placeholder*="Type your message"]');
-    const mixedContent = `
-# Documentation
-
-This is a **paragraph** with *various* formatting.
-
-\`\`\`python
-def hello():
-    print("Hello, World!")
-\`\`\`
-
-> Important note: Remember to test everything!
-
-- [x] Completed task
-- [ ] Pending task
-
-Visit [our website](https://example.com) for more info.
-`;
-    await input.fill(mixedContent);
-    await input.press('Enter');
-
-    await page.waitForSelector('[data-testid="markdown-content"]', { timeout: 5000 });
-    const messageContent = page.locator('[data-testid="markdown-content"]').first();
-
-    // Verify multiple markdown elements are rendered
-    await expect(messageContent.locator('h1')).toContainText('Documentation');
-    await expect(messageContent.locator('strong')).toContainText('paragraph');
-    await expect(messageContent.locator('em')).toContainText('various');
-    await expect(messageContent.locator('pre code')).toContainText('def hello()');
-    await expect(messageContent.locator('blockquote')).toContainText('Important note');
-    await expect(messageContent.locator('ul li')).toHaveCount(2);
-    await expect(messageContent.locator('a')).toContainText('our website');
+    // Check assistant message has correct variant classes
+    const assistantMarkdown = await page.locator('.bg-white [data-testid="markdown-content"]').first();
+    const assistantClasses = await assistantMarkdown.getAttribute('class');
+    expect(assistantClasses).toContain('prose');
   });
 });

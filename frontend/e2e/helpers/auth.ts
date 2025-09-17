@@ -6,8 +6,9 @@ import { Page } from '@playwright/test';
  */
 export async function login(page: Page) {
   // Navigate to the app if not already there
-  if (page.url() !== 'https://workbench.lolzlab.com/' && !page.url().startsWith('https://workbench.lolzlab.com/')) {
-    await page.goto('https://workbench.lolzlab.com');
+  const baseURL = 'http://localhost:4510';
+  if (!page.url().startsWith(baseURL)) {
+    await page.goto(baseURL);
     await page.waitForLoadState('networkidle');
   }
 

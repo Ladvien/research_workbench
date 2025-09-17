@@ -340,16 +340,15 @@ describe('FileAttachment Component', () => {
     it('handles file download', async () => {
       const user = userEvent.setup();
 
-      // Mock createElement and DOM methods
-      const mockLink = {
-        href: '',
-        download: '',
-        click: vi.fn(),
-        remove: vi.fn()
-      };
-      const createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(mockLink as any);
-      const appendChildSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink as any);
-      const removeChildSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockLink as any);
+      // Mock createElement and DOM methods more thoroughly
+      const mockLink = document.createElement('a');
+      Object.defineProperty(mockLink, 'href', { writable: true, value: '' });
+      Object.defineProperty(mockLink, 'download', { writable: true, value: '' });
+      mockLink.click = vi.fn();
+
+      const createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(mockLink);
+      const appendChildSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink);
+      const removeChildSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockLink);
 
       render(<FileAttachment {...defaultProps} attachments={[mockAttachment]} />);
 

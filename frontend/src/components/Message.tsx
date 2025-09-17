@@ -1,5 +1,5 @@
 import React from 'react';
-import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown';
+import { MarkdownRenderer } from './MarkdownRenderer';
 import type { Message as MessageType } from '../types/chat';
 
 interface MessageProps {
@@ -35,15 +35,11 @@ export const Message: React.FC<MessageProps> = ({ message }) => {
           </div>
         )}
 
-        {/* Message content with assistant-ui markdown */}
-        <div className={`prose prose-sm max-w-none ${
-          isUser ? 'prose-invert' : 'dark:prose-invert'
-        }`}>
-          <MarkdownTextPrimitive
-            text={content}
-            className={isUser ? 'text-white' : ''}
-          />
-        </div>
+        {/* Message content with markdown */}
+        <MarkdownRenderer
+          content={content}
+          variant={role}
+        />
 
         {/* Timestamp */}
         <div className={`text-xs mt-2 opacity-70 ${

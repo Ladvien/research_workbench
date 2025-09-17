@@ -97,30 +97,30 @@ export const waitForStateUpdate = async (timeout = 100): Promise<void> => {
 };
 
 // Helper to simulate user interaction with proper act wrapping for React 18+
-export const simulateUserAction = async <T>(action: () => Promise<T>): Promise<T> => {
-  let result: T;
+export const simulateUserAction = async (action: () => Promise<any>): Promise<any> => {
+  let result: any;
   await act(async () => {
     result = await action();
   });
-  return result!;
+  return result;
 };
 
 // Helper for React 18+ state updates with proper act() wrapping
-export const actAsync = async <T>(fn: () => Promise<T>): Promise<T> => {
-  let result: T;
+export const actAsync = async (fn: () => Promise<any>): Promise<any> => {
+  let result: any;
   await act(async () => {
     result = await fn();
   });
-  return result!;
+  return result;
 };
 
 // Helper for synchronous state updates
-export const actSync = <T>(fn: () => T): T => {
-  let result: T;
+export const actSync = (fn: () => any): any => {
+  let result: any;
   act(() => {
     result = fn();
   });
-  return result!;
+  return result;
 };
 
 // Re-export everything from React Testing Library
@@ -170,11 +170,11 @@ export const mockFetch = (response: any = {}, options: { ok?: boolean; status?: 
 };
 
 // Helper for mocking Zustand stores with React 18+ compatibility
-export const mockZustandStore = <T>(initialState: Partial<T>) => {
+export const mockZustandStore = (initialState: Partial<any>) => {
   return {
     ...initialState,
     getState: vi.fn(() => initialState),
-    setState: vi.fn((updates: Partial<T>) => {
+    setState: vi.fn((updates: Partial<any>) => {
       Object.assign(initialState, updates);
     }),
     subscribe: vi.fn(),
@@ -226,3 +226,57 @@ export const mockStreamingResponse = (chunks: string[], delay = 100) => {
     }
   };
 };
+
+// Mock factory functions
+export const createMockFile = (
+  name: string = 'test-file.txt',
+  type: string = 'text/plain',
+  content: string = 'test content'
+): File => {
+  const file = new File([content], name, { type });
+  return file;
+};
+
+export const createMockImage = (
+  name: string = 'test-image.png',
+  width: number = 100,
+  height: number = 100
+): File => {
+  // Create a simple PNG data URL
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#ff0000';
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  return new File([canvas.toDataURL()], name, { type: 'image/png' });
+};
+
+// Message factory for testing
+export const createMockMessage = (overrides = {}) => ({
+  id: 'msg-test-' + Math.random().toString(36).substr(2, 9),
+  conversation_id: 'conv-test',
+  role: 'user',
+  content: 'Test message content',
+  created_at: new Date().toISOString(),
+  is_active: true,
+  metadata: {},
+  timestamp: new Date(),
+  ...overrides
+});
+
+// Conversation factory for testing
+export const createMockConversation = (overrides = {}) => ({
+  id: 'conv-test-' + Math.random().toString(36).substr(2, 9),
+  user_id: 'user-test',
+  title: 'Test Conversation',
+  model: 'claude-code-opus',
+  provider: 'anthropic',
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  metadata: {},
+  ...overrides
+});

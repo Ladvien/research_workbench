@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown';
+import { MarkdownRenderer } from './MarkdownRenderer';
 import type { Message as MessageType, BranchInfo } from '../types/chat';
 import { BranchingAPI } from '../utils/branchingApi';
 
@@ -198,14 +198,10 @@ export const EditableMessage: React.FC<EditableMessageProps> = ({
               </div>
             </div>
           ) : (
-            <div className={`prose prose-sm max-w-none ${
-              isUser ? 'prose-invert' : 'dark:prose-invert'
-            }`}>
-              <MarkdownTextPrimitive
-                text={content}
-                className={isUser ? 'text-white' : ''}
-              />
-            </div>
+            <MarkdownRenderer
+              content={content}
+              variant={role}
+            />
           )}
 
           {/* Timestamp */}

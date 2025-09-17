@@ -5,7 +5,7 @@ import { ChatInput } from './ChatInput';
 import { LoadingSpinner, LoadingDots } from './LoadingSpinner';
 import { ErrorAlert } from './ErrorAlert';
 import ModelSelector from './ModelSelector';
-import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown';
+import { MarkdownRenderer } from './MarkdownRenderer';
 import { useConversationStore } from '../hooks/useConversationStore';
 import { useBranching } from '../hooks/useBranching';
 import { categorizeError, retryOperation, isTemporaryError } from '../utils/errorHandling';
@@ -280,18 +280,17 @@ export const BranchingChat: React.FC = () => {
                     </>
                   )}
                 </div>
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  {streamingMessage.content ? (
-                    <>
-                      <MarkdownTextPrimitive
-                        text={streamingMessage.content}
-                      />
-                      {isStreaming && <span className="animate-pulse bg-blue-500 text-blue-500 ml-1">|</span>}
-                    </>
-                  ) : (
-                    <span className="text-gray-400">Waiting for response...</span>
-                  )}
-                </div>
+                {streamingMessage.content ? (
+                  <>
+                    <MarkdownRenderer
+                      content={streamingMessage.content}
+                      variant="assistant"
+                    />
+                    {isStreaming && <span className="animate-pulse bg-blue-500 text-blue-500 ml-1">|</span>}
+                  </>
+                ) : (
+                  <span className="text-gray-400">Waiting for response...</span>
+                )}
               </div>
               {isStreaming && (
                 <button

@@ -7,7 +7,7 @@ async function globalSetup(config: FullConfig) {
 
   try {
     // Navigate to the app
-    await page.goto(baseURL || 'https://workbench.lolzlab.com');
+    await page.goto(baseURL || 'http://localhost:4510');
 
     // Wait for page to load
     await page.waitForLoadState('networkidle');

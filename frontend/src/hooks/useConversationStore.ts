@@ -323,10 +323,50 @@ export const useConversationStore = create<ConversationState>()(
             (token: string) => {
               set(state => {
                 if (state.streamingMessage) {
+                  let processedToken = token;
+                  const currentContent = state.streamingMessage.content;
+
+                  // Smart newline insertion for Markdown formatting
+                  // Check if we need to add a newline before this token
+                  if (currentContent.length > 0) {
+                    const lastChar = currentContent[currentContent.length - 1];
+                    const trimmedToken = token.trimStart();
+
+                    // Add newline before headers
+                    if (trimmedToken.startsWith('#') && lastChar !== '\n') {
+                      processedToken = '\n' + token;
+                    }
+                    // Add newline before lists
+                    else if ((trimmedToken.startsWith('-') || trimmedToken.match(/^\d+\./)) &&
+                             lastChar !== '\n' && !currentContent.endsWith('- ')) {
+                      processedToken = '\n' + token;
+                    }
+                    // Add newline before blockquotes
+                    else if (trimmedToken.startsWith('>') && lastChar !== '\n') {
+                      processedToken = '\n' + token;
+                    }
+                    // Add newline before horizontal rules
+                    else if (trimmedToken.startsWith('---') && lastChar !== '\n') {
+                      processedToken = '\n' + token;
+                    }
+                    // Add newline before code blocks
+                    else if (trimmedToken.startsWith('```') && lastChar !== '\n') {
+                      processedToken = '\n' + token;
+                    }
+                    // Add newline after code blocks
+                    else if (currentContent.endsWith('```') && !token.startsWith('\n')) {
+                      processedToken = '\n' + token;
+                    }
+                    // Add newline before tables
+                    else if (trimmedToken.startsWith('|') && lastChar !== '\n' && !currentContent.endsWith('| ')) {
+                      processedToken = '\n' + token;
+                    }
+                  }
+
                   return {
                     streamingMessage: {
                       ...state.streamingMessage,
-                      content: state.streamingMessage.content + token
+                      content: state.streamingMessage.content + processedToken
                     }
                   };
                 }
