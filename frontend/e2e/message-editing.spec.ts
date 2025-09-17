@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { login } from './helpers/auth';
 
 test.describe('Message Editing with Markdown', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('http://workbench.lolzlab.com');
-    await page.waitForLoadState('networkidle');
+    // Login first
+    await login(page);
 
     // Start a conversation
     const input = page.locator('textarea[placeholder*="Type your message"]');

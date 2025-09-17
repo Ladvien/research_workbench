@@ -1,11 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { login } from './helpers/auth';
 
 test.describe('Markdown Rendering', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('http://workbench.lolzlab.com');
-
-    // Wait for the app to load
-    await page.waitForLoadState('networkidle');
+    // Login before each test
+    await login(page);
   });
 
   test('renders markdown headings correctly', async ({ page }) => {

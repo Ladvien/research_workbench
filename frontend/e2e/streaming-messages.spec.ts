@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { login } from './helpers/auth';
 
 test.describe('Streaming Messages', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('http://workbench.lolzlab.com');
-    await page.waitForLoadState('networkidle');
+    // Login before each test
+    await login(page);
   });
 
   test('shows streaming indicator when receiving response', async ({ page }) => {

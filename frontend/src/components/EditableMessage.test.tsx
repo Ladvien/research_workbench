@@ -55,7 +55,8 @@ describe('EditableMessage Component', () => {
       render(<EditableMessage message={message} />);
 
       const markdown = screen.getByTestId('markdown-content');
-      expect(markdown).toHaveTextContent('# Hello\n**Bold text**');
+      // The MarkdownTextPrimitive removes newlines when rendering
+      expect(markdown).toHaveTextContent('# Hello **Bold text**');
     });
 
     it('shows edit and delete buttons for user messages when editable', () => {
