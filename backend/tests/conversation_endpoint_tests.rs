@@ -39,7 +39,11 @@ async fn test_conversation_service_get_user_conversations() {
         Ok(conversations) => {
             println!("Service returned {} conversations", conversations.len());
             for conv in &conversations {
-                println!("Conversation: {} - {}", conv.id, conv.title.as_ref().unwrap_or(&"No title".to_string()));
+                println!(
+                    "Conversation: {} - {}",
+                    conv.id,
+                    conv.title.as_ref().unwrap_or(&"No title".to_string())
+                );
             }
 
             // The service should return an array (empty or not)
@@ -74,7 +78,11 @@ async fn test_conversation_repository_directly() {
         Ok(conversations) => {
             println!("Repository returned {} conversations", conversations.len());
             for conv in &conversations {
-                println!("Conversation: {} - {}", conv.id, conv.title.as_ref().unwrap_or(&"No title".to_string()));
+                println!(
+                    "Conversation: {} - {}",
+                    conv.id,
+                    conv.title.as_ref().unwrap_or(&"No title".to_string())
+                );
             }
 
             // This should work correctly and return an empty array for non-existent user
@@ -101,8 +109,18 @@ async fn test_create_and_fetch_conversation() {
         metadata: None,
     };
 
-    let created_conv = service.create_conversation(user_id, create_request).await.unwrap();
-    println!("Created conversation: {} - {}", created_conv.id, created_conv.title.as_ref().unwrap_or(&"No title".to_string()));
+    let created_conv = service
+        .create_conversation(user_id, create_request)
+        .await
+        .unwrap();
+    println!(
+        "Created conversation: {} - {}",
+        created_conv.id,
+        created_conv
+            .title
+            .as_ref()
+            .unwrap_or(&"No title".to_string())
+    );
 
     // Now fetch conversations for this user
     let pagination = PaginationParams {
@@ -110,12 +128,18 @@ async fn test_create_and_fetch_conversation() {
         limit: Some(50),
     };
 
-    let conversations = service.get_user_conversations(user_id, pagination).await.unwrap();
+    let conversations = service
+        .get_user_conversations(user_id, pagination)
+        .await
+        .unwrap();
     println!("Found {} conversations for user", conversations.len());
 
     // Should find the conversation we just created
     assert_eq!(conversations.len(), 1);
     assert_eq!(conversations[0].id, created_conv.id);
-    assert_eq!(conversations[0].title, Some("Test Conversation".to_string()));
+    assert_eq!(
+        conversations[0].title,
+        Some("Test Conversation".to_string())
+    );
     assert_eq!(conversations[0].model, "gpt-4");
 }

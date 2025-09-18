@@ -6,7 +6,9 @@ import * as useConversationStore from '../hooks/useConversationStore';
 import { createMockMessage } from '../../tests/test-utils';
 
 // Mock the store module
-vi.mock('../hooks/useConversationStore');
+vi.mock('../hooks/useConversationStore', () => ({
+  useConversationStore: vi.fn()
+}));
 
 // Mock child components
 vi.mock('./Message', () => ({

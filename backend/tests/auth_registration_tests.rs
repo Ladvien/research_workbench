@@ -11,7 +11,7 @@ use workbench_server::{
     database::Database,
     handlers::{auth, chat_persistent, conversation},
     models::RegisterRequest,
-    repositories::{user::UserRepository, refresh_token::RefreshTokenRepository},
+    repositories::{refresh_token::RefreshTokenRepository, user::UserRepository},
     services::{auth::AuthService, DataAccessLayer},
 };
 
@@ -52,7 +52,8 @@ async fn create_test_app_state() -> anyhow::Result<AppState> {
     let refresh_token_repository = RefreshTokenRepository::new(database.clone());
 
     // Create JWT config with a test secret
-    let jwt_config = JwtConfig::new("test-secret-that-is-long-enough-for-validation-12345".to_string())?;
+    let jwt_config =
+        JwtConfig::new("test-secret-that-is-long-enough-for-validation-12345".to_string())?;
 
     let auth_service = AuthService::new(user_repository, refresh_token_repository, jwt_config);
 
@@ -93,7 +94,9 @@ async fn test_registration_flow_complete() {
         .service_fn(|req: Request<Body>| async {
             auth::register(
                 axum::extract::State(app_state.clone()),
-                tower_sessions::Session::from_request(req, &()).await.unwrap(),
+                tower_sessions::Session::from_request(req, &())
+                    .await
+                    .unwrap(),
                 axum::Json(register_request),
             )
             .await
@@ -111,7 +114,9 @@ async fn test_registration_flow_complete() {
     assert_eq!(response.status(), StatusCode::CREATED);
 
     // Extract response body
-    let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let response_data: Value = serde_json::from_slice(&body_bytes).unwrap();
 
     // Verify response structure
@@ -126,7 +131,10 @@ async fn test_registration_flow_complete() {
     // Verify access token is valid
     let access_token = response_data["access_token"].as_str().unwrap();
     let token_validation = app_state.auth_service.validate_jwt_token(access_token);
-    assert!(token_validation.is_ok(), "Generated access token should be valid");
+    assert!(
+        token_validation.is_ok(),
+        "Generated access token should be valid"
+    );
 
     let claims = token_validation.unwrap();
     assert_eq!(claims.email, "test@workbench.com");
@@ -145,7 +153,10 @@ async fn test_registration_password_validation() {
     };
 
     let result = app_state.auth_service.register(weak_password_request).await;
-    assert!(result.is_err(), "Registration with weak password should fail");
+    assert!(
+        result.is_err(),
+        "Registration with weak password should fail"
+    );
 }
 
 #[tokio::test]
@@ -170,7 +181,10 @@ async fn test_registration_email_uniqueness() {
 
     // Second registration with same email should fail
     let second_result = app_state.auth_service.register(second_request).await;
-    assert!(second_result.is_err(), "Second registration with same email should fail");
+    assert!(
+        second_result.is_err(),
+        "Second registration with same email should fail"
+    );
 }
 
 #[tokio::test]
@@ -195,7 +209,10 @@ async fn test_registration_username_uniqueness() {
 
     // Second registration with same username should fail
     let second_result = app_state.auth_service.register(second_request).await;
-    assert!(second_result.is_err(), "Second registration with same username should fail");
+    assert!(
+        second_result.is_err(),
+        "Second registration with same username should fail"
+    );
 }
 
 #[tokio::test]
@@ -209,7 +226,11 @@ async fn test_password_hashing_and_verification() {
     };
 
     // Register user
-    let register_response = app_state.auth_service.register(register_request).await.unwrap();
+    let register_response = app_state
+        .auth_service
+        .register(register_request)
+        .await
+        .unwrap();
 
     // Get the user from database to check password hash
     let user = app_state
@@ -249,7 +270,11 @@ async fn test_jwt_token_generation_and_validation() {
     };
 
     // Register user
-    let register_response = app_state.auth_service.register(register_request).await.unwrap();
+    let register_response = app_state
+        .auth_service
+        .register(register_request)
+        .await
+        .unwrap();
 
     // Verify JWT token structure and validity
     let access_token = &register_response.access_token;
@@ -285,12 +310,23 @@ async fn test_refresh_token_generation() {
     };
 
     // Register user
-    let register_response = app_state.auth_service.register(register_request).await.unwrap();
+    let register_response = app_state
+        .auth_service
+        .register(register_request)
+        .await
+        .unwrap();
 
     // Verify refresh token is generated
     let refresh_token = &register_response.refresh_token;
-    assert!(!refresh_token.is_empty(), "Refresh token should not be empty");
-    assert_eq!(refresh_token.len(), 64, "Refresh token should be 64 characters");
+    assert!(
+        !refresh_token.is_empty(),
+        "Refresh token should not be empty"
+    );
+    assert_eq!(
+        refresh_token.len(),
+        64,
+        "Refresh token should be 64 characters"
+    );
 
     // Verify refresh token is valid alphanumeric
     assert!(
@@ -335,7 +371,10 @@ async fn test_registration_input_validation() {
     };
 
     // This should work in the service but fail in handler validation
-    let result = app_state.auth_service.register(short_username_request).await;
+    let result = app_state
+        .auth_service
+        .register(short_username_request)
+        .await;
     assert!(result.is_ok(), "Service layer should accept short username");
 }
 
@@ -350,8 +389,14 @@ async fn test_common_password_rejection() {
         password: "password123".to_string(), // Common password
     };
 
-    let result = app_state.auth_service.register(common_password_request).await;
-    assert!(result.is_err(), "Registration with common password should fail");
+    let result = app_state
+        .auth_service
+        .register(common_password_request)
+        .await;
+    assert!(
+        result.is_err(),
+        "Registration with common password should fail"
+    );
 }
 
 #[tokio::test]
@@ -365,7 +410,11 @@ async fn test_argon2_password_hashing() {
     };
 
     // Register user
-    let register_response = app_state.auth_service.register(register_request).await.unwrap();
+    let register_response = app_state
+        .auth_service
+        .register(register_request)
+        .await
+        .unwrap();
 
     // Get user from database
     let user = app_state
@@ -376,12 +425,21 @@ async fn test_argon2_password_hashing() {
         .unwrap();
 
     // Verify the password hash follows Argon2 format
-    assert!(user.password_hash.starts_with("$argon2"), "Password should be hashed with Argon2");
+    assert!(
+        user.password_hash.starts_with("$argon2"),
+        "Password should be hashed with Argon2"
+    );
 
     // Verify hash contains required Argon2 components
     let hash_parts: Vec<&str> = user.password_hash.split('$').collect();
-    assert!(hash_parts.len() >= 4, "Argon2 hash should have multiple parts");
-    assert!(hash_parts[1].contains("argon2"), "Hash should indicate Argon2 algorithm");
+    assert!(
+        hash_parts.len() >= 4,
+        "Argon2 hash should have multiple parts"
+    );
+    assert!(
+        hash_parts[1].contains("argon2"),
+        "Hash should indicate Argon2 algorithm"
+    );
 }
 
 #[tokio::test]
@@ -399,7 +457,11 @@ async fn test_multiple_registrations_unique_tokens() {
             password: "UniquePassword123!".to_string(),
         };
 
-        let response = app_state.auth_service.register(register_request).await.unwrap();
+        let response = app_state
+            .auth_service
+            .register(register_request)
+            .await
+            .unwrap();
         access_tokens.push(response.access_token);
         refresh_tokens.push(response.refresh_token);
     }

@@ -84,7 +84,10 @@ async fn test_invalid_llm_provider() {
 
     let message_request = Request::builder()
         .method(Method::POST)
-        .uri(&format!("/api/v1/conversations/{}/messages", conversation_id))
+        .uri(&format!(
+            "/api/v1/conversations/{}/messages",
+            conversation_id
+        ))
         .header("content-type", "application/json")
         .header("cookie", &test_user.session_cookie)
         .body(Body::from(message_body.to_string()))
@@ -133,7 +136,10 @@ async fn test_llm_request_validation() {
 
     let empty_message_request = Request::builder()
         .method(Method::POST)
-        .uri(&format!("/api/v1/conversations/{}/messages", conversation_id))
+        .uri(&format!(
+            "/api/v1/conversations/{}/messages",
+            conversation_id
+        ))
         .header("content-type", "application/json")
         .header("cookie", &test_user.session_cookie)
         .body(Body::from(empty_message_body.to_string()))
@@ -154,7 +160,10 @@ async fn test_llm_request_validation() {
 
     let long_message_request = Request::builder()
         .method(Method::POST)
-        .uri(&format!("/api/v1/conversations/{}/messages", conversation_id))
+        .uri(&format!(
+            "/api/v1/conversations/{}/messages",
+            conversation_id
+        ))
         .header("content-type", "application/json")
         .header("cookie", &test_user.session_cookie)
         .body(Body::from(long_message_body.to_string()))
@@ -163,8 +172,8 @@ async fn test_llm_request_validation() {
     let long_message_response = app.oneshot(long_message_request).await.unwrap();
     // Should either accept or reject based on limits, but not crash
     assert!(
-        long_message_response.status().is_success() ||
-        long_message_response.status().is_client_error()
+        long_message_response.status().is_success()
+            || long_message_response.status().is_client_error()
     );
 }
 
@@ -255,7 +264,10 @@ async fn test_llm_error_handling() {
 
     let message_request = Request::builder()
         .method(Method::POST)
-        .uri(&format!("/api/v1/conversations/{}/messages", conversation_id))
+        .uri(&format!(
+            "/api/v1/conversations/{}/messages",
+            conversation_id
+        ))
         .header("content-type", "application/json")
         .header("cookie", &test_user.session_cookie)
         .body(Body::from(message_body.to_string()))
@@ -264,9 +276,9 @@ async fn test_llm_error_handling() {
     let message_response = app.oneshot(message_request).await.unwrap();
     // Should handle error gracefully (might succeed if model exists, or fail gracefully)
     assert!(
-        message_response.status().is_success() ||
-        message_response.status().is_client_error() ||
-        message_response.status().is_server_error()
+        message_response.status().is_success()
+            || message_response.status().is_client_error()
+            || message_response.status().is_server_error()
     );
 
     if !message_response.status().is_success() {
@@ -327,8 +339,8 @@ async fn test_llm_streaming_error_handling() {
     let stream_response = app.oneshot(stream_request).await.unwrap();
     // Should handle invalid parameters gracefully
     assert!(
-        stream_response.status() == StatusCode::OK ||
-        stream_response.status() == StatusCode::BAD_REQUEST
+        stream_response.status() == StatusCode::OK
+            || stream_response.status() == StatusCode::BAD_REQUEST
     );
 }
 
@@ -375,7 +387,10 @@ async fn test_prompt_injection_protection() {
 
         let message_request = Request::builder()
             .method(Method::POST)
-            .uri(&format!("/api/v1/conversations/{}/messages", conversation_id))
+            .uri(&format!(
+                "/api/v1/conversations/{}/messages",
+                conversation_id
+            ))
             .header("content-type", "application/json")
             .header("cookie", &test_user.session_cookie)
             .body(Body::from(message_body.to_string()))
@@ -384,8 +399,7 @@ async fn test_prompt_injection_protection() {
         let message_response = app.clone().oneshot(message_request).await.unwrap();
         // Should handle prompt injections safely
         assert!(
-            message_response.status().is_success() ||
-            message_response.status().is_client_error()
+            message_response.status().is_success() || message_response.status().is_client_error()
         );
 
         if message_response.status().is_success() {
@@ -435,7 +449,10 @@ async fn test_token_usage_tracking() {
 
     let message_request = Request::builder()
         .method(Method::POST)
-        .uri(&format!("/api/v1/conversations/{}/messages", conversation_id))
+        .uri(&format!(
+            "/api/v1/conversations/{}/messages",
+            conversation_id
+        ))
         .header("content-type", "application/json")
         .header("cookie", &test_user.session_cookie)
         .body(Body::from(message_body.to_string()))
@@ -471,8 +488,8 @@ async fn test_token_usage_tracking() {
     let large_message_response = app.oneshot(large_message_request).await.unwrap();
     // Should handle large requests appropriately
     assert!(
-        large_message_response.status().is_success() ||
-        large_message_response.status().is_client_error()
+        large_message_response.status().is_success()
+            || large_message_response.status().is_client_error()
     );
 }
 
@@ -538,7 +555,8 @@ async fn test_concurrent_llm_requests() {
         // All concurrent requests should be handled properly
         assert!(
             result.status().is_success() || result.status().is_client_error(),
-            "Concurrent request {} should be handled properly", i
+            "Concurrent request {} should be handled properly",
+            i
         );
     }
 }

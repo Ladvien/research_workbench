@@ -134,7 +134,9 @@ async fn test_claude_code_integration() {
         Ok(Err(e)) => {
             println!("Claude Code error (expected if CLI not available): {}", e);
             // Claude Code might not be available in CI
-            assert!(e.to_string().contains("Claude Code") || e.to_string().contains("not available"));
+            assert!(
+                e.to_string().contains("Claude Code") || e.to_string().contains("not available")
+            );
         }
         Err(_) => {
             panic!("Claude Code test timed out - this indicates a serious issue");
@@ -202,8 +204,9 @@ async fn test_streaming_capabilities() {
 
         let result = timeout(
             Duration::from_secs(30),
-            service.chat_completion_stream(request)
-        ).await;
+            service.chat_completion_stream(request),
+        )
+        .await;
 
         match result {
             Ok(Ok(mut stream)) => {
@@ -272,13 +275,25 @@ fn test_model_information() {
     assert!(!models.is_empty(), "Should have available models");
 
     // Check that each provider has models
-    let openai_models: Vec<_> = models.iter().filter(|m| matches!(m.provider, Provider::OpenAI)).collect();
-    let anthropic_models: Vec<_> = models.iter().filter(|m| matches!(m.provider, Provider::Anthropic)).collect();
-    let claude_code_models: Vec<_> = models.iter().filter(|m| matches!(m.provider, Provider::ClaudeCode)).collect();
+    let openai_models: Vec<_> = models
+        .iter()
+        .filter(|m| matches!(m.provider, Provider::OpenAI))
+        .collect();
+    let anthropic_models: Vec<_> = models
+        .iter()
+        .filter(|m| matches!(m.provider, Provider::Anthropic))
+        .collect();
+    let claude_code_models: Vec<_> = models
+        .iter()
+        .filter(|m| matches!(m.provider, Provider::ClaudeCode))
+        .collect();
 
     assert!(!openai_models.is_empty(), "Should have OpenAI models");
     assert!(!anthropic_models.is_empty(), "Should have Anthropic models");
-    assert!(!claude_code_models.is_empty(), "Should have Claude Code models");
+    assert!(
+        !claude_code_models.is_empty(),
+        "Should have Claude Code models"
+    );
 
     // Verify model properties
     for model in &models {
@@ -289,16 +304,34 @@ fn test_model_information() {
         // Verify provider-specific constraints
         match model.provider {
             Provider::OpenAI => {
-                assert!(model.id.starts_with("gpt-"), "OpenAI models should start with 'gpt-'");
-                assert!(model.cost_per_token.is_some(), "OpenAI models should have cost info");
+                assert!(
+                    model.id.starts_with("gpt-"),
+                    "OpenAI models should start with 'gpt-'"
+                );
+                assert!(
+                    model.cost_per_token.is_some(),
+                    "OpenAI models should have cost info"
+                );
             }
             Provider::Anthropic => {
-                assert!(model.id.starts_with("claude-"), "Anthropic models should start with 'claude-'");
-                assert!(model.cost_per_token.is_some(), "Anthropic models should have cost info");
+                assert!(
+                    model.id.starts_with("claude-"),
+                    "Anthropic models should start with 'claude-'"
+                );
+                assert!(
+                    model.cost_per_token.is_some(),
+                    "Anthropic models should have cost info"
+                );
             }
             Provider::ClaudeCode => {
-                assert!(model.id.starts_with("claude-code-"), "Claude Code models should start with 'claude-code-'");
-                assert!(model.cost_per_token.is_none(), "Claude Code models should not have direct cost");
+                assert!(
+                    model.id.starts_with("claude-code-"),
+                    "Claude Code models should start with 'claude-code-'"
+                );
+                assert!(
+                    model.cost_per_token.is_none(),
+                    "Claude Code models should not have direct cost"
+                );
             }
         }
     }
@@ -317,12 +350,18 @@ fn test_service_factory() {
     assert!(anthropic_service.is_ok(), "Should create Anthropic service");
 
     let claude_code_service = LLMServiceFactory::create_service(&Provider::ClaudeCode, &config);
-    assert!(claude_code_service.is_ok(), "Should create Claude Code service");
+    assert!(
+        claude_code_service.is_ok(),
+        "Should create Claude Code service"
+    );
 
     // Verify provider types
     assert_eq!(openai_service.unwrap().provider(), Provider::OpenAI);
     assert_eq!(anthropic_service.unwrap().provider(), Provider::Anthropic);
-    assert_eq!(claude_code_service.unwrap().provider(), Provider::ClaudeCode);
+    assert_eq!(
+        claude_code_service.unwrap().provider(),
+        Provider::ClaudeCode
+    );
 }
 
 /// Helper function to create test configuration
@@ -340,7 +379,10 @@ fn create_test_config() -> AppConfig {
         claude_code_enabled: true,
         claude_code_model: "claude-3-5-sonnet-20241022".to_string(),
         claude_code_session_timeout: 3600,
-        jwt_config: workbench_server::config::JwtConfig::new("test-secret-that-is-long-enough-for-testing-purposes".to_string()).unwrap(),
+        jwt_config: workbench_server::config::JwtConfig::new(
+            "test-secret-that-is-long-enough-for-testing-purposes".to_string(),
+        )
+        .unwrap(),
         redis_url: "redis://127.0.0.1:6379".to_string(),
         session_timeout_hours: 24,
         storage_path: "/tmp/workbench_test_storage".to_string(),

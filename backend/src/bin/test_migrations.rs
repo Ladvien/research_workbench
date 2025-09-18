@@ -6,13 +6,14 @@ use workbench_server::database::Database;
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
-    
-    let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgresql://ladvien:postgres@192.168.1.104:5432/workbench".to_string());
-    
+
+    let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+        "postgresql://ladvien:postgres@192.168.1.104:5432/workbench".to_string()
+    });
+
     println!("Testing database connection and migrations...");
     println!("Database URL: {}", database_url);
-    
+
     match Database::new(&database_url).await {
         Ok(db) => {
             println!("✅ Successfully connected to database and ran migrations!");
@@ -49,6 +50,6 @@ async fn main() -> Result<()> {
             return Err(e);
         }
     }
-    
+
     Ok(())
 }

@@ -2,14 +2,11 @@
 //!
 //! This module provides utilities for generating real JWT tokens in tests,
 //! replacing the insecure mock tokens that were previously used.
-//! 
+//!
 //! SECURITY: These functions generate real JWT tokens using actual AuthService
 //! and JwtConfig to ensure integration tests validate real token security.
 
-use crate::{
-    config::JwtConfig,
-    models::User,
-};
+use crate::{config::JwtConfig, models::User};
 use anyhow::Result;
 use chrono::Utc;
 use uuid::Uuid;
@@ -70,9 +67,9 @@ pub fn create_test_jwt_token() -> Result<String> {
 /// This function replicates the logic from AuthService::generate_jwt_token
 /// but without requiring database dependencies for testing.
 fn generate_jwt_token_for_user(user: &User, jwt_config: &JwtConfig) -> Result<String> {
-    use jsonwebtoken::{encode, Header, EncodingKey};
     use crate::models::JwtClaims;
     use chrono::Duration;
+    use jsonwebtoken::{encode, EncodingKey, Header};
 
     let now = Utc::now();
     let expiration = now + Duration::minutes(15); // Token valid for 15 minutes
@@ -108,9 +105,9 @@ pub fn create_test_admin_jwt_token() -> Result<String> {
 
 /// Generates an expired JWT token for testing token expiration scenarios
 pub fn create_expired_jwt_token() -> Result<String> {
-    use jsonwebtoken::{encode, Header, EncodingKey};
     use crate::models::JwtClaims;
     use chrono::Duration;
+    use jsonwebtoken::{encode, EncodingKey, Header};
 
     let jwt_config = create_test_jwt_config()?;
     let test_user = create_test_user();
@@ -142,8 +139,8 @@ pub fn create_invalid_jwt_token() -> String {
 
 /// Validates that a JWT token is properly formatted and contains expected claims
 pub fn validate_test_jwt_token(token: &str) -> Result<bool> {
-    use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
     use crate::models::JwtClaims;
+    use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 
     let jwt_config = create_test_jwt_config()?;
     let validation = Validation::new(Algorithm::HS256);
@@ -156,14 +153,14 @@ pub fn validate_test_jwt_token(token: &str) -> Result<bool> {
         Ok(token_data) => {
             // Verify the token contains expected test user information
             Ok(token_data.claims.email == "test@workbench.com"
-               || token_data.claims.email == "admin@workbench.com")
+                || token_data.claims.email == "admin@workbench.com")
         }
         Err(_) => Ok(false),
     }
 }
 
 /// JWT Token Test Scenarios
-/// 
+///
 /// This enum represents different JWT token scenarios for comprehensive testing
 #[derive(Debug, Clone)]
 pub enum JwtTestScenario {
@@ -190,7 +187,7 @@ impl JwtTestScenario {
             JwtTestScenario::Malformed => Ok("not.a.jwt".to_string()),
         }
     }
-    
+
     /// Get the expected HTTP status code for this scenario when used in API calls
     pub fn expected_status_code(&self) -> u16 {
         match self {
@@ -203,7 +200,7 @@ impl JwtTestScenario {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_create_test_jwt_token_generates_valid_token() {
         let token = create_test_jwt_token().unwrap();
@@ -248,13 +245,13 @@ mod tests {
         let is_valid = validate_test_jwt_token(&token).unwrap();
         assert!(!is_valid);
     }
-    
+
     #[test]
     fn test_create_invalid_jwt_token() {
         let token = create_invalid_jwt_token();
         assert_eq!(token, "invalid.jwt.token.with.wrong.signature");
     }
-    
+
     #[test]
     fn test_jwt_test_scenarios() {
         // Test valid user scenario

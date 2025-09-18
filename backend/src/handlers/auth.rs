@@ -16,7 +16,9 @@ use crate::{
     app_state::AppState,
     error::AppError,
     middleware::auth::AuthUtils,
-    models::{ChangePasswordRequest, LoginRequest, RegisterRequest, RefreshTokenRequest, UserResponse},
+    models::{
+        ChangePasswordRequest, LoginRequest, RefreshTokenRequest, RegisterRequest, UserResponse,
+    },
 };
 
 // Simple in-memory rate limiting for auth endpoints
@@ -87,7 +89,11 @@ pub async fn register(
     // Store session data in SessionManager for proper session tracking
     if let Some(session_manager) = &app_state.session_manager {
         // Generate a session ID for tracking
-        let session_id = format!("register_{}_{}", response.user.id, chrono::Utc::now().timestamp());
+        let session_id = format!(
+            "register_{}_{}",
+            response.user.id,
+            chrono::Utc::now().timestamp()
+        );
 
         let session_data = crate::services::session::SessionData {
             user_id: response.user.id,
@@ -98,7 +104,10 @@ pub async fn register(
             user_agent: AuthUtils::extract_user_agent(&parts),
         };
 
-        if let Err(e) = session_manager.store_session(&session_id, session_data).await {
+        if let Err(e) = session_manager
+            .store_session(&session_id, session_data)
+            .await
+        {
             tracing::warn!("Failed to store session in SessionManager: {}", e);
             // Don't fail the registration, but log the issue
         }
@@ -108,7 +117,8 @@ pub async fn register(
     let (csrf_token, csrf_cookie) = crate::middleware::csrf::generate_csrf_token(
         &session,
         app_state.config.cookie_security.secure,
-    ).await?;
+    )
+    .await?;
 
     // Set JWT token in HttpOnly cookie with environment-based security
     let secure_flag = if app_state.config.cookie_security.secure {
@@ -122,7 +132,7 @@ pub async fn register(
         .header(
             header::SET_COOKIE,
             format!(
-                "token={}; HttpOnly; SameSite={}; Max-Age=900; Path={}{}",  // 15 minutes
+                "token={}; HttpOnly; SameSite={}; Max-Age=900; Path={}{}", // 15 minutes
                 response.access_token, app_state.config.cookie_security.same_site, "/", secure_flag
             ),
         )
@@ -174,7 +184,11 @@ pub async fn login(
     // Store session data in SessionManager for proper session tracking
     if let Some(session_manager) = &app_state.session_manager {
         // Generate a session ID for tracking
-        let session_id = format!("login_{}_{}", response.user.id, chrono::Utc::now().timestamp());
+        let session_id = format!(
+            "login_{}_{}",
+            response.user.id,
+            chrono::Utc::now().timestamp()
+        );
 
         let session_data = crate::services::session::SessionData {
             user_id: response.user.id,
@@ -185,7 +199,10 @@ pub async fn login(
             user_agent: AuthUtils::extract_user_agent(&parts),
         };
 
-        if let Err(e) = session_manager.store_session(&session_id, session_data).await {
+        if let Err(e) = session_manager
+            .store_session(&session_id, session_data)
+            .await
+        {
             tracing::warn!("Failed to store session in SessionManager: {}", e);
             // Don't fail the login, but log the issue
         }
@@ -195,7 +212,8 @@ pub async fn login(
     let (csrf_token, csrf_cookie) = crate::middleware::csrf::generate_csrf_token(
         &session,
         app_state.config.cookie_security.secure,
-    ).await?;
+    )
+    .await?;
 
     // Set JWT token in HttpOnly cookie with environment-based security
     let secure_flag = if app_state.config.cookie_security.secure {
@@ -209,7 +227,7 @@ pub async fn login(
         .header(
             header::SET_COOKIE,
             format!(
-                "token={}; HttpOnly; SameSite={}; Max-Age=900; Path={}{}",  // 15 minutes
+                "token={}; HttpOnly; SameSite={}; Max-Age=900; Path={}{}", // 15 minutes
                 response.access_token, app_state.config.cookie_security.same_site, "/", secure_flag
             ),
         )
@@ -277,7 +295,10 @@ pub async fn logout(
         )
         .map_err(|e| AppError::InternalServerError(format!("Failed to build response: {}", e)))?;
 
-    tracing::info!("User {} logged out successfully with full session invalidation", user.id);
+    tracing::info!(
+        "User {} logged out successfully with full session invalidation",
+        user.id
+    );
     Ok(response)
 }
 
@@ -384,7 +405,10 @@ pub async fn refresh_token(
     })?;
 
     // Use refresh token to get new access token
-    let response = app_state.auth_service.refresh_access_token(&payload.refresh_token).await?;
+    let response = app_state
+        .auth_service
+        .refresh_access_token(&payload.refresh_token)
+        .await?;
 
     // Set new JWT token in HttpOnly cookie
     let secure_flag = if app_state.config.cookie_security.secure {
@@ -398,7 +422,7 @@ pub async fn refresh_token(
         .header(
             header::SET_COOKIE,
             format!(
-                "token={}; HttpOnly; SameSite={}; Max-Age=900; Path={}{}",  // 15 minutes
+                "token={}; HttpOnly; SameSite={}; Max-Age=900; Path={}{}", // 15 minutes
                 response.access_token, app_state.config.cookie_security.same_site, "/", secure_flag
             ),
         )

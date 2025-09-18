@@ -2,8 +2,8 @@
 use workbench_server::{
     config::JwtConfig,
     database::Database,
-    models::{RegisterRequest, LoginRequest},
-    repositories::{user::UserRepository, refresh_token::RefreshTokenRepository},
+    models::{LoginRequest, RegisterRequest},
+    repositories::{refresh_token::RefreshTokenRepository, user::UserRepository},
     services::auth::AuthService,
 };
 
@@ -61,7 +61,8 @@ async fn create_test_auth_service() -> anyhow::Result<(AuthService, Database)> {
     let refresh_token_repository = RefreshTokenRepository::new(database.clone());
 
     // Create JWT config with a test secret
-    let jwt_config = JwtConfig::new("test-secret-that-is-long-enough-for-validation-12345".to_string())?;
+    let jwt_config =
+        JwtConfig::new("test-secret-that-is-long-enough-for-validation-12345".to_string())?;
 
     let auth_service = AuthService::new(user_repository, refresh_token_repository, jwt_config);
 
@@ -84,13 +85,23 @@ async fn test_complete_registration_flow() {
         eprintln!("Registration failed with error: {}", e);
         eprintln!("Error details: {:?}", e);
     }
-    assert!(register_response.is_ok(), "Registration should succeed: {:?}", register_response.err());
+    assert!(
+        register_response.is_ok(),
+        "Registration should succeed: {:?}",
+        register_response.err()
+    );
 
     let response = register_response.unwrap();
     assert_eq!(response.user.email, "test@workbench.com");
     assert_eq!(response.user.username, "testuser");
-    assert!(!response.access_token.is_empty(), "Should generate JWT token");
-    assert!(!response.refresh_token.is_empty(), "Should generate refresh token");
+    assert!(
+        !response.access_token.is_empty(),
+        "Should generate JWT token"
+    );
+    assert!(
+        !response.refresh_token.is_empty(),
+        "Should generate refresh token"
+    );
 
     // Verify the token is valid
     let token_validation = auth_service.validate_jwt_token(&response.access_token);
@@ -126,7 +137,10 @@ async fn test_complete_login_flow_after_registration() {
     let response = login_response.unwrap();
     assert_eq!(response.user.email, "login@workbench.com");
     assert_eq!(response.user.username, "loginuser");
-    assert!(!response.access_token.is_empty(), "Should generate JWT token");
+    assert!(
+        !response.access_token.is_empty(),
+        "Should generate JWT token"
+    );
 
     // Verify the token is valid
     let token_validation = auth_service.validate_jwt_token(&response.access_token);
@@ -153,7 +167,10 @@ async fn test_login_with_wrong_password() {
     };
 
     let login_response = auth_service.login(login_request).await;
-    assert!(login_response.is_err(), "Login should fail with wrong password");
+    assert!(
+        login_response.is_err(),
+        "Login should fail with wrong password"
+    );
 }
 
 #[tokio::test]
@@ -203,7 +220,10 @@ async fn test_duplicate_username_registration() {
 
     // Second registration with same username should fail
     let result2 = auth_service.register(register_request2).await;
-    assert!(result2.is_err(), "Duplicate username registration should fail");
+    assert!(
+        result2.is_err(),
+        "Duplicate username registration should fail"
+    );
 }
 
 #[tokio::test]
@@ -263,9 +283,7 @@ async fn test_jwt_token_generation_and_validation() {
     assert!(!access_token.is_empty(), "Access token should not be empty");
 
     // Validate the token
-    let claims = auth_service
-        .validate_jwt_token(access_token)
-        .unwrap();
+    let claims = auth_service.validate_jwt_token(access_token).unwrap();
 
     assert_eq!(claims.email, "jwt@workbench.com");
     assert_eq!(claims.username, "jwtuser");
@@ -295,8 +313,15 @@ async fn test_refresh_token_generation() {
 
     // Verify refresh token is generated
     let refresh_token = &register_response.refresh_token;
-    assert!(!refresh_token.is_empty(), "Refresh token should not be empty");
-    assert_eq!(refresh_token.len(), 64, "Refresh token should be 64 characters");
+    assert!(
+        !refresh_token.is_empty(),
+        "Refresh token should not be empty"
+    );
+    assert_eq!(
+        refresh_token.len(),
+        64,
+        "Refresh token should be 64 characters"
+    );
 
     // Verify refresh token is valid alphanumeric
     assert!(
@@ -329,7 +354,10 @@ async fn test_password_strength_validation() {
     };
 
     let result = auth_service.register(weak_password_request).await;
-    assert!(result.is_err(), "Registration with weak password should fail");
+    assert!(
+        result.is_err(),
+        "Registration with weak password should fail"
+    );
 
     // Test with common password
     let common_password_request = RegisterRequest {
@@ -339,7 +367,10 @@ async fn test_password_strength_validation() {
     };
 
     let result = auth_service.register(common_password_request).await;
-    assert!(result.is_err(), "Registration with common password should fail");
+    assert!(
+        result.is_err(),
+        "Registration with common password should fail"
+    );
 }
 
 #[tokio::test]
@@ -363,12 +394,21 @@ async fn test_argon2_password_hashing() {
         .unwrap();
 
     // Verify the password hash follows Argon2 format
-    assert!(user.password_hash.starts_with("$argon2"), "Password should be hashed with Argon2");
+    assert!(
+        user.password_hash.starts_with("$argon2"),
+        "Password should be hashed with Argon2"
+    );
 
     // Verify hash contains required Argon2 components
     let hash_parts: Vec<&str> = user.password_hash.split('$').collect();
-    assert!(hash_parts.len() >= 4, "Argon2 hash should have multiple parts");
-    assert!(hash_parts[1].contains("argon2"), "Hash should indicate Argon2 algorithm");
+    assert!(
+        hash_parts.len() >= 4,
+        "Argon2 hash should have multiple parts"
+    );
+    assert!(
+        hash_parts[1].contains("argon2"),
+        "Hash should indicate Argon2 algorithm"
+    );
 }
 
 #[tokio::test]
@@ -387,7 +427,10 @@ async fn test_get_current_user_from_token() {
 
     // Test get_current_user
     let current_user_result = auth_service.get_current_user(&token).await;
-    assert!(current_user_result.is_ok(), "Should get current user from valid token");
+    assert!(
+        current_user_result.is_ok(),
+        "Should get current user from valid token"
+    );
 
     let user = current_user_result.unwrap();
     assert_eq!(user.email, "getuser@workbench.com");

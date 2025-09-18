@@ -155,7 +155,10 @@ impl UserRepository {
     }
 
     /// Get account lockout status (TODO: implement after database migration)
-    pub async fn get_lockout_status(&self, _user_id: Uuid) -> Result<Option<(i32, Option<DateTime<Utc>>)>> {
+    pub async fn get_lockout_status(
+        &self,
+        _user_id: Uuid,
+    ) -> Result<Option<(i32, Option<DateTime<Utc>>)>> {
         // TODO: Implement after database migration adds lockout fields
         Ok(None)
     }

@@ -97,9 +97,13 @@ impl AnthropicService {
 
         let anthropic_request = AnthropicChatRequest {
             model: request.model.clone(),
-            max_tokens: request.max_tokens.unwrap_or(self.config.anthropic_max_tokens),
+            max_tokens: request
+                .max_tokens
+                .unwrap_or(self.config.anthropic_max_tokens),
             messages: anthropic_messages,
-            temperature: request.temperature.or(Some(self.config.anthropic_temperature)),
+            temperature: request
+                .temperature
+                .or(Some(self.config.anthropic_temperature)),
         };
 
         tracing::debug!("Sending request to Anthropic API: {:?}", anthropic_request);
@@ -117,7 +121,10 @@ impl AnthropicService {
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
 
             let error_message = format!("Anthropic API error {}: {}", status, error_text);
 
@@ -154,7 +161,6 @@ impl AnthropicService {
             provider: "anthropic".to_string(),
         })
     }
-
 }
 
 fn is_retryable_anthropic_error(error: &AppError) -> bool {
@@ -217,7 +223,12 @@ impl LLMService for AnthropicService {
                 Ok(response) => return Ok(response),
                 Err(e) if attempts >= max_attempts => return Err(e),
                 Err(e) if is_retryable_anthropic_error(&e) => {
-                    tracing::warn!("Retryable error (attempt {}/{}): {}", attempts, max_attempts, e);
+                    tracing::warn!(
+                        "Retryable error (attempt {}/{}): {}",
+                        attempts,
+                        max_attempts,
+                        e
+                    );
                     tokio::time::sleep(delay).await;
                     delay *= 2; // Exponential backoff
                 }
@@ -242,13 +253,15 @@ impl LLMService for AnthropicService {
         let model_final = model.clone();
 
         // Split content into words for streaming simulation
-        let words: Vec<String> = response.message.content
+        let words: Vec<String> = response
+            .message
+            .content
             .split_whitespace()
             .map(|w| format!("{} ", w))
             .collect();
 
-        let word_stream = tokio_stream::iter(words.into_iter().enumerate()).map(move |(i, word)| {
-            if i == 0 {
+        let word_stream =
+            tokio_stream::iter(words.into_iter().enumerate()).map(move |(_i, word)| {
                 Ok(StreamEvent {
                     event_type: StreamEventType::Token,
                     data: Some(word),
@@ -256,16 +269,7 @@ impl LLMService for AnthropicService {
                     model: Some(model.clone()),
                     provider: Some("anthropic".to_string()),
                 })
-            } else {
-                Ok(StreamEvent {
-                    event_type: StreamEventType::Token,
-                    data: Some(word),
-                    usage: None,
-                    model: Some(model.clone()),
-                    provider: Some("anthropic".to_string()),
-                })
-            }
-        });
+            });
 
         let final_stream = word_stream.chain(tokio_stream::once(Ok(StreamEvent {
             event_type: StreamEventType::Done,

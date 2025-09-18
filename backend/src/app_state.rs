@@ -2,11 +2,8 @@ use crate::{
     config::AppConfig,
     database::Database,
     services::{
-        auth::AuthService,
-        chat::ChatService,
-        conversation::ConversationService,
-        session::SessionManager,
-        DataAccessLayer,
+        auth::AuthService, chat::ChatService, conversation::ConversationService,
+        session::SessionManager, DataAccessLayer,
     },
 };
 
@@ -41,7 +38,7 @@ impl AppState {
 
     /// Create AppState with just a database (for testing)
     pub fn new_with_database(database: Database) -> Self {
-        let pool = database.pool();
+        let _pool = database.pool();
         let config = AppConfig::default();
         let dal = DataAccessLayer::new(database.clone());
 
@@ -49,7 +46,7 @@ impl AppState {
             auth_service: AuthService::new(
                 dal.repositories.users.clone(),
                 dal.repositories.refresh_tokens.clone(),
-                config.jwt_config.clone()
+                config.jwt_config.clone(),
             ),
             conversation_service: ConversationService::new(dal.clone()),
             chat_service: ChatService::new(dal.clone()),

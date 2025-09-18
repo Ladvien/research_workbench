@@ -64,7 +64,7 @@ vi.mock('./components/AnalyticsDashboard', () => ({
 }));
 vi.mock('./components/Auth/Login', () => ({
   Login: ({ onSubmit, onSwitchToRegister }: {
-    onSubmit: (data: any) => void;
+    onSubmit: (data: { email: string; password: string }) => void;
     onSwitchToRegister: () => void;
   }) => (
     <div data-testid="login-form">
@@ -82,7 +82,7 @@ vi.mock('./components/Auth/Login', () => ({
 }));
 vi.mock('./components/Auth/Register', () => ({
   Register: ({ onSubmit, onSwitchToLogin }: {
-    onSubmit: (data: any) => void;
+    onSubmit: (data: { email: string; username: string; password: string }) => void;
     onSwitchToLogin: () => void;
   }) => (
     <div data-testid="register-form">
@@ -523,8 +523,8 @@ describe('App Component', () => {
           add: vi.fn(),
           remove: vi.fn()
         }
-      };
-      vi.spyOn(document, 'getElementById').mockReturnValue(mockElement as any);
+      } as HTMLElement;
+      vi.spyOn(document, 'getElementById').mockReturnValue(mockElement);
 
       render(<App />);
 

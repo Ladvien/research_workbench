@@ -39,7 +39,6 @@ impl OpenAIService {
         Ok(Self { client, config })
     }
 
-
     #[allow(deprecated)] // function_call field required by async-openai v0.20 struct
     fn convert_messages(
         &self,
@@ -50,14 +49,16 @@ impl OpenAIService {
             .map(|msg| match msg.role.as_str() {
                 "system" => Ok(ChatCompletionRequestMessage::System(
                     ChatCompletionRequestSystemMessage {
-                        content: msg.content.clone().into(),
+                        content: msg.content.clone(),
                         role: async_openai::types::Role::System,
                         name: None,
                     },
                 )),
                 "user" => Ok(ChatCompletionRequestMessage::User(
                     ChatCompletionRequestUserMessage {
-                        content: msg.content.clone().into(),
+                        content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(
+                            msg.content.clone(),
+                        ),
                         role: async_openai::types::Role::User,
                         name: None,
                     },
@@ -156,10 +157,15 @@ impl LLMService for OpenAIService {
                 model: model.clone(),
                 messages: messages.clone(),
                 temperature: Some(
-                    request_clone.temperature
+                    request_clone
+                        .temperature
                         .unwrap_or(self.config.openai_temperature),
                 ),
-                max_tokens: Some(request_clone.max_tokens.unwrap_or(self.config.openai_max_tokens) as u16),
+                max_tokens: Some(
+                    request_clone
+                        .max_tokens
+                        .unwrap_or(self.config.openai_max_tokens) as u16,
+                ),
                 ..Default::default()
             };
 
@@ -175,7 +181,12 @@ impl LLMService for OpenAIService {
                     }
 
                     if is_retryable_openai_error(&error) {
-                        tracing::warn!("Retryable error (attempt {}/{}): {}", attempts, max_attempts, error);
+                        tracing::warn!(
+                            "Retryable error (attempt {}/{}): {}",
+                            attempts,
+                            max_attempts,
+                            error
+                        );
                         tokio::time::sleep(delay).await;
                         delay *= 2; // Exponential backoff
                     } else {
@@ -268,14 +279,14 @@ fn is_retryable_openai_error(error: &AppError) -> bool {
     match error {
         AppError::OpenAI(msg) => {
             // Retry on rate limits, timeouts, and server errors
-            msg.contains("rate_limit_exceeded") ||
-            msg.contains("timeout") ||
-            msg.contains("internal_server_error") ||
-            msg.contains("502") ||
-            msg.contains("503") ||
-            msg.contains("504") ||
-            msg.contains("too_many_requests") ||
-            msg.contains("server_error")
+            msg.contains("rate_limit_exceeded")
+                || msg.contains("timeout")
+                || msg.contains("internal_server_error")
+                || msg.contains("502")
+                || msg.contains("503")
+                || msg.contains("504")
+                || msg.contains("too_many_requests")
+                || msg.contains("server_error")
         }
         _ => false,
     }

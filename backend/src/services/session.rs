@@ -302,7 +302,9 @@ impl SessionManager {
             let mut user_session_data: Vec<(String, chrono::DateTime<chrono::Utc>)> = user_sessions
                 .iter()
                 .filter_map(|key| {
-                    store.get(key.as_str()).map(|data| (key.clone(), data.last_accessed))
+                    store
+                        .get(key.as_str())
+                        .map(|data| (key.clone(), data.last_accessed))
                 })
                 .collect();
 
@@ -878,7 +880,8 @@ mod performance_tests {
             session_manager
                 .store_session(&session_id, session_data)
                 .await
-                .map_err(|e| panic!("Failed to store session: {}", e)).unwrap();
+                .map_err(|e| panic!("Failed to store session: {}", e))
+                .unwrap();
         }
 
         let creation_time = start.elapsed();
@@ -894,7 +897,8 @@ mod performance_tests {
         let count = session_manager
             .get_user_session_count(user_id)
             .await
-            .map_err(|e| panic!("Failed to get session count: {}", e)).unwrap();
+            .map_err(|e| panic!("Failed to get session count: {}", e))
+            .unwrap();
         let count_time = start.elapsed();
         println!(
             "✅ Session count ({}) retrieved in {:?} (O(1) operation)",
@@ -917,7 +921,8 @@ mod performance_tests {
         session_manager
             .invalidate_user_sessions(user_id)
             .await
-            .map_err(|e| panic!("Failed to invalidate sessions: {}", e)).unwrap();
+            .map_err(|e| panic!("Failed to invalidate sessions: {}", e))
+            .unwrap();
         let invalidation_time = start.elapsed();
         println!(
             "✅ Batch invalidation of {} sessions completed in {:?}",
@@ -928,7 +933,8 @@ mod performance_tests {
         let final_count = session_manager
             .get_user_session_count(user_id)
             .await
-            .map_err(|e| panic!("Failed to get final session count: {}", e)).unwrap();
+            .map_err(|e| panic!("Failed to get final session count: {}", e))
+            .unwrap();
         assert_eq!(final_count, 0, "All sessions should be invalidated");
         println!("✅ All sessions successfully invalidated");
     }

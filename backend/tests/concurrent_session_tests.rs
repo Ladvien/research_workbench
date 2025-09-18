@@ -689,7 +689,11 @@ async fn test_atomic_session_replacement() {
         .expect("Test assertion failed");
 
     // Should have one of the updated IP addresses
-    let ip_str = final_session.ip_address.as_ref().expect("Test assertion failed").as_ref();
+    let ip_str = final_session
+        .ip_address
+        .as_ref()
+        .expect("Test assertion failed")
+        .as_ref();
     assert!(
         ip_str.starts_with("203.0.113."),
         "Final IP should be from updates: {}",

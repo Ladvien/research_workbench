@@ -69,8 +69,15 @@ async fn test_password_strength_endpoint_valid() {
     assert_eq!(response.status_code(), StatusCode::OK);
 
     let strength_response: Value = response.json();
-    assert!(strength_response["valid"].as_bool().expect("Test assertion failed"));
-    assert!(strength_response["strength"]["score"].as_u64().expect("Test assertion failed") >= 70);
+    assert!(strength_response["valid"]
+        .as_bool()
+        .expect("Test assertion failed"));
+    assert!(
+        strength_response["strength"]["score"]
+            .as_u64()
+            .expect("Test assertion failed")
+            >= 70
+    );
 }
 
 #[tokio::test]
@@ -91,8 +98,15 @@ async fn test_password_strength_endpoint_weak() {
     assert_eq!(response.status_code(), StatusCode::OK);
 
     let strength_response: Value = response.json();
-    assert!(!strength_response["valid"].as_bool().expect("Test assertion failed"));
-    assert!(strength_response["strength"]["score"].as_u64().expect("Test assertion failed") < 70);
+    assert!(!strength_response["valid"]
+        .as_bool()
+        .expect("Test assertion failed"));
+    assert!(
+        strength_response["strength"]["score"]
+            .as_u64()
+            .expect("Test assertion failed")
+            < 70
+    );
 }
 
 #[tokio::test]
@@ -153,7 +167,9 @@ async fn test_password_strength_various_patterns() {
         );
 
         let strength_response: Value = response.json();
-        let is_valid = strength_response["valid"].as_bool().expect("Test assertion failed");
+        let is_valid = strength_response["valid"]
+            .as_bool()
+            .expect("Test assertion failed");
 
         assert_eq!(
             is_valid, should_be_valid,
@@ -286,7 +302,9 @@ async fn test_multiple_password_strength_requests() {
 
         let response_data: Value = response.json();
         assert!(
-            response_data["valid"].as_bool().expect("Test assertion failed"),
+            response_data["valid"]
+                .as_bool()
+                .expect("Test assertion failed"),
             "Password for request {} should be valid",
             i
         );
@@ -306,7 +324,11 @@ async fn test_response_headers() {
     // Should have content-type header
     assert!(headers.get("content-type").is_some());
 
-    let content_type = headers.get("content-type").expect("Test assertion failed").to_str().expect("Test assertion failed");
+    let content_type = headers
+        .get("content-type")
+        .expect("Test assertion failed")
+        .to_str()
+        .expect("Test assertion failed");
     assert!(content_type.contains("application/json"));
 }
 

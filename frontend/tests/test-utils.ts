@@ -97,30 +97,30 @@ export const waitForStateUpdate = async (timeout = 100): Promise<void> => {
 };
 
 // Helper to simulate user interaction with proper act wrapping for React 18+
-export const simulateUserAction = async (action: () => Promise<any>): Promise<any> => {
-  let result: any;
+export const simulateUserAction = async <T>(action: () => Promise<T>): Promise<T> => {
+  let result: T | undefined;
   await act(async () => {
     result = await action();
   });
-  return result;
+  return result as T;
 };
 
 // Helper for React 18+ state updates with proper act() wrapping
-export const actAsync = async (fn: () => Promise<any>): Promise<any> => {
-  let result: any;
+export const actAsync = async <T>(fn: () => Promise<T>): Promise<T> => {
+  let result: T | undefined;
   await act(async () => {
     result = await fn();
   });
-  return result;
+  return result as T;
 };
 
 // Helper for synchronous state updates
-export const actSync = (fn: () => any): any => {
-  let result: any;
+export const actSync = <T>(fn: () => T): T => {
+  let result: T | undefined;
   act(() => {
     result = fn();
   });
-  return result;
+  return result as T;
 };
 
 // Re-export everything from React Testing Library

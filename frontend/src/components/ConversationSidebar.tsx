@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useConversationStore } from '../hooks/useConversationStore';
 import { ConversationSkeleton, LoadingSpinner } from './LoadingSpinner';
 import { Conversation } from '../types';
@@ -29,14 +29,14 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
   const [editTitle, setEditTitle] = useState(conversation.title || 'New Conversation');
   const [showActions, setShowActions] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (editTitle.trim() && editTitle !== conversation.title) {
       onRename(conversation.id, editTitle.trim());
     }
     setIsEditing(false);
-  };
+  }, [editTitle, conversation.title, conversation.id, onRename]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleSave();
@@ -44,10 +44,10 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
       setEditTitle(conversation.title || 'New Conversation');
       setIsEditing(false);
     }
-  };
+  }, [handleSave, conversation.title]);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formattedDate = useMemo(() => {
+    const date = new Date(conversation.updated_at);
     const now = new Date();
     const diffInMs = now.getTime() - date.getTime();
     const diffInHours = diffInMs / (1000 * 60 * 60);
@@ -59,7 +59,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
     } else {
       return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
     }
-  };
+  }, [conversation.updated_at]);
 
   return (
     <div
@@ -132,7 +132,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
             {conversation.model}
           </span>
           <span className="text-xs text-gray-400 dark:text-gray-500">
-            {formatDate(conversation.updated_at)}
+            {formattedDate}
           </span>
         </div>
       </div>

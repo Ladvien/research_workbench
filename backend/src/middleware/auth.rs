@@ -3,8 +3,8 @@ use axum::{
     extract::FromRequestParts,
     http::{header, request::Parts},
 };
-use tower_sessions::Session;
 use std::net::IpAddr;
+use tower_sessions::Session;
 
 use crate::{app_state::AppState, error::AppError, models::UserResponse};
 
@@ -28,7 +28,7 @@ impl FromRequestParts<AppState> for UserResponse {
         // SECURITY FIX: Validate JWT format before processing
         if !AuthUtils::validate_jwt_format(&token) {
             return Err(AppError::AuthenticationError(
-                "Invalid token format".to_string()
+                "Invalid token format".to_string(),
             ));
         }
 
@@ -48,8 +48,11 @@ fn extract_token_from_cookies(parts: &Parts) -> Option<String> {
         let cookie = cookie.trim();
         if let Some(token_value) = cookie.strip_prefix("token=") {
             // Additional validation: ensure token contains only valid JWT characters
-            if !token_value.is_empty() &&
-               token_value.chars().all(|c| c.is_alphanumeric() || c == '.' || c == '-' || c == '_') {
+            if !token_value.is_empty()
+                && token_value
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '.' || c == '-' || c == '_')
+            {
                 return Some(token_value.to_string());
             }
         }
@@ -65,7 +68,10 @@ fn extract_token_from_header(parts: &Parts) -> Option<String> {
     if header_value.starts_with("Bearer ") && header_value.len() > 7 {
         let token = &header_value[7..];
         // Additional validation: ensure token contains only valid JWT characters
-        if token.chars().all(|c| c.is_alphanumeric() || c == '.' || c == '-' || c == '_') {
+        if token
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '.' || c == '-' || c == '_')
+        {
             Some(token.to_string())
         } else {
             None
@@ -214,9 +220,11 @@ impl AuthUtils {
 
         // Each part should only contain valid base64url characters
         for part in parts {
-            if part.is_empty() || !part.chars().all(|c| {
-                c.is_alphanumeric() || c == '-' || c == '_'
-            }) {
+            if part.is_empty()
+                || !part
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+            {
                 return false;
             }
         }
@@ -233,19 +241,22 @@ mod security_tests {
     fn test_jwt_format_validation() {
         // Valid JWT format
         let valid_jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
-        assert!(AuthUtils::validate_jwt_format(valid_jwt), "Valid JWT should pass validation");
+        assert!(
+            AuthUtils::validate_jwt_format(valid_jwt),
+            "Valid JWT should pass validation"
+        );
 
         // Invalid JWT formats that could be injection attempts
         let invalid_jwts = vec![
-            "", // Empty
-            "not.a.jwt", // Too few parts
-            "header.payload", // Missing signature
-            "header.payload.signature.extra", // Too many parts
-            "header$.payload.signature", // Invalid characters
+            "",                                     // Empty
+            "not.a.jwt",                            // Too few parts
+            "header.payload",                       // Missing signature
+            "header.payload.signature.extra",       // Too many parts
+            "header$.payload.signature",            // Invalid characters
             "header.payload.signature with spaces", // Spaces in token
-            "../../../etc/passwd", // Path traversal attempt
-            "<script>alert('xss')</script>", // XSS attempt
-            "'; DROP TABLE users; --", // SQL injection attempt
+            "../../../etc/passwd",                  // Path traversal attempt
+            "<script>alert('xss')</script>",        // XSS attempt
+            "'; DROP TABLE users; --",              // SQL injection attempt
         ];
 
         for invalid_jwt in invalid_jwts {

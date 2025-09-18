@@ -98,10 +98,10 @@ test.describe('Analytics Dashboard', () => {
     test('should update metrics when time range changes', async () => {
       await dashboardPage.goto();
       await dashboardPage.waitForDashboardLoad();
-      
-      // Get initial token count
-      const initialTokens = await dashboardPage.totalTokensCard.locator('.text-2xl.font-bold').textContent();
-      
+
+      // Get initial token count for verification
+      await dashboardPage.totalTokensCard.locator('.text-2xl.font-bold').textContent();
+
       // Change time range
       await dashboardPage.selectTimeRange('7d');
       
@@ -299,11 +299,8 @@ test.describe('Analytics Dashboard', () => {
       await dashboardPage.hoverOverChart(dashboardPage.usageTrendsChart, 0);
       
       const tooltipText = await dashboardPage.chartTooltip.textContent();
-      
+
       // Should show recent dates
-      const today = new Date();
-      const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      
       expect(tooltipText).toBeTruthy();
     });
   });
@@ -355,10 +352,10 @@ test.describe('Analytics Dashboard', () => {
     test('should refresh data manually', async () => {
       await dashboardPage.goto();
       await dashboardPage.waitForDashboardLoad();
-      
-      // Get initial token count
-      const initialTokens = await dashboardPage.totalTokensCard.locator('.text-2xl.font-bold').textContent();
-      
+
+      // Get initial token count for baseline
+      await dashboardPage.totalTokensCard.locator('.text-2xl.font-bold').textContent();
+
       // Generate more data
       await chatPage.sendMessage('Additional test message for refresh');
       
@@ -374,8 +371,7 @@ test.describe('Analytics Dashboard', () => {
       await dashboardPage.waitForDashboardLoad();
       
       // If auto-refresh is implemented, it should update data periodically
-      const initialTime = Date.now();
-      
+
       // Wait for potential auto-refresh (if implemented)
       await dashboardPage.page.waitForTimeout(5000);
       
@@ -386,9 +382,10 @@ test.describe('Analytics Dashboard', () => {
     test('should update after new conversations', async () => {
       await dashboardPage.goto();
       await dashboardPage.waitForDashboardLoad();
-      
-      const initialRequests = await dashboardPage.apiRequestsCard.locator('.text-2xl.font-bold').textContent();
-      
+
+      // Get baseline request count
+      await dashboardPage.apiRequestsCard.locator('.text-2xl.font-bold').textContent();
+
       // Create new conversation
       await chatPage.goto();
       await chatPage.sendMessage('New conversation for analytics testing');
@@ -549,9 +546,9 @@ test.describe('Analytics Dashboard', () => {
   });
 
   test.describe('Mobile Experience', () => {
-    test('should work correctly on mobile', async ({ page, browser }) => {
+    test('should work correctly on mobile', async ({ browser }) => {
       const context = await browser.newContext(devices['iPhone 12']);
-      page = await context.newPage();
+      await context.newPage();
       
       await dashboardPage.goto();
       await dashboardPage.waitForDashboardLoad();
@@ -559,9 +556,9 @@ test.describe('Analytics Dashboard', () => {
       await dashboardPage.expectMobileLayout();
     });
 
-    test('should handle mobile chart interactions', async ({ page, browser }) => {
+    test('should handle mobile chart interactions', async ({ browser }) => {
       const context = await browser.newContext(devices['iPhone 12']);
-      page = await context.newPage();
+      await context.newPage();
       
       await dashboardPage.goto();
       await dashboardPage.waitForDashboardLoad();
@@ -573,9 +570,9 @@ test.describe('Analytics Dashboard', () => {
       await dashboardPage.usageTrendsChart.tap();
     });
 
-    test('should handle mobile table scrolling', async ({ page, browser }) => {
+    test('should handle mobile table scrolling', async ({ browser }) => {
       const context = await browser.newContext(devices['iPhone 12']);
-      page = await context.newPage();
+      await context.newPage();
       
       await dashboardPage.goto();
       await dashboardPage.waitForDashboardLoad();

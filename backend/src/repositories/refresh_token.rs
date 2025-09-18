@@ -1,8 +1,4 @@
-use crate::{
-    database::Database,
-    error::AppError,
-    models::RefreshToken,
-};
+use crate::{database::Database, error::AppError, models::RefreshToken};
 use anyhow::Result;
 use chrono::{Duration, Utc};
 use sha2::{Digest, Sha256};
@@ -19,10 +15,14 @@ impl RefreshTokenRepository {
     }
 
     /// Create a new refresh token for a user
-    pub async fn create_refresh_token(&self, user_id: Uuid, token: &str) -> Result<RefreshToken, AppError> {
+    pub async fn create_refresh_token(
+        &self,
+        user_id: Uuid,
+        token: &str,
+    ) -> Result<RefreshToken, AppError> {
         let expires_at = Utc::now() + Duration::days(7); // 7 days expiry
         let token_hash = Self::hash_token(token);
-        
+
         let refresh_token = sqlx::query_as::<_, RefreshToken>(
             r#"
             INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
@@ -35,7 +35,9 @@ impl RefreshTokenRepository {
         .bind(expires_at)
         .fetch_one(&self.database.pool)
         .await
-        .map_err(|e| AppError::InternalServerError(format!("Failed to create refresh token: {}", e)))?;
+        .map_err(|e| {
+            AppError::InternalServerError(format!("Failed to create refresh token: {}", e))
+        })?;
 
         Ok(refresh_token)
     }
@@ -43,7 +45,7 @@ impl RefreshTokenRepository {
     /// Find a refresh token by its hash
     pub async fn find_by_token_hash(&self, token: &str) -> Result<Option<RefreshToken>, AppError> {
         let token_hash = Self::hash_token(token);
-        
+
         let refresh_token = sqlx::query_as::<_, RefreshToken>(
             r#"
             SELECT id, user_id, token_hash, expires_at, created_at
@@ -54,7 +56,9 @@ impl RefreshTokenRepository {
         .bind(&token_hash)
         .fetch_optional(&self.database.pool)
         .await
-        .map_err(|e| AppError::InternalServerError(format!("Failed to find refresh token: {}", e)))?;
+        .map_err(|e| {
+            AppError::InternalServerError(format!("Failed to find refresh token: {}", e))
+        })?;
 
         Ok(refresh_token)
     }
@@ -62,7 +66,7 @@ impl RefreshTokenRepository {
     /// Invalidate a refresh token (delete it)
     pub async fn invalidate_token(&self, token: &str) -> Result<bool, AppError> {
         let token_hash = Self::hash_token(token);
-        
+
         let rows_affected = sqlx::query(
             r#"
             DELETE FROM refresh_tokens
@@ -72,7 +76,9 @@ impl RefreshTokenRepository {
         .bind(&token_hash)
         .execute(&self.database.pool)
         .await
-        .map_err(|e| AppError::InternalServerError(format!("Failed to invalidate refresh token: {}", e)))?
+        .map_err(|e| {
+            AppError::InternalServerError(format!("Failed to invalidate refresh token: {}", e))
+        })?
         .rows_affected();
 
         Ok(rows_affected > 0)
@@ -89,7 +95,9 @@ impl RefreshTokenRepository {
         .bind(user_id)
         .execute(&self.database.pool)
         .await
-        .map_err(|e| AppError::InternalServerError(format!("Failed to invalidate user tokens: {}", e)))?
+        .map_err(|e| {
+            AppError::InternalServerError(format!("Failed to invalidate user tokens: {}", e))
+        })?
         .rows_affected();
 
         Ok(rows_affected)
@@ -105,7 +113,9 @@ impl RefreshTokenRepository {
         )
         .execute(&self.database.pool)
         .await
-        .map_err(|e| AppError::InternalServerError(format!("Failed to cleanup expired tokens: {}", e)))?
+        .map_err(|e| {
+            AppError::InternalServerError(format!("Failed to cleanup expired tokens: {}", e))
+        })?
         .rows_affected();
 
         tracing::info!("Cleaned up {} expired refresh tokens", rows_affected);
@@ -124,7 +134,9 @@ impl RefreshTokenRepository {
         .bind(user_id)
         .fetch_one(&self.database.pool)
         .await
-        .map_err(|e| AppError::InternalServerError(format!("Failed to count user tokens: {}", e)))?;
+        .map_err(|e| {
+            AppError::InternalServerError(format!("Failed to count user tokens: {}", e))
+        })?;
 
         Ok(count)
     }
@@ -138,9 +150,9 @@ impl RefreshTokenRepository {
 
     /// Generate a cryptographically secure refresh token
     pub fn generate_refresh_token() -> String {
-        use rand::{thread_rng, Rng};
         use rand::distributions::Alphanumeric;
-        
+        use rand::{thread_rng, Rng};
+
         thread_rng()
             .sample_iter(&Alphanumeric)
             .take(64) // 64 character token
@@ -167,13 +179,20 @@ mod tests {
         let token2 = "token2";
         let hash1 = RefreshTokenRepository::hash_token(token1);
         let hash2 = RefreshTokenRepository::hash_token(token2);
-        assert_ne!(hash1, hash2, "Different tokens should produce different hashes");
+        assert_ne!(
+            hash1, hash2,
+            "Different tokens should produce different hashes"
+        );
     }
 
     #[test]
     fn test_generate_refresh_token_length() {
         let token = RefreshTokenRepository::generate_refresh_token();
-        assert_eq!(token.len(), 64, "Generated token should be 64 characters long");
+        assert_eq!(
+            token.len(),
+            64,
+            "Generated token should be 64 characters long"
+        );
     }
 
     #[test]
@@ -186,6 +205,9 @@ mod tests {
     #[test]
     fn test_generate_refresh_token_alphanumeric() {
         let token = RefreshTokenRepository::generate_refresh_token();
-        assert!(token.chars().all(|c| c.is_ascii_alphanumeric()), "Token should only contain alphanumeric characters");
+        assert!(
+            token.chars().all(|c| c.is_ascii_alphanumeric()),
+            "Token should only contain alphanumeric characters"
+        );
     }
 }

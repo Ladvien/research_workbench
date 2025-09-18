@@ -3,8 +3,8 @@
 //! This module contains tests to verify that the test user seeding functionality
 //! is properly implemented and configured.
 
-use workbench_server::seed::{TestUser};
 use std::env;
+use workbench_server::seed::TestUser;
 
 #[cfg(test)]
 mod test_user_seeding_tests {
@@ -23,7 +23,10 @@ mod test_user_seeding_tests {
         assert_eq!(test_user.email, "test@workbench.com");
         assert_eq!(test_user.username, "testuser");
         assert_eq!(test_user.password, "testpassword123");
-        assert_eq!(test_user.id.to_string(), "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11");
+        assert_eq!(
+            test_user.id.to_string(),
+            "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+        );
     }
 
     #[test]
@@ -39,7 +42,10 @@ mod test_user_seeding_tests {
         assert_eq!(admin_user.email, "admin@workbench.com");
         assert_eq!(admin_user.username, "adminuser");
         assert_eq!(admin_user.password, "adminpassword123");
-        assert_eq!(admin_user.id.to_string(), "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12");
+        assert_eq!(
+            admin_user.id.to_string(),
+            "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12"
+        );
     }
 
     #[test]
@@ -53,14 +59,14 @@ mod test_user_seeding_tests {
         env::set_var("ADMIN_PASSWORD", "adminpassword123");
 
         // Test that the seeding logic would read these correctly
-        let test_user_email = env::var("TEST_USER_EMAIL")
-            .unwrap_or_else(|_| "test@workbench.com".to_string());
-        let test_user_password = env::var("TEST_USER_PASSWORD")
-            .unwrap_or_else(|_| "testpassword123".to_string());
-        let admin_email = env::var("ADMIN_EMAIL")
-            .unwrap_or_else(|_| "admin@workbench.com".to_string());
-        let admin_password = env::var("ADMIN_PASSWORD")
-            .unwrap_or_else(|_| "adminpassword123".to_string());
+        let test_user_email =
+            env::var("TEST_USER_EMAIL").unwrap_or_else(|_| "test@workbench.com".to_string());
+        let test_user_password =
+            env::var("TEST_USER_PASSWORD").unwrap_or_else(|_| "testpassword123".to_string());
+        let admin_email =
+            env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@workbench.com".to_string());
+        let admin_password =
+            env::var("ADMIN_PASSWORD").unwrap_or_else(|_| "adminpassword123".to_string());
 
         assert_eq!(test_user_email, "test@workbench.com");
         assert_eq!(test_user_password, "testpassword123");
@@ -85,14 +91,14 @@ mod test_user_seeding_tests {
         env::remove_var("ADMIN_PASSWORD");
 
         // Test that the seeding logic uses defaults
-        let test_user_email = env::var("TEST_USER_EMAIL")
-            .unwrap_or_else(|_| "test@workbench.com".to_string());
-        let test_user_password = env::var("TEST_USER_PASSWORD")
-            .unwrap_or_else(|_| "testpassword123".to_string());
-        let admin_email = env::var("ADMIN_EMAIL")
-            .unwrap_or_else(|_| "admin@workbench.com".to_string());
-        let admin_password = env::var("ADMIN_PASSWORD")
-            .unwrap_or_else(|_| "adminpassword123".to_string());
+        let test_user_email =
+            env::var("TEST_USER_EMAIL").unwrap_or_else(|_| "test@workbench.com".to_string());
+        let test_user_password =
+            env::var("TEST_USER_PASSWORD").unwrap_or_else(|_| "testpassword123".to_string());
+        let admin_email =
+            env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@workbench.com".to_string());
+        let admin_password =
+            env::var("ADMIN_PASSWORD").unwrap_or_else(|_| "adminpassword123".to_string());
 
         assert_eq!(test_user_email, "test@workbench.com");
         assert_eq!(test_user_password, "testpassword123");
@@ -132,10 +138,10 @@ mod test_user_seeding_tests {
     fn test_no_legacy_credentials_used() {
         // Ensure the old inconsistent credentials are not used in seeding
 
-        let test_user_email = env::var("TEST_USER_EMAIL")
-            .unwrap_or_else(|_| "test@workbench.com".to_string());
-        let test_user_password = env::var("TEST_USER_PASSWORD")
-            .unwrap_or_else(|_| "testpassword123".to_string());
+        let test_user_email =
+            env::var("TEST_USER_EMAIL").unwrap_or_else(|_| "test@workbench.com".to_string());
+        let test_user_password =
+            env::var("TEST_USER_PASSWORD").unwrap_or_else(|_| "testpassword123".to_string());
 
         // Verify old credentials are not used
         assert_ne!(test_user_email, "cthomasbrittain@yahoo.com");
@@ -164,8 +170,14 @@ mod test_user_seeding_tests {
         );
 
         // Verify UUIDs are correct for consistent testing
-        assert_eq!(test_user.id.to_string(), "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11");
-        assert_eq!(admin_user.id.to_string(), "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12");
+        assert_eq!(
+            test_user.id.to_string(),
+            "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+        );
+        assert_eq!(
+            admin_user.id.to_string(),
+            "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12"
+        );
 
         // Verify UUIDs are different
         assert_ne!(test_user.id, admin_user.id);
@@ -207,10 +219,10 @@ mod test_user_seeding_tests {
     fn test_seeding_configuration_consistency() {
         // Test that the seeding configuration is internally consistent
 
-        let test_user_email = env::var("TEST_USER_EMAIL")
-            .unwrap_or_else(|_| "test@workbench.com".to_string());
-        let admin_email = env::var("ADMIN_EMAIL")
-            .unwrap_or_else(|_| "admin@workbench.com".to_string());
+        let test_user_email =
+            env::var("TEST_USER_EMAIL").unwrap_or_else(|_| "test@workbench.com".to_string());
+        let admin_email =
+            env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@workbench.com".to_string());
 
         // Both should use the same domain
         let test_domain = test_user_email.split('@').nth(1).unwrap_or("");

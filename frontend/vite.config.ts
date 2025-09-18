@@ -23,14 +23,39 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // Create vendor chunk for node_modules
+          // Performance optimization: Strategic chunk splitting
           if (id.includes('node_modules')) {
+            // Core React libraries - frequently used
             if (id.includes('react') || id.includes('react-dom')) {
               return 'react-vendor';
             }
-            if (id.includes('recharts')) {
-              return 'charts';
+
+            // UI libraries - moderate usage
+            if (id.includes('@assistant-ui') || id.includes('lucide-react')) {
+              return 'ui-vendor';
             }
+
+            // Markdown rendering - heavy but used frequently
+            if (id.includes('react-markdown') || id.includes('remark') || id.includes('rehype')) {
+              return 'markdown-vendor';
+            }
+
+            // Math rendering - very heavy, separate to enable lazy loading
+            if (id.includes('katex') || id.includes('react-katex')) {
+              return 'math-vendor';
+            }
+
+            // Charts and visualization - optional features
+            if (id.includes('recharts') || id.includes('d3')) {
+              return 'charts-vendor';
+            }
+
+            // Testing utilities - should not be in production
+            if (id.includes('vitest') || id.includes('@testing-library')) {
+              return 'test-vendor';
+            }
+
+            // All other vendor libraries
             return 'vendor';
           }
         }
@@ -118,7 +143,7 @@ export default defineConfig({
         'tests/**',
         '**/*.test.{js,ts,tsx}',
         '**/*.spec.{js,ts,tsx}',
-        '**/test-utils.tsx'
+        '**/test-utils.ts'
       ],
       thresholds: {
         statements: 70,

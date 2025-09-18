@@ -1,7 +1,7 @@
 use crate::app_state::AppState;
 use crate::error::AppError;
 use crate::models::UserResponse;
-use crate::repositories::api_usage::{UsageStats, ModelUsage, DailyUsage};
+use crate::repositories::api_usage::{DailyUsage, ModelUsage, UsageStats};
 use axum::{
     extract::{Query, State},
     http::HeaderMap,
@@ -78,9 +78,7 @@ pub async fn get_analytics_overview(
 
     // Get recent daily usage (last 7 days by default)
     let days = query.days.unwrap_or(7);
-    let recent_usage = repo
-        .get_daily_usage_trends(user.id, days)
-        .await?;
+    let recent_usage = repo.get_daily_usage_trends(user.id, days).await?;
 
     let overview = AnalyticsOverview {
         stats,
@@ -108,7 +106,8 @@ pub async fn get_cost_breakdown(
     let mut total_cost_cents = 0u64;
 
     for model_usage in &by_model {
-        let provider_entry = provider_map.entry(model_usage.provider.clone())
+        let provider_entry = provider_map
+            .entry(model_usage.provider.clone())
             .or_insert_with(|| ProviderUsage {
                 provider: model_usage.provider.clone(),
                 models: Vec::new(),
@@ -154,9 +153,7 @@ pub async fn get_usage_trends(
     let repo = &state.dal.repositories.api_usage;
 
     let days = query.days.unwrap_or(30);
-    let daily = repo
-        .get_daily_usage_trends(user.id, days)
-        .await?;
+    let daily = repo.get_daily_usage_trends(user.id, days).await?;
 
     let total_tokens: u64 = daily.iter().map(|d| d.total_tokens).sum();
     let total_cost_cents: u64 = daily.iter().map(|d| d.cost_cents).sum();
@@ -165,8 +162,16 @@ pub async fn get_usage_trends(
     let trends = UsageTrends {
         daily,
         total_days,
-        average_daily_tokens: if total_days > 0 { total_tokens / total_days as u64 } else { 0 },
-        average_daily_cost_cents: if total_days > 0 { total_cost_cents / total_days as u64 } else { 0 },
+        average_daily_tokens: if total_days > 0 {
+            total_tokens / total_days as u64
+        } else {
+            0
+        },
+        average_daily_cost_cents: if total_days > 0 {
+            total_cost_cents / total_days as u64
+        } else {
+            0
+        },
     };
 
     Ok(Json(trends))
@@ -201,7 +206,8 @@ pub async fn export_usage_csv(
 
     // Create CSV content
     let mut csv_content = String::new();
-    csv_content.push_str("Date,Model,Provider,Prompt Tokens,Completion Tokens,Total Tokens,Cost (USD)\n");
+    csv_content
+        .push_str("Date,Model,Provider,Prompt Tokens,Completion Tokens,Total Tokens,Cost (USD)\n");
 
     for record in usage_records {
         let cost_usd = record.cost_cents.unwrap_or(0) as f64 / 100.0;
@@ -218,15 +224,15 @@ pub async fn export_usage_csv(
     }
 
     let mut headers = HeaderMap::new();
-    headers.insert(
-        "content-type",
-        "text/csv".parse().unwrap(),
-    );
+    headers.insert("content-type", "text/csv".parse().unwrap());
     headers.insert(
         "content-disposition",
-        format!("attachment; filename=\"usage_export_{}.csv\"", Utc::now().format("%Y%m%d_%H%M%S"))
-            .parse()
-            .unwrap(),
+        format!(
+            "attachment; filename=\"usage_export_{}.csv\"",
+            Utc::now().format("%Y%m%d_%H%M%S")
+        )
+        .parse()
+        .unwrap(),
     );
 
     Ok((headers, csv_content))
@@ -241,19 +247,19 @@ pub fn calculate_cost_cents(model: &str, prompt_tokens: u32, completion_tokens: 
             let input_cost = (prompt_tokens as f64 / 1000.0) * 3.0; // $0.03 per 1K tokens in cents
             let output_cost = (completion_tokens as f64 / 1000.0) * 6.0; // $0.06 per 1K tokens in cents
             ((input_cost + output_cost) * 100.0) as u32 // Convert to cents
-        },
+        }
         "gpt-4-turbo" | "gpt-4-turbo-preview" => {
             // Input: $0.01 per 1K tokens, Output: $0.03 per 1K tokens
             let input_cost = (prompt_tokens as f64 / 1000.0) * 1.0;
             let output_cost = (completion_tokens as f64 / 1000.0) * 3.0;
             ((input_cost + output_cost) * 100.0) as u32
-        },
+        }
         "gpt-3.5-turbo" => {
             // Input: $0.0005 per 1K tokens, Output: $0.0015 per 1K tokens
             let input_cost = (prompt_tokens as f64 / 1000.0) * 0.05; // 0.05 cents per 1K tokens
             let output_cost = (completion_tokens as f64 / 1000.0) * 0.15;
             ((input_cost + output_cost) * 100.0) as u32
-        },
+        }
 
         // Anthropic Claude pricing (as of 2024)
         "claude-3-opus-20240229" => {
@@ -261,19 +267,19 @@ pub fn calculate_cost_cents(model: &str, prompt_tokens: u32, completion_tokens: 
             let input_cost = (prompt_tokens as f64 / 1_000_000.0) * 1500.0; // $15 per 1M tokens in cents
             let output_cost = (completion_tokens as f64 / 1_000_000.0) * 7500.0;
             ((input_cost + output_cost) * 100.0) as u32
-        },
+        }
         "claude-3-sonnet-20240229" => {
             // Input: $3 per 1M tokens, Output: $15 per 1M tokens
             let input_cost = (prompt_tokens as f64 / 1_000_000.0) * 300.0;
             let output_cost = (completion_tokens as f64 / 1_000_000.0) * 1500.0;
             ((input_cost + output_cost) * 100.0) as u32
-        },
+        }
         "claude-3-haiku-20240307" => {
             // Input: $0.25 per 1M tokens, Output: $1.25 per 1M tokens
             let input_cost = (prompt_tokens as f64 / 1_000_000.0) * 25.0;
             let output_cost = (completion_tokens as f64 / 1_000_000.0) * 125.0;
             ((input_cost + output_cost) * 100.0) as u32
-        },
+        }
 
         // Default pricing for unknown models (similar to GPT-3.5-turbo)
         _ => {

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { Message } from './Message';
 import { ChatInput } from './ChatInput';
 import { LoadingDots } from './LoadingSpinner';
@@ -25,13 +25,13 @@ export const Chat: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentMessages, streamingMessage]);
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = useCallback(async (content: string) => {
     try {
       await sendStreamingMessage(content);
     } catch (error) {
       console.error('Failed to send streaming message:', error);
     }
-  };
+  }, [sendStreamingMessage]);
 
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">

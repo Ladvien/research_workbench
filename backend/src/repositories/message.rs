@@ -369,10 +369,7 @@ impl MessageRepository {
 
         for message in &messages {
             if let Some(parent_id) = message.parent_id {
-                parent_map
-                    .entry(parent_id)
-                    .or_default()
-                    .push(message);
+                parent_map.entry(parent_id).or_default().push(message);
             }
         }
 

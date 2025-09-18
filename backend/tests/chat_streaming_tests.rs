@@ -74,9 +74,7 @@ async fn test_chat_streaming_valid_request() {
 
     // Read and verify stream content
     let stream_body = stream_response.into_body();
-    let body_bytes = axum::body::to_bytes(stream_body, usize::MAX)
-        .await
-        .unwrap();
+    let body_bytes = axum::body::to_bytes(stream_body, usize::MAX).await.unwrap();
     let stream_content = String::from_utf8(body_bytes.to_vec()).unwrap();
 
     // Verify SSE structure
@@ -406,9 +404,7 @@ async fn test_sse_event_structure() {
     assert_eq!(stream_response.status(), StatusCode::OK);
 
     let stream_body = stream_response.into_body();
-    let body_bytes = axum::body::to_bytes(stream_body, usize::MAX)
-        .await
-        .unwrap();
+    let body_bytes = axum::body::to_bytes(stream_body, usize::MAX).await.unwrap();
     let stream_content = String::from_utf8(body_bytes.to_vec()).unwrap();
 
     // Verify SSE format
@@ -490,7 +486,10 @@ async fn test_streaming_connection_cleanup() {
 
     // Use timeout to ensure streaming doesn't hang
     let stream_result = timeout(Duration::from_secs(10), app.oneshot(stream_request)).await;
-    assert!(stream_result.is_ok(), "Streaming should complete within 10 seconds");
+    assert!(
+        stream_result.is_ok(),
+        "Streaming should complete within 10 seconds"
+    );
 
     let stream_response = stream_result.unwrap().unwrap();
     assert_eq!(stream_response.status(), StatusCode::OK);

@@ -1,10 +1,10 @@
+use axum::async_trait;
 use axum::{
     extract::{FromRequestParts, Request, State},
     http::{header, request::Parts, HeaderMap, Method, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use axum::async_trait;
 use base64::{engine::general_purpose, Engine as _};
 use chrono;
 use rand::{rngs::OsRng, RngCore};
@@ -36,13 +36,19 @@ pub struct CSRFToken {
     pub timestamp: i64,
 }
 
+impl Default for CSRFToken {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CSRFToken {
     /// Generate a new CSRF token
     pub fn new() -> Self {
         let mut token_bytes = vec![0u8; CSRF_TOKEN_LENGTH];
         OsRng.fill_bytes(&mut token_bytes);
         let value = general_purpose::URL_SAFE_NO_PAD.encode(&token_bytes);
-        
+
         Self {
             value,
             timestamp: chrono::Utc::now().timestamp(),
@@ -85,22 +91,20 @@ impl FromRequestParts<AppState> for CSRFProtection {
         }
 
         // Extract session for session-based CSRF
-        let session = Session::from_request_parts(parts, &())
-            .await
-            .map_err(|_| {
-                warn!("CSRF: Session not available for validation");
-                AppError::CSRFValidationFailed("Session required for CSRF protection".to_string())
-            })?;
+        let session = Session::from_request_parts(parts, &()).await.map_err(|_| {
+            warn!("CSRF: Session not available for validation");
+            AppError::CSRFValidationFailed("Session required for CSRF protection".to_string())
+        })?;
 
         // Extract CSRF token from headers
-        let submitted_token = extract_csrf_token_from_headers(&parts.headers)
-            .ok_or_else(|| {
-                warn!("CSRF: No CSRF token found in headers");
-                AppError::CSRFValidationFailed("CSRF token required".to_string())
-            })?;
+        let submitted_token = extract_csrf_token_from_headers(&parts.headers).ok_or_else(|| {
+            warn!("CSRF: No CSRF token found in headers");
+            AppError::CSRFValidationFailed("CSRF token required".to_string())
+        })?;
 
         // Validate using double-submit cookie pattern
-        validate_double_submit_token(parts, &session, &submitted_token).await?
+        validate_double_submit_token(parts, &session, &submitted_token)
+            .await?
             .ok_or_else(|| {
                 warn!("CSRF: Token validation failed");
                 AppError::CSRFValidationFailed("Invalid CSRF token".to_string())
@@ -126,11 +130,9 @@ fn extract_csrf_token_from_cookies(parts: &Parts) -> Option<String> {
         .split(';')
         .find_map(|cookie| {
             let cookie = cookie.trim();
-            if let Some(value) = cookie.strip_prefix(&format!("{}=", CSRF_COOKIE_NAME)) {
-                Some(value.to_string())
-            } else {
-                None
-            }
+            cookie
+                .strip_prefix(&format!("{}=", CSRF_COOKIE_NAME))
+                .map(|value| value.to_string())
         })
 }
 
@@ -141,11 +143,10 @@ async fn validate_double_submit_token(
     submitted_token: &str,
 ) -> Result<Option<CSRFProtection>, AppError> {
     // Get token from cookie
-    let cookie_token = extract_csrf_token_from_cookies(parts)
-        .ok_or_else(|| {
-            warn!("CSRF: No CSRF token found in cookies");
-            AppError::CSRFValidationFailed("CSRF cookie required".to_string())
-        })?;
+    let cookie_token = extract_csrf_token_from_cookies(parts).ok_or_else(|| {
+        warn!("CSRF: No CSRF token found in cookies");
+        AppError::CSRFValidationFailed("CSRF cookie required".to_string())
+    })?;
 
     // Tokens must match (double-submit pattern)
     if submitted_token != cookie_token {
@@ -156,13 +157,10 @@ async fn validate_double_submit_token(
     }
 
     // Additionally validate against session token for extra security
-    let session_token: Option<String> = session
-        .get(CSRF_SESSION_KEY)
-        .await
-        .map_err(|e| {
-            warn!("CSRF: Session error: {}", e);
-            AppError::InternalServerError(format!("Session error: {}", e))
-        })?;
+    let session_token: Option<String> = session.get(CSRF_SESSION_KEY).await.map_err(|e| {
+        warn!("CSRF: Session error: {}", e);
+        AppError::InternalServerError(format!("Session error: {}", e))
+    })?;
 
     if let Some(session_token) = session_token {
         if submitted_token != session_token {
@@ -208,10 +206,13 @@ pub async fn csrf_middleware(
     }
 
     // For POST/PUT/DELETE requests, validate CSRF token
-    if matches!(method, Method::POST | Method::PUT | Method::DELETE | Method::PATCH) {
+    if matches!(
+        method,
+        Method::POST | Method::PUT | Method::DELETE | Method::PATCH
+    ) {
         // Extract session from request
         let session = request.extensions().get::<Session>().cloned();
-        
+
         if let Some(session) = session {
             // Generate and store CSRF token in session if not exists
             let csrf_token: Option<String> = session
@@ -239,7 +240,9 @@ pub async fn csrf_middleware(
             if let Ok(Some(token)) = session.get::<String>(CSRF_SESSION_KEY).await {
                 response.headers_mut().insert(
                     "X-CSRF-Token",
-                    token.parse().unwrap_or_else(|_| header::HeaderValue::from_static("")),
+                    token
+                        .parse()
+                        .unwrap_or_else(|_| header::HeaderValue::from_static("")),
                 );
             }
         }
@@ -274,7 +277,7 @@ pub async fn generate_csrf_token(
     secure_cookie: bool,
 ) -> Result<(String, String), AppError> {
     let token = CSRFToken::new();
-    
+
     // Store in session
     session
         .insert(CSRF_SESSION_KEY, token.value.clone())
@@ -303,10 +306,8 @@ pub async fn get_csrf_token(
     session: Session,
     State(app_state): State<AppState>,
 ) -> Result<impl IntoResponse, AppError> {
-    let (token, cookie_header) = generate_csrf_token(
-        &session,
-        app_state.config.cookie_security.secure,
-    ).await?;
+    let (token, cookie_header) =
+        generate_csrf_token(&session, app_state.config.cookie_security.secure).await?;
 
     let response = axum::response::Response::builder()
         .status(StatusCode::OK)
@@ -341,7 +342,7 @@ mod tests {
     fn test_csrf_token_validation() {
         let token = CSRFToken::new();
         assert!(token.is_valid_format());
-        
+
         let invalid_token = CSRFToken {
             value: "short".to_string(),
             timestamp: chrono::Utc::now().timestamp(),
@@ -355,11 +356,23 @@ mod tests {
         assert!(should_skip_csrf_protection(&Method::HEAD, "/api/users"));
         assert!(should_skip_csrf_protection(&Method::OPTIONS, "/api/users"));
         assert!(should_skip_csrf_protection(&Method::POST, "/api/v1/health"));
-        assert!(should_skip_csrf_protection(&Method::POST, "/api/v1/auth/login"));
-        assert!(should_skip_csrf_protection(&Method::POST, "/api/v1/auth/register"));
-        
+        assert!(should_skip_csrf_protection(
+            &Method::POST,
+            "/api/v1/auth/login"
+        ));
+        assert!(should_skip_csrf_protection(
+            &Method::POST,
+            "/api/v1/auth/register"
+        ));
+
         assert!(!should_skip_csrf_protection(&Method::POST, "/api/v1/users"));
-        assert!(!should_skip_csrf_protection(&Method::PUT, "/api/v1/users/1"));
-        assert!(!should_skip_csrf_protection(&Method::DELETE, "/api/v1/users/1"));
+        assert!(!should_skip_csrf_protection(
+            &Method::PUT,
+            "/api/v1/users/1"
+        ));
+        assert!(!should_skip_csrf_protection(
+            &Method::DELETE,
+            "/api/v1/users/1"
+        ));
     }
 }

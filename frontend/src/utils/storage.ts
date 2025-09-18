@@ -3,6 +3,8 @@
  * Handles localStorage with fallback to sessionStorage
  */
 
+import { User } from '../types';
+
 // Storage keys
 export const STORAGE_KEYS = {
   AUTH_TOKEN: 'workbench_auth_token',
@@ -98,7 +100,7 @@ export class SecureStorage {
   /**
    * Store data securely with optional expiry
    */
-  setItem(key: string, value: any, expiryDate?: Date): void {
+  setItem<T>(key: string, value: T, expiryDate?: Date): void {
     try {
       const data = {
         value: typeof value === 'string' ? value : JSON.stringify(value),
@@ -116,7 +118,7 @@ export class SecureStorage {
   /**
    * Retrieve data securely with expiry check
    */
-  getItem(key: string): any | null {
+  getItem<T>(key: string): T | null {
     try {
       const stored = this.storage.getItem(key);
       if (!stored) {
@@ -268,15 +270,15 @@ export const tokenStorage = {
   /**
    * Store user data
    */
-  setUserData(userData: any): void {
-    storage.setItem(STORAGE_KEYS.USER_DATA, userData);
+  setUserData(userData: User): void {
+    storage.setItem<User>(STORAGE_KEYS.USER_DATA, userData);
   },
 
   /**
    * Get user data
    */
-  getUserData(): any | null {
-    return storage.getItem(STORAGE_KEYS.USER_DATA);
+  getUserData(): User | null {
+    return storage.getItem<User>(STORAGE_KEYS.USER_DATA);
   },
 
   /**

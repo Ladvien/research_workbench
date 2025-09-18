@@ -1,24 +1,26 @@
 //! Comprehensive tests for account lockout mechanism (AUTH-SEC-003)
 //! Tests brute force protection, progressive delays, and admin unlock functionality
 
+use chrono::{Duration, Utc};
 use std::sync::Arc;
 use uuid::Uuid;
-use chrono::{Duration, Utc};
-use backend::{
+use workbench_server::{
     config::JwtConfig,
     database::Database,
-    models::{LoginRequest, RegisterRequest, User},
-    repositories::{user::UserRepository, refresh_token::RefreshTokenRepository},
-    services::auth::AuthService,
     error::AppError,
+    models::{LoginRequest, RegisterRequest, User},
+    repositories::{refresh_token::RefreshTokenRepository, user::UserRepository},
+    services::auth::AuthService,
 };
 
 // Helper function to create test database connection
 async fn setup_test_db() -> Database {
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgresql://postgres:postgres@localhost/workbench_test".to_string());
-    
-    Database::new(&database_url).await.expect("Failed to connect to test database")
+
+    Database::new(&database_url)
+        .await
+        .expect("Failed to connect to test database")
 }
 
 // Helper function to create test user
@@ -29,19 +31,23 @@ async fn create_test_user(user_repo: &UserRepository, email: &str) -> User {
         password: "testpassword123".to_string(),
     };
 
-    let create_user_request = backend::models::CreateUserRequest {
+    let create_user_request = workbench_server::models::CreateUserRequest {
         email: register_request.email.clone(),
         username: register_request.username.clone(),
         password: register_request.password,
     };
 
-    user_repo.create_from_request(create_user_request)
+    user_repo
+        .create_from_request(create_user_request)
         .await
         .expect("Failed to create test user")
 }
 
 // Helper function to setup auth service
-fn setup_auth_service(user_repo: UserRepository, refresh_token_repo: RefreshTokenRepository) -> AuthService {
+fn setup_auth_service(
+    user_repo: UserRepository,
+    refresh_token_repo: RefreshTokenRepository,
+) -> AuthService {
     let jwt_config = JwtConfig {
         current_secret: "test_secret_for_account_lockout_tests_12345678901234567890".to_string(),
         current_version: 1,
@@ -133,7 +139,11 @@ async fn test_successful_login_resets_failed_attempts() {
     }
 
     // Verify we have failed attempts recorded
-    let (failed_attempts, _) = user_repo.get_lockout_status(user.id).await.unwrap().unwrap();
+    let (failed_attempts, _) = user_repo
+        .get_lockout_status(user.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(failed_attempts, 5);
 
     // Successful login should reset failed attempts
@@ -146,7 +156,11 @@ async fn test_successful_login_resets_failed_attempts() {
     assert!(result.is_ok());
 
     // Verify failed attempts reset to 0
-    let (failed_attempts, locked_until) = user_repo.get_lockout_status(user.id).await.unwrap().unwrap();
+    let (failed_attempts, locked_until) = user_repo
+        .get_lockout_status(user.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(failed_attempts, 0);
     assert!(locked_until.is_none());
 }
@@ -160,7 +174,7 @@ async fn test_admin_unlock_functionality() {
 
     let test_email = format!("admin_unlock_test_{}@workbench.com", Uuid::new_v4());
     let admin_email = format!("admin_{}@workbench.com", Uuid::new_v4());
-    
+
     let user = create_test_user(&user_repo, &test_email).await;
     let admin_user = create_test_user(&user_repo, &admin_email).await;
 
@@ -177,14 +191,20 @@ async fn test_admin_unlock_functionality() {
     assert!(user_repo.is_account_locked(user.id).await.unwrap());
 
     // Admin unlock should succeed
-    let result = auth_service.admin_unlock_account(user.id, admin_user.id).await;
+    let result = auth_service
+        .admin_unlock_account(user.id, admin_user.id)
+        .await;
     assert!(result.is_ok());
 
     // Verify account is now unlocked
     assert!(!user_repo.is_account_locked(user.id).await.unwrap());
 
     // Verify failed attempts reset
-    let (failed_attempts, locked_until) = user_repo.get_lockout_status(user.id).await.unwrap().unwrap();
+    let (failed_attempts, locked_until) = user_repo
+        .get_lockout_status(user.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(failed_attempts, 0);
     assert!(locked_until.is_none());
 
@@ -206,7 +226,7 @@ async fn test_non_admin_cannot_unlock_accounts() {
 
     let test_email = format!("user_unlock_test_{}@workbench.com", Uuid::new_v4());
     let non_admin_email = format!("user_{}@workbench.com", Uuid::new_v4());
-    
+
     let user = create_test_user(&user_repo, &test_email).await;
     let non_admin_user = create_test_user(&user_repo, &non_admin_email).await;
 
@@ -220,7 +240,9 @@ async fn test_non_admin_cannot_unlock_accounts() {
     }
 
     // Non-admin unlock should fail
-    let result = auth_service.admin_unlock_account(user.id, non_admin_user.id).await;
+    let result = auth_service
+        .admin_unlock_account(user.id, non_admin_user.id)
+        .await;
     assert!(result.is_err());
     if let Err(AppError::AuthenticationError(msg)) = result {
         assert!(msg.contains("Insufficient privileges"));
@@ -243,7 +265,10 @@ async fn test_lockout_status_reporting() {
     let user = create_test_user(&user_repo, &test_email).await;
 
     // Initially no failed attempts
-    let status = auth_service.get_account_lockout_status(user.id).await.unwrap();
+    let status = auth_service
+        .get_account_lockout_status(user.id)
+        .await
+        .unwrap();
     assert!(status.is_some());
     let (failed_attempts, locked_until) = status.unwrap();
     assert_eq!(failed_attempts, 0);
@@ -258,7 +283,11 @@ async fn test_lockout_status_reporting() {
         let _ = auth_service.login(login_request).await;
 
         // Check status after each attempt
-        let status = auth_service.get_account_lockout_status(user.id).await.unwrap().unwrap();
+        let status = auth_service
+            .get_account_lockout_status(user.id)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(status.0, expected_attempts);
         assert!(status.1.is_none()); // Not locked yet
     }
@@ -273,10 +302,14 @@ async fn test_lockout_status_reporting() {
     }
 
     // Check locked status
-    let status = auth_service.get_account_lockout_status(user.id).await.unwrap().unwrap();
+    let status = auth_service
+        .get_account_lockout_status(user.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(status.0, 10);
     assert!(status.1.is_some()); // Should be locked
-    
+
     // Verify lockout time is in the future
     let locked_until = status.1.unwrap();
     assert!(locked_until > Utc::now());
@@ -304,7 +337,11 @@ async fn test_unlock_expired_accounts() {
     .unwrap();
 
     // Verify account appears locked
-    let (failed_attempts, locked_until) = user_repo.get_lockout_status(user.id).await.unwrap().unwrap();
+    let (failed_attempts, locked_until) = user_repo
+        .get_lockout_status(user.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(failed_attempts, 10);
     assert!(locked_until.is_some());
 
@@ -316,7 +353,11 @@ async fn test_unlock_expired_accounts() {
     assert_eq!(unlocked_count, 1);
 
     // Verify cleanup worked
-    let (failed_attempts, locked_until) = user_repo.get_lockout_status(user.id).await.unwrap().unwrap();
+    let (failed_attempts, locked_until) = user_repo
+        .get_lockout_status(user.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(failed_attempts, 0);
     assert!(locked_until.is_none());
 }
@@ -340,7 +381,11 @@ async fn test_progressive_warnings_in_logs() {
         let result = auth_service.login(login_request).await;
         assert!(result.is_err());
 
-        let (failed_attempts, _) = user_repo.get_lockout_status(user.id).await.unwrap().unwrap();
+        let (failed_attempts, _) = user_repo
+            .get_lockout_status(user.id)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(failed_attempts, attempt);
     }
 
@@ -351,7 +396,7 @@ async fn test_progressive_warnings_in_logs() {
 #[tokio::test]
 async fn test_concurrent_failed_attempts() {
     use tokio::task::JoinSet;
-    
+
     let db = setup_test_db().await;
     let user_repo = UserRepository::new(db.clone());
     let refresh_token_repo = RefreshTokenRepository::new(db.clone());
@@ -387,6 +432,10 @@ async fn test_concurrent_failed_attempts() {
     assert!(user_repo.is_account_locked(user.id).await.unwrap());
 
     // Failed attempts should be >= 10 (due to race conditions, might be higher)
-    let (failed_attempts, _) = user_repo.get_lockout_status(user.id).await.unwrap().unwrap();
+    let (failed_attempts, _) = user_repo
+        .get_lockout_status(user.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(failed_attempts >= 10);
 }

@@ -1,5 +1,4 @@
 use axum::{middleware as axum_middleware, routing::get, Router};
-use tracing_subscriber;
 
 mod app_state;
 mod config;
@@ -69,7 +68,10 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize database schema and seed test users
     if let Err(e) = seed::init_database_schema(&database.pool).await {
-        tracing::warn!("Failed to initialize database schema: {}. This is expected if tables already exist.", e);
+        tracing::warn!(
+            "Failed to initialize database schema: {}. This is expected if tables already exist.",
+            e
+        );
     }
 
     // Seed test users (only in development)
@@ -128,8 +130,12 @@ async fn main() -> anyhow::Result<()> {
         )));
 
     // Initialize auth service with session manager
-    let auth_service = AuthService::new(dal.users().clone(), dal.refresh_tokens().clone(), config.jwt_config.clone())
-        .with_session_manager(session_manager.clone());
+    let auth_service = AuthService::new(
+        dal.users().clone(),
+        dal.refresh_tokens().clone(),
+        config.jwt_config.clone(),
+    )
+    .with_session_manager(session_manager.clone());
 
     // Create services
     let conversation_service = handlers::conversation::create_conversation_service(dal.clone());
@@ -371,13 +377,13 @@ async fn create_app_internal(
                 .collect();
 
             tower_http::cors::CorsLayer::new()
-                .allow_origin(
-                    origins.unwrap_or_else(|_| {
-                        vec!["http://localhost:4510"
+                .allow_origin(origins.unwrap_or_else(|_| {
+                    vec!["http://localhost:4510".parse().unwrap_or_else(|_| {
+                        "http://localhost:4510"
                             .parse()
-                            .unwrap_or_else(|_| "http://localhost:4510".parse().expect("Default CORS origin should always parse"))]
-                    }),
-                )
+                            .expect("Default CORS origin should always parse")
+                    })]
+                }))
                 .allow_methods([
                     axum::http::Method::GET,
                     axum::http::Method::POST,

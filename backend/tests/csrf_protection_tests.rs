@@ -1,5 +1,5 @@
 //! CSRF Protection Tests
-//! 
+//!
 //! Comprehensive tests for CSRF token generation, validation,
 //! and middleware protection according to OWASP guidelines.
 
@@ -17,9 +17,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use tower_sessions::{MemoryStore, SessionManagerLayer};
 use workbench_server::{
-    app_state::AppState,
-    config::AppConfig,
-    middleware::csrf::csrf_middleware,
+    app_state::AppState, config::AppConfig, middleware::csrf::csrf_middleware,
     services::DataAccessLayer,
 };
 
@@ -43,7 +41,10 @@ fn create_test_app() -> Router {
         .with_same_site(tower_sessions::cookie::SameSite::Lax);
 
     Router::new()
-        .route("/api/v1/auth/csrf-token", get(workbench_server::middleware::csrf::get_csrf_token))
+        .route(
+            "/api/v1/auth/csrf-token",
+            get(workbench_server::middleware::csrf::get_csrf_token),
+        )
         .route("/api/public", get(public_handler))
         .route("/api/protected", post(protected_handler))
         .with_state(app_state)
@@ -61,16 +62,16 @@ async fn test_csrf_token_generation() {
 
     // Request CSRF token
     let response = server.get("/api/v1/auth/csrf-token").await;
-    
+
     assert_eq!(response.status_code(), StatusCode::OK);
-    
+
     let json: Value = response.json();
     assert!(json["csrf_token"].is_string());
     assert!(json["timestamp"].is_number());
-    
+
     let token = json["csrf_token"].as_str().unwrap();
     assert!(token.len() >= 16); // Minimum token length
-    
+
     // Check that cookie is set
     let cookies = response.cookies();
     assert!(cookies.iter().any(|c| c.name() == "csrf-token"));
@@ -87,14 +88,10 @@ async fn test_csrf_protection_allows_safe_methods() {
     assert_eq!(response.text(), "Public content");
 
     // HEAD and OPTIONS should also be allowed
-    let response = server
-        .request(Method::HEAD, "/api/public")
-        .await;
+    let response = server.request(Method::HEAD, "/api/public").await;
     assert_eq!(response.status_code(), StatusCode::OK);
 
-    let response = server
-        .request(Method::OPTIONS, "/api/public")
-        .await;
+    let response = server.request(Method::OPTIONS, "/api/public").await;
     assert_eq!(response.status_code(), StatusCode::OK);
 }
 
@@ -108,9 +105,9 @@ async fn test_csrf_protection_blocks_unsafe_methods_without_token() {
         .post("/api/protected")
         .json(&json!({"test": "data"}))
         .await;
-    
+
     assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
-    
+
     let error: Value = response.json();
     assert!(error["error"]["code"].as_str().unwrap().contains("CSRF"));
 }
@@ -123,10 +120,10 @@ async fn test_csrf_protection_allows_valid_token() {
     // First, get a CSRF token
     let token_response = server.get("/api/v1/auth/csrf-token").await;
     assert_eq!(token_response.status_code(), StatusCode::OK);
-    
+
     let token_json: Value = token_response.json();
     let csrf_token = token_json["csrf_token"].as_str().unwrap();
-    
+
     // Extract session cookie
     let session_cookie = token_response
         .cookies()
@@ -142,7 +139,7 @@ async fn test_csrf_protection_allows_valid_token() {
         .add_cookie(session_cookie)
         .json(&json!({"test": "data"}))
         .await;
-    
+
     assert_eq!(response.status_code(), StatusCode::OK);
     assert_eq!(response.text(), "Protected content");
 }
@@ -158,9 +155,9 @@ async fn test_csrf_protection_blocks_invalid_token() {
         .add_header("X-CSRF-Token", "invalid-token")
         .json(&json!({"test": "data"}))
         .await;
-    
+
     assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
-    
+
     let error: Value = response.json();
     assert!(error["error"]["code"].as_str().unwrap().contains("CSRF"));
 }
@@ -174,7 +171,7 @@ async fn test_csrf_double_submit_pattern() {
     let token_response = server.get("/api/v1/auth/csrf-token").await;
     let token_json: Value = token_response.json();
     let csrf_token = token_json["csrf_token"].as_str().unwrap();
-    
+
     let csrf_cookie = token_response
         .cookies()
         .iter()
@@ -189,7 +186,7 @@ async fn test_csrf_double_submit_pattern() {
         .add_cookie(csrf_cookie.clone())
         .json(&json!({"test": "data"}))
         .await;
-    
+
     assert_eq!(response.status_code(), StatusCode::OK);
 
     // Test with mismatched header and cookie (should fail)
@@ -199,7 +196,7 @@ async fn test_csrf_double_submit_pattern() {
         .add_cookie(csrf_cookie)
         .json(&json!({"test": "data"}))
         .await;
-    
+
     assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 }
 
@@ -214,7 +211,7 @@ async fn test_csrf_token_format_validation() {
         .add_header("X-CSRF-Token", "short")
         .json(&json!({"test": "data"}))
         .await;
-    
+
     assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 
     // Test with empty token
@@ -223,7 +220,7 @@ async fn test_csrf_token_format_validation() {
         .add_header("X-CSRF-Token", "")
         .json(&json!({"test": "data"}))
         .await;
-    
+
     assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 }
 
@@ -234,7 +231,7 @@ async fn test_csrf_skips_auth_endpoints() {
         .route("/api/v1/auth/register", post(|| async { "Register" }))
         .route("/api/v1/health", post(|| async { "Health" }))
         .layer(middleware::from_fn(csrf_middleware));
-    
+
     let server = TestServer::new(app).unwrap();
 
     // These endpoints should work without CSRF tokens
@@ -242,19 +239,19 @@ async fn test_csrf_skips_auth_endpoints() {
         .post("/api/v1/auth/login")
         .json(&json!({"email": "test@example.com", "password": "password"}))
         .await;
-    
+
     // Note: This might fail due to validation, but should not fail due to CSRF
     assert_ne!(response.status_code(), StatusCode::FORBIDDEN);
 
     let response = server
         .post("/api/v1/auth/register")
         .json(&json!({
-            "email": "test@example.com", 
+            "email": "test@example.com",
             "username": "test",
             "password": "password"
         }))
         .await;
-    
+
     assert_ne!(response.status_code(), StatusCode::FORBIDDEN);
 
     let response = server.post("/api/v1/health").await;
@@ -264,7 +261,7 @@ async fn test_csrf_skips_auth_endpoints() {
 #[tokio::test]
 async fn test_csrf_token_expiration() {
     use std::time::{SystemTime, UNIX_EPOCH};
-    
+
     // This test would require mocking time or using a test clock
     // For now, we'll test the timestamp is reasonable
     let app = create_test_app();
@@ -272,13 +269,13 @@ async fn test_csrf_token_expiration() {
 
     let response = server.get("/api/v1/auth/csrf-token").await;
     let token_json: Value = response.json();
-    
+
     let timestamp = token_json["timestamp"].as_i64().unwrap();
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs() as i64;
-    
+
     // Timestamp should be within 10 seconds of now
     assert!((now - timestamp).abs() < 10);
 }
@@ -289,14 +286,14 @@ async fn test_csrf_security_headers() {
     let server = TestServer::new(app).unwrap();
 
     let response = server.get("/api/v1/auth/csrf-token").await;
-    
+
     // Check that CSRF cookie has security attributes
     let csrf_cookie = response
         .cookies()
         .iter()
         .find(|c| c.name() == "csrf-token")
         .expect("Should have CSRF cookie");
-    
+
     // In test environment, secure flag might be false
     // but HttpOnly and SameSite should be set
     assert!(csrf_cookie.http_only().unwrap_or(false));
@@ -321,7 +318,7 @@ mod unit_tests {
     fn test_csrf_token_validation() {
         let token = CSRFToken::new();
         assert!(token.is_valid_format());
-        
+
         let invalid_token = CSRFToken {
             value: "short".to_string(),
             timestamp: chrono::Utc::now().timestamp(),

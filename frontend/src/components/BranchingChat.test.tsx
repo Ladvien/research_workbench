@@ -7,7 +7,9 @@ import * as useBranching from '../hooks/useBranching';
 import { createMockMessage, createMockConversation } from '../../tests/test-utils';
 
 // Mock all the hooks and child components
-vi.mock('../hooks/useConversationStore');
+vi.mock('../hooks/useConversationStore', () => ({
+  useConversationStore: vi.fn()
+}));
 vi.mock('../hooks/useBranching');
 
 // Mock child components

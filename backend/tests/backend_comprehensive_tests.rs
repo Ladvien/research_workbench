@@ -2,10 +2,69 @@
 ///
 /// This file runs all backend tests in a coordinated manner to ensure
 /// the backend system is working correctly after QA fixes.
-
 use tokio;
 
-mod test_env;
+mod test_env {
+    use axum::Router;
+    use workbench_server::{
+        app_state::AppState,
+        config::AppConfig,
+        database::Database,
+        models::CreateUserRequest,
+        services::DataAccessLayer,
+        seed::TestUser as SeedTestUser,
+    };
+
+    #[derive(Debug, Clone)]
+    pub struct TestUser {
+        pub id: uuid::Uuid,
+        pub email: String,
+        pub username: String,
+        pub session_cookie: String,
+    }
+
+    pub async fn setup_test_app() -> (Router, TestUser) {
+        let config = AppConfig::from_env().expect("Failed to load test configuration");
+
+        let database_url = std::env::var("DATABASE_URL")
+            .unwrap_or_else(|_| "postgresql://ladvien:postgres@localhost:5432/workbench".to_string());
+
+        let database = Database::new(&database_url)
+            .await
+            .expect("Failed to connect to test database");
+
+        let app_state = AppState::new_with_database(database);
+
+        let test_user = create_test_user(&app_state).await;
+
+        let app = Router::new().with_state(app_state);
+
+        (app, test_user)
+    }
+
+    async fn create_test_user(app_state: &AppState) -> TestUser {
+        let create_user_request = CreateUserRequest {
+            email: "integration_test@workbench.com".to_string(),
+            username: "integration_test_user".to_string(),
+            password: "testpassword123".to_string(),
+        };
+
+        let base_user = app_state
+            .dal
+            .repositories
+            .users
+            .create_from_request(create_user_request)
+            .await
+            .expect("Failed to create test user");
+
+        TestUser {
+            id: base_user.id,
+            email: base_user.email,
+            username: base_user.username,
+            session_cookie: "session=test_session_cookie".to_string(),
+        }
+    }
+}
 
 /// Integration test that runs a subset of critical backend functionality
 #[tokio::test]
@@ -68,9 +127,13 @@ async fn test_health_endpoints(app: &axum::Router) {
 }
 
 async fn test_authentication_flow(app: &axum::Router) {
-    use axum::{body::Body, extract::Request, http::{method::Method, StatusCode}};
-    use tower::ServiceExt;
+    use axum::{
+        body::Body,
+        extract::Request,
+        http::{method::Method, StatusCode},
+    };
     use serde_json::json;
+    use tower::ServiceExt;
 
     // Test registration
     let register_body = json!({
@@ -135,9 +198,13 @@ async fn test_authentication_flow(app: &axum::Router) {
 }
 
 async fn test_conversation_lifecycle(app: &axum::Router, test_user: &test_env::TestUser) {
-    use axum::{body::Body, extract::Request, http::{method::Method, StatusCode}};
-    use tower::ServiceExt;
+    use axum::{
+        body::Body,
+        extract::Request,
+        http::{method::Method, StatusCode},
+    };
     use serde_json::json;
+    use tower::ServiceExt;
 
     // Create conversation
     let create_conv_body = json!({
@@ -226,9 +293,13 @@ async fn test_conversation_lifecycle(app: &axum::Router, test_user: &test_env::T
 }
 
 async fn test_chat_functionality(app: &axum::Router, test_user: &test_env::TestUser) {
-    use axum::{body::Body, extract::Request, http::{method::Method, StatusCode}};
-    use tower::ServiceExt;
+    use axum::{
+        body::Body,
+        extract::Request,
+        http::{method::Method, StatusCode},
+    };
     use serde_json::json;
+    use tower::ServiceExt;
 
     // Create conversation for chat testing
     let create_conv_body = json!({
@@ -260,7 +331,10 @@ async fn test_chat_functionality(app: &axum::Router, test_user: &test_env::TestU
 
     let message_request = Request::builder()
         .method(Method::POST)
-        .uri(&format!("/api/v1/conversations/{}/messages", conversation_id))
+        .uri(&format!(
+            "/api/v1/conversations/{}/messages",
+            conversation_id
+        ))
         .header("content-type", "application/json")
         .header("cookie", &test_user.session_cookie)
         .body(Body::from(message_body.to_string()))
@@ -272,7 +346,10 @@ async fn test_chat_functionality(app: &axum::Router, test_user: &test_env::TestU
     // Get messages
     let get_messages_request = Request::builder()
         .method(Method::GET)
-        .uri(&format!("/api/v1/conversations/{}/messages", conversation_id))
+        .uri(&format!(
+            "/api/v1/conversations/{}/messages",
+            conversation_id
+        ))
         .header("cookie", &test_user.session_cookie)
         .body(Body::empty())
         .unwrap();
@@ -299,7 +376,11 @@ async fn test_chat_functionality(app: &axum::Router, test_user: &test_env::TestU
 }
 
 async fn test_error_handling(app: &axum::Router, test_user: &test_env::TestUser) {
-    use axum::{body::Body, extract::Request, http::{method::Method, StatusCode}};
+    use axum::{
+        body::Body,
+        extract::Request,
+        http::{method::Method, StatusCode},
+    };
     use tower::ServiceExt;
 
     // Test invalid JSON
@@ -344,13 +425,16 @@ async fn test_error_handling(app: &axum::Router, test_user: &test_env::TestUser)
         .unwrap();
 
     let method_not_allowed_response = app.oneshot(method_not_allowed_request).await.unwrap();
-    assert_eq!(method_not_allowed_response.status(), StatusCode::METHOD_NOT_ALLOWED);
+    assert_eq!(
+        method_not_allowed_response.status(),
+        StatusCode::METHOD_NOT_ALLOWED
+    );
 }
 
 async fn test_concurrent_operations(app: &axum::Router, test_user: &test_env::TestUser) {
     use axum::{body::Body, extract::Request, http::method::Method};
-    use tower::ServiceExt;
     use serde_json::json;
+    use tower::ServiceExt;
 
     // Perform concurrent conversation creation
     let mut handles = Vec::new();
@@ -410,7 +494,9 @@ async fn test_resource_cleanup_and_async_handling() {
             .body(axum::body::Body::from(create_conv_body.to_string()))
             .unwrap();
 
-        let create_response = tower::ServiceExt::oneshot(app.clone(), create_request).await.unwrap();
+        let create_response = tower::ServiceExt::oneshot(app.clone(), create_request)
+            .await
+            .unwrap();
         if create_response.status().is_success() {
             let create_body = axum::body::to_bytes(create_response.into_body(), usize::MAX)
                 .await
@@ -431,7 +517,12 @@ async fn test_resource_cleanup_and_async_handling() {
             .body(axum::body::Body::empty())
             .unwrap();
 
-        let delete_response = tower::ServiceExt::oneshot(app.clone(), delete_request).await.unwrap();
-        assert!(delete_response.status().is_success() || delete_response.status() == axum::http::StatusCode::NOT_FOUND);
+        let delete_response = tower::ServiceExt::oneshot(app.clone(), delete_request)
+            .await
+            .unwrap();
+        assert!(
+            delete_response.status().is_success()
+                || delete_response.status() == axum::http::StatusCode::NOT_FOUND
+        );
     }
 }

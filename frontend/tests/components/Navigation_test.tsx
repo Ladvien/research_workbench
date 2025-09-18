@@ -6,10 +6,14 @@ import { useAuthStore } from '../../src/hooks/useAuthStore';
 import { useConversationStore } from '../../src/hooks/useConversationStore';
 import { useSearchStore } from '../../src/hooks/useSearchStore';
 
-// Mock the stores
+// Mock the stores with proper types
 vi.mock('../../src/hooks/useAuthStore');
 vi.mock('../../src/hooks/useConversationStore');
 vi.mock('../../src/hooks/useSearchStore');
+
+const mockUseAuthStore = useAuthStore as ReturnType<typeof vi.fn>;
+const mockUseConversationStore = useConversationStore as ReturnType<typeof vi.fn>;
+const mockUseSearchStore = useSearchStore as ReturnType<typeof vi.fn>;
 
 // Mock lucide-react icons
 vi.mock('lucide-react', () => ({
@@ -92,9 +96,9 @@ describe('Navigation', () => {
     mockLocation.href = '';
 
     // Setup default mock implementations
-    (useAuthStore as any).mockReturnValue(defaultAuthState);
-    (useConversationStore as any).mockReturnValue(defaultConversationState);
-    (useSearchStore as any).mockReturnValue(defaultSearchState);
+    mockUseAuthStore.mockReturnValue(defaultAuthState);
+    mockUseConversationStore.mockReturnValue(defaultConversationState);
+    mockUseSearchStore.mockReturnValue(defaultSearchState);
 
     // Mock localStorage
     const localStorageMock = {
@@ -111,7 +115,7 @@ describe('Navigation', () => {
 
   describe('Authentication States', () => {
     it('renders nothing when user is not authenticated', () => {
-      (useAuthStore as any).mockReturnValue({
+      mockUseAuthStore.mockReturnValue({
         ...defaultAuthState,
         isAuthenticated: false,
       });
@@ -184,7 +188,7 @@ describe('Navigation', () => {
     });
 
     it('displays email when username is not available', () => {
-      (useAuthStore as any).mockReturnValue({
+      mockUseAuthStore.mockReturnValue({
         ...defaultAuthState,
         user: {
           ...defaultAuthState.user,
@@ -203,7 +207,7 @@ describe('Navigation', () => {
     });
 
     it('displays fallback text when neither username nor email available', () => {
-      (useAuthStore as any).mockReturnValue({
+      mockUseAuthStore.mockReturnValue({
         ...defaultAuthState,
         user: {
           ...defaultAuthState.user,
@@ -365,7 +369,7 @@ describe('Navigation', () => {
     });
 
     it('disables logout button when auth is loading', () => {
-      (useAuthStore as any).mockReturnValue({
+      mockUseAuthStore.mockReturnValue({
         ...defaultAuthState,
         isLoading: true,
       });

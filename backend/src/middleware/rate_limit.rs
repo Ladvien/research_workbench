@@ -224,7 +224,9 @@ impl InMemoryRateLimiter {
     }
 
     pub fn check_rate_limit(&self, key: &str, limit: u32) -> Result<RateLimitInfo, AppError> {
-        let mut limits = self.limits.lock()
+        let mut limits = self
+            .limits
+            .lock()
             .map_err(|_| AppError::InternalServerError("Rate limiter lock poisoned".to_string()))?;
         let now = Instant::now();
 

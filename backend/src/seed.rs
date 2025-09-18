@@ -1,11 +1,11 @@
 use anyhow::Result;
-use sqlx::PgPool;
-use uuid::Uuid;
 use argon2::{
     password_hash::{PasswordHasher, SaltString},
     Argon2,
 };
 use rand::rngs::OsRng;
+use sqlx::PgPool;
+use uuid::Uuid;
 
 pub struct TestUser {
     pub id: Uuid,
@@ -27,16 +27,16 @@ impl TestUser {
 
 pub async fn seed_test_users(pool: &PgPool) -> Result<()> {
     // Get test user credentials from environment
-    let test_user_email = std::env::var("TEST_USER_EMAIL")
-        .unwrap_or_else(|_| "test@workbench.com".to_string());
-    let test_user_password = std::env::var("TEST_USER_PASSWORD")
-        .unwrap_or_else(|_| "testpassword123".to_string());
+    let test_user_email =
+        std::env::var("TEST_USER_EMAIL").unwrap_or_else(|_| "test@workbench.com".to_string());
+    let test_user_password =
+        std::env::var("TEST_USER_PASSWORD").unwrap_or_else(|_| "testpassword123".to_string());
 
     // Get admin user credentials from environment
-    let admin_email = std::env::var("ADMIN_EMAIL")
-        .unwrap_or_else(|_| "admin@workbench.com".to_string());
-    let admin_password = std::env::var("ADMIN_PASSWORD")
-        .unwrap_or_else(|_| "adminpassword123".to_string());
+    let admin_email =
+        std::env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@workbench.com".to_string());
+    let admin_password =
+        std::env::var("ADMIN_PASSWORD").unwrap_or_else(|_| "adminpassword123".to_string());
 
     let test_users = vec![
         TestUser::new(
@@ -57,12 +57,11 @@ pub async fn seed_test_users(pool: &PgPool) -> Result<()> {
 
     for user in test_users {
         // Check if user already exists
-        let exists = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)"
-        )
-        .bind(&user.email)
-        .fetch_one(pool)
-        .await?;
+        let exists =
+            sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)")
+                .bind(&user.email)
+                .fetch_one(pool)
+                .await?;
 
         if !exists {
             // Hash the password
@@ -74,7 +73,7 @@ pub async fn seed_test_users(pool: &PgPool) -> Result<()> {
 
             // Insert the user
             sqlx::query(
-                "INSERT INTO users (id, email, username, password_hash) VALUES ($1, $2, $3, $4)"
+                "INSERT INTO users (id, email, username, password_hash) VALUES ($1, $2, $3, $4)",
             )
             .bind(user.id)
             .bind(&user.email)
@@ -93,7 +92,7 @@ pub async fn seed_test_users(pool: &PgPool) -> Result<()> {
     let test_user_id = Uuid::parse_str("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11")?;
 
     let conv_exists = sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS(SELECT 1 FROM conversations WHERE user_id = $1)"
+        "SELECT EXISTS(SELECT 1 FROM conversations WHERE user_id = $1)",
     )
     .bind(test_user_id)
     .fetch_one(pool)
@@ -102,7 +101,7 @@ pub async fn seed_test_users(pool: &PgPool) -> Result<()> {
     if !conv_exists {
         let conv_id = Uuid::new_v4();
         sqlx::query(
-            "INSERT INTO conversations (id, user_id, title, model) VALUES ($1, $2, $3, $4)"
+            "INSERT INTO conversations (id, user_id, title, model) VALUES ($1, $2, $3, $4)",
         )
         .bind(conv_id)
         .bind(test_user_id)
@@ -114,7 +113,7 @@ pub async fn seed_test_users(pool: &PgPool) -> Result<()> {
         // Add sample messages
         let msg1_id = Uuid::new_v4();
         sqlx::query(
-            "INSERT INTO messages (id, conversation_id, role, content) VALUES ($1, $2, $3, $4)"
+            "INSERT INTO messages (id, conversation_id, role, content) VALUES ($1, $2, $3, $4)",
         )
         .bind(msg1_id)
         .bind(conv_id)
@@ -181,19 +180,19 @@ mod tests {
         env::set_var("ADMIN_PASSWORD", "admin-env-password");
 
         // Test user credentials
-        let test_user_email = env::var("TEST_USER_EMAIL")
-            .unwrap_or_else(|_| "test@workbench.com".to_string());
-        let test_user_password = env::var("TEST_USER_PASSWORD")
-            .unwrap_or_else(|_| "testpassword123".to_string());
+        let test_user_email =
+            env::var("TEST_USER_EMAIL").unwrap_or_else(|_| "test@workbench.com".to_string());
+        let test_user_password =
+            env::var("TEST_USER_PASSWORD").unwrap_or_else(|_| "testpassword123".to_string());
 
         assert_eq!(test_user_email, "test-env@workbench.com");
         assert_eq!(test_user_password, "test-env-password");
 
         // Admin credentials
-        let admin_email = env::var("ADMIN_EMAIL")
-            .unwrap_or_else(|_| "admin@workbench.com".to_string());
-        let admin_password = env::var("ADMIN_PASSWORD")
-            .unwrap_or_else(|_| "adminpassword123".to_string());
+        let admin_email =
+            env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@workbench.com".to_string());
+        let admin_password =
+            env::var("ADMIN_PASSWORD").unwrap_or_else(|_| "adminpassword123".to_string());
 
         assert_eq!(admin_email, "admin-env@workbench.com");
         assert_eq!(admin_password, "admin-env-password");
@@ -216,19 +215,19 @@ mod tests {
         env::remove_var("ADMIN_PASSWORD");
 
         // Test user credentials
-        let test_user_email = env::var("TEST_USER_EMAIL")
-            .unwrap_or_else(|_| "test@workbench.com".to_string());
-        let test_user_password = env::var("TEST_USER_PASSWORD")
-            .unwrap_or_else(|_| "testpassword123".to_string());
+        let test_user_email =
+            env::var("TEST_USER_EMAIL").unwrap_or_else(|_| "test@workbench.com".to_string());
+        let test_user_password =
+            env::var("TEST_USER_PASSWORD").unwrap_or_else(|_| "testpassword123".to_string());
 
         assert_eq!(test_user_email, "test@workbench.com");
         assert_eq!(test_user_password, "testpassword123");
 
         // Admin credentials
-        let admin_email = env::var("ADMIN_EMAIL")
-            .unwrap_or_else(|_| "admin@workbench.com".to_string());
-        let admin_password = env::var("ADMIN_PASSWORD")
-            .unwrap_or_else(|_| "adminpassword123".to_string());
+        let admin_email =
+            env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@workbench.com".to_string());
+        let admin_password =
+            env::var("ADMIN_PASSWORD").unwrap_or_else(|_| "adminpassword123".to_string());
 
         assert_eq!(admin_email, "admin@workbench.com");
         assert_eq!(admin_password, "adminpassword123");
@@ -247,7 +246,10 @@ mod tests {
         assert_eq!(test_user.email, "test@workbench.com");
         assert_eq!(test_user.username, "testuser");
         assert_eq!(test_user.password, "testpassword123");
-        assert_eq!(test_user.id.to_string(), "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11");
+        assert_eq!(
+            test_user.id.to_string(),
+            "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+        );
 
         let admin_user = TestUser::new(
             "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
@@ -259,16 +261,19 @@ mod tests {
         assert_eq!(admin_user.email, "admin@workbench.com");
         assert_eq!(admin_user.username, "adminuser");
         assert_eq!(admin_user.password, "adminpassword123");
-        assert_eq!(admin_user.id.to_string(), "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12");
+        assert_eq!(
+            admin_user.id.to_string(),
+            "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12"
+        );
     }
 
     #[test]
     fn test_no_hardcoded_old_credentials() {
         // Ensure old inconsistent credentials are not used anywhere
-        let test_user_email = env::var("TEST_USER_EMAIL")
-            .unwrap_or_else(|_| "test@workbench.com".to_string());
-        let test_user_password = env::var("TEST_USER_PASSWORD")
-            .unwrap_or_else(|_| "testpassword123".to_string());
+        let test_user_email =
+            env::var("TEST_USER_EMAIL").unwrap_or_else(|_| "test@workbench.com".to_string());
+        let test_user_password =
+            env::var("TEST_USER_PASSWORD").unwrap_or_else(|_| "testpassword123".to_string());
 
         // Verify we're not using old credentials
         assert_ne!(test_user_email, "cthomasbrittain@yahoo.com");

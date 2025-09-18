@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { BranchingChat } from './components/BranchingChat';
@@ -8,7 +8,7 @@ import { Navigation } from './components/Navigation';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useConversationStore } from './hooks/useConversationStore';
-import { useAuth, useUser } from './hooks/useAuth';
+import { useAuth } from './hooks/useAuth';
 import { Login } from './components/Auth/Login';
 import { Register } from './components/Auth/Register';
 
@@ -23,7 +23,7 @@ const AuthenticatedApp: React.FC = () => {
   const { setCurrentConversation, loadConversation } = useConversationStore();
   const { login, register, isAuthenticated } = useAuth();
 
-  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+  const toggleSidebar = useCallback(() => setSidebarOpen(!sidebarOpen), [sidebarOpen]);
 
   // Add keyboard shortcut for toggling sidebar (Cmd+B or Ctrl+B)
   useEffect(() => {
@@ -40,9 +40,9 @@ const AuthenticatedApp: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentView, isAuthenticated, sidebarOpen]);
+  }, [currentView, isAuthenticated, toggleSidebar]);
 
-  const handleSearchResultClick = async (conversationId: string, messageId: string) => {
+  const handleSearchResultClick = useCallback(async (conversationId: string, messageId: string) => {
     // Switch to chat view if not already there
     if (currentView !== 'chat') {
       setCurrentView('chat');
@@ -63,7 +63,7 @@ const AuthenticatedApp: React.FC = () => {
         }, 3000);
       }
     }, 100);
-  };
+  }, [currentView, loadConversation, setCurrentConversation]);
 
   // Show login/register form if not authenticated
   if (!isAuthenticated) {

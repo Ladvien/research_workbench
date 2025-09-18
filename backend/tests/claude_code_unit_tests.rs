@@ -3,10 +3,7 @@ use tokio::time::timeout;
 use uuid::Uuid;
 use workbench_server::{
     config::AppConfig,
-    llm::{
-        claude_code::ClaudeCodeService,
-        ChatMessage, ChatRequest, LLMService, Provider
-    },
+    llm::{claude_code::ClaudeCodeService, ChatMessage, ChatRequest, LLMService, Provider},
 };
 
 fn create_test_config() -> AppConfig {
@@ -24,8 +21,9 @@ fn create_test_config() -> AppConfig {
         claude_code_model: "claude-3-5-sonnet-20241022".to_string(),
         claude_code_session_timeout: 3600,
         jwt_config: workbench_server::config::JwtConfig::new(
-            "test-secret-that-is-long-enough-for-testing-purposes".to_string()
-        ).unwrap(),
+            "test-secret-that-is-long-enough-for-testing-purposes".to_string(),
+        )
+        .unwrap(),
         redis_url: "redis://127.0.0.1:6379".to_string(),
         session_timeout_hours: 24,
         storage_path: "/tmp/workbench_test_storage".to_string(),
@@ -51,7 +49,10 @@ fn test_claude_code_service_creation() {
     let config = create_test_config();
     let service = ClaudeCodeService::new(config);
 
-    assert!(service.is_ok(), "Should create ClaudeCodeService successfully");
+    assert!(
+        service.is_ok(),
+        "Should create ClaudeCodeService successfully"
+    );
 
     let service = service.unwrap();
     assert_eq!(service.provider(), Provider::ClaudeCode);
@@ -156,10 +157,14 @@ async fn test_claude_code_chat_completion_basic() {
         Ok(Err(e)) => {
             // Expected if Claude CLI is not available
             let error_msg = e.to_string();
-            if error_msg.contains("Claude Code CLI not available") ||
-               error_msg.contains("not found") ||
-               error_msg.contains("timed out") {
-                println!("Claude Code CLI not available in test environment: {}", error_msg);
+            if error_msg.contains("Claude Code CLI not available")
+                || error_msg.contains("not found")
+                || error_msg.contains("timed out")
+            {
+                println!(
+                    "Claude Code CLI not available in test environment: {}",
+                    error_msg
+                );
             } else {
                 panic!("Unexpected Claude Code error: {}", e);
             }
@@ -265,7 +270,11 @@ async fn test_claude_code_streaming() {
         stream: Some(true),
     };
 
-    let result = timeout(Duration::from_secs(30), service.chat_completion_stream(request)).await;
+    let result = timeout(
+        Duration::from_secs(30),
+        service.chat_completion_stream(request),
+    )
+    .await;
 
     match result {
         Ok(Ok(mut stream)) => {
@@ -313,7 +322,10 @@ async fn test_claude_code_streaming() {
             }
 
             assert!(event_count > 0, "Should receive at least one event");
-            assert!(has_content || has_done, "Should receive content or done event");
+            assert!(
+                has_content || has_done,
+                "Should receive content or done event"
+            );
         }
         Ok(Err(e)) => {
             println!("Streaming Claude Code test skipped: {}", e);
@@ -344,7 +356,11 @@ fn test_claude_code_model_name_mapping() {
         test_config.claude_code_model = input_model.to_string();
 
         let service = ClaudeCodeService::new(test_config);
-        assert!(service.is_ok(), "Should create service with model: {}", input_model);
+        assert!(
+            service.is_ok(),
+            "Should create service with model: {}",
+            input_model
+        );
 
         // We can't directly test the private model mapping function,
         // but we can test that the service creation succeeds with various models
@@ -393,11 +409,11 @@ async fn test_claude_code_error_handling() {
             // Expected errors are fine
             let error_msg = e.to_string();
             assert!(
-                error_msg.contains("CLI not available") ||
-                error_msg.contains("not found") ||
-                error_msg.contains("timed out") ||
-                error_msg.contains("too long") ||
-                error_msg.contains("limit"),
+                error_msg.contains("CLI not available")
+                    || error_msg.contains("not found")
+                    || error_msg.contains("timed out")
+                    || error_msg.contains("too long")
+                    || error_msg.contains("limit"),
                 "Should be a reasonable error: {}",
                 error_msg
             );
@@ -460,11 +476,19 @@ fn test_claude_code_prompt_building() {
     let runtime = tokio::runtime::Runtime::new().unwrap();
 
     let result_single = runtime.block_on(async {
-        timeout(Duration::from_secs(5), service.chat_completion(request_single)).await
+        timeout(
+            Duration::from_secs(5),
+            service.chat_completion(request_single),
+        )
+        .await
     });
 
     let result_multi = runtime.block_on(async {
-        timeout(Duration::from_secs(5), service.chat_completion(request_multi)).await
+        timeout(
+            Duration::from_secs(5),
+            service.chat_completion(request_multi),
+        )
+        .await
     });
 
     // We don't care about success/failure here, just that both are handled
@@ -529,7 +553,11 @@ async fn test_claude_code_concurrent_requests() {
                 stream: Some(false),
             };
 
-            timeout(Duration::from_secs(10), service_clone.chat_completion(request)).await
+            timeout(
+                Duration::from_secs(10),
+                service_clone.chat_completion(request),
+            )
+            .await
         });
         handles.push(handle);
     }

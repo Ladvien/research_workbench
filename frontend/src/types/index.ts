@@ -16,7 +16,7 @@ export interface Conversation {
   provider: string;
   created_at: string;
   updated_at: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export type MessageRole = 'user' | 'assistant' | 'system';
@@ -30,7 +30,7 @@ export interface Message {
   tokens_used?: number;
   created_at: string;
   is_active: boolean;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface ConversationWithMessages {
@@ -42,7 +42,7 @@ export interface CreateConversationRequest {
   title?: string;
   model: string;
   provider?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CreateMessageRequest {
@@ -50,7 +50,7 @@ export interface CreateMessageRequest {
   parent_id?: string;
   role: MessageRole;
   content: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PaginationParams {

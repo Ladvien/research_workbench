@@ -88,7 +88,9 @@ impl OpenAIService {
                 )),
                 "user" => Ok(ChatCompletionRequestMessage::User(
                     ChatCompletionRequestUserMessage {
-                        content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(msg.content),
+                        content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(
+                            msg.content,
+                        ),
                         role: async_openai::types::Role::User,
                         name: None,
                     },
@@ -178,7 +180,9 @@ impl OpenAIService {
                 )),
                 "user" => Ok(ChatCompletionRequestMessage::User(
                     ChatCompletionRequestUserMessage {
-                        content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(msg.content),
+                        content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(
+                            msg.content,
+                        ),
                         role: async_openai::types::Role::User,
                         name: None,
                     },

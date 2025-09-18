@@ -17,7 +17,10 @@ use workbench_server::{
     config::AppConfig,
     handlers::chat_stream::{stream_message, StreamChatRequest},
     models::{Conversation, MessageRole, UserResponse},
-    repositories::{conversation::ConversationRepository, message::MessageRepository, user::UserRepository, Repository},
+    repositories::{
+        conversation::ConversationRepository, message::MessageRepository, user::UserRepository,
+        Repository,
+    },
 };
 
 async fn create_test_app_state() -> AppState {
@@ -37,7 +40,9 @@ async fn create_test_app_state() -> AppState {
         .await
         .expect("Failed to run migrations");
 
-    AppState::new(config, db_pool).await.expect("Failed to create app state")
+    AppState::new(config, db_pool)
+        .await
+        .expect("Failed to create app state")
 }
 
 fn create_test_config() -> AppConfig {
@@ -54,7 +59,10 @@ fn create_test_config() -> AppConfig {
         claude_code_enabled: true,
         claude_code_model: "claude-3-5-sonnet-20241022".to_string(),
         claude_code_session_timeout: 3600,
-        jwt_config: workbench_server::config::JwtConfig::new("test-secret-that-is-long-enough-for-testing-purposes".to_string()).unwrap(),
+        jwt_config: workbench_server::config::JwtConfig::new(
+            "test-secret-that-is-long-enough-for-testing-purposes".to_string(),
+        )
+        .unwrap(),
         redis_url: "redis://127.0.0.1:6379".to_string(),
         session_timeout_hours: 24,
         storage_path: "/tmp/workbench_test_storage".to_string(),
@@ -165,7 +173,8 @@ async fn test_stream_message_endpoint_with_valid_conversation() {
         Path(test_conversation.id),
         test_user.clone(),
         Json(request_body),
-    ).await;
+    )
+    .await;
 
     match result {
         Ok(sse_response) => {
@@ -175,7 +184,8 @@ async fn test_stream_message_endpoint_with_valid_conversation() {
 
             // Use timeout to prevent hanging if stream doesn't produce events
             for _ in 0..5 {
-                if let Ok(Some(event_result)) = timeout(Duration::from_secs(2), stream.next()).await {
+                if let Ok(Some(event_result)) = timeout(Duration::from_secs(2), stream.next()).await
+                {
                     if let Ok(event) = event_result {
                         events.push(event);
                     }
@@ -189,8 +199,8 @@ async fn test_stream_message_endpoint_with_valid_conversation() {
             // Parse the first event to verify structure
             if let Some(first_event) = events.first() {
                 let event_data = first_event.data();
-                let parsed: serde_json::Value = serde_json::from_str(event_data)
-                    .expect("Event data should be valid JSON");
+                let parsed: serde_json::Value =
+                    serde_json::from_str(event_data).expect("Event data should be valid JSON");
 
                 assert!(parsed.get("type").is_some(), "Event should have a type");
 
@@ -198,7 +208,10 @@ async fn test_stream_message_endpoint_with_valid_conversation() {
                 if parsed["type"] == "start" {
                     assert!(parsed.get("data").is_some(), "Start event should have data");
                     let data = &parsed["data"];
-                    assert!(data.get("conversationId").is_some(), "Should include conversation ID");
+                    assert!(
+                        data.get("conversationId").is_some(),
+                        "Should include conversation ID"
+                    );
                     assert!(data.get("messageId").is_some(), "Should include message ID");
                 }
             }
@@ -207,7 +220,8 @@ async fn test_stream_message_endpoint_with_valid_conversation() {
             // If Claude Code CLI is not available, the test should handle this gracefully
             let error_message = e.to_string();
             if error_message.contains("Claude Code CLI not available")
-                || error_message.contains("not found") {
+                || error_message.contains("not found")
+            {
                 println!("Claude Code CLI not available in test environment, skipping actual stream test");
             } else {
                 panic!("Unexpected error: {}", e);
@@ -238,7 +252,8 @@ async fn test_stream_message_endpoint_with_invalid_conversation() {
         Path(invalid_conversation_id),
         test_user.clone(),
         Json(request_body),
-    ).await;
+    )
+    .await;
 
     assert!(result.is_err(), "Should fail with invalid conversation ID");
 
@@ -279,7 +294,8 @@ async fn test_stream_message_endpoint_unauthorized_access() {
         Path(test_conversation.id),
         unauthorized_user,
         Json(request_body),
-    ).await;
+    )
+    .await;
 
     assert!(result.is_err(), "Should fail with unauthorized access");
 
@@ -313,7 +329,8 @@ async fn test_stream_message_saves_user_message() {
         Path(test_conversation.id),
         test_user.clone(),
         Json(request_body),
-    ).await;
+    )
+    .await;
 
     // Check that the user message was saved
     let messages = app_state
@@ -327,7 +344,10 @@ async fn test_stream_message_saves_user_message() {
         .iter()
         .find(|m| m.role == MessageRole::User && m.content == test_content);
 
-    assert!(user_message.is_some(), "User message should be saved to database");
+    assert!(
+        user_message.is_some(),
+        "User message should be saved to database"
+    );
 
     // Cleanup
     cleanup_test_data(&app_state, test_user.id).await;
@@ -374,7 +394,8 @@ async fn test_stream_message_provider_routing() {
             Path(conversation_id),
             test_user.clone(),
             Json(request_body),
-        ).await;
+        )
+        .await;
 
         match result {
             Ok(_) => {
@@ -385,26 +406,40 @@ async fn test_stream_message_provider_routing() {
                 let error_message = e.to_string();
                 // Expected errors for unavailable services
                 let expected_errors = [
-                    "API key", "not available", "CLI not found",
-                    "authentication", "invalid", "timeout"
+                    "API key",
+                    "not available",
+                    "CLI not found",
+                    "authentication",
+                    "invalid",
+                    "timeout",
                 ];
 
-                let is_expected_error = expected_errors.iter()
+                let is_expected_error = expected_errors
+                    .iter()
                     .any(|expected| error_message.to_lowercase().contains(expected));
 
                 if is_expected_error {
-                    println!("Provider {} failed as expected: {}", provider, error_message);
+                    println!(
+                        "Provider {} failed as expected: {}",
+                        provider, error_message
+                    );
                 } else {
-                    panic!("Unexpected error for provider {}: {}", provider, error_message);
+                    panic!(
+                        "Unexpected error for provider {}: {}",
+                        provider, error_message
+                    );
                 }
             }
         }
 
         // Cleanup conversation
-        sqlx::query!("DELETE FROM messages WHERE conversation_id = $1", conversation_id)
-            .execute(&app_state.dal.db)
-            .await
-            .ok();
+        sqlx::query!(
+            "DELETE FROM messages WHERE conversation_id = $1",
+            conversation_id
+        )
+        .execute(&app_state.dal.db)
+        .await
+        .ok();
         sqlx::query!("DELETE FROM conversations WHERE id = $1", conversation_id)
             .execute(&app_state.dal.db)
             .await
@@ -433,7 +468,8 @@ async fn test_stream_message_request_validation() {
         Path(test_conversation.id),
         test_user.clone(),
         Json(empty_request),
-    ).await;
+    )
+    .await;
 
     // Empty content should still be processed (user might want to send empty message)
     // The validation should be more about required fields being present
@@ -442,7 +478,7 @@ async fn test_stream_message_request_validation() {
     let extreme_request = StreamChatRequest {
         content: "Test with extreme params".to_string(),
         model: Some("claude-code-sonnet".to_string()),
-        temperature: Some(2.0), // Very high temperature
+        temperature: Some(2.0),   // Very high temperature
         max_tokens: Some(100000), // Very high max tokens
     };
 
@@ -451,7 +487,8 @@ async fn test_stream_message_request_validation() {
         Path(test_conversation.id),
         test_user.clone(),
         Json(extreme_request),
-    ).await;
+    )
+    .await;
 
     // Should handle extreme parameters gracefully (LLM service will clamp values)
 
@@ -507,7 +544,8 @@ async fn test_stream_message_conversation_history_loading() {
         Path(test_conversation.id),
         test_user.clone(),
         Json(request_body),
-    ).await;
+    )
+    .await;
 
     // Verify the new user message was added
     let messages = app_state
@@ -517,12 +555,19 @@ async fn test_stream_message_conversation_history_loading() {
         .await
         .expect("Should be able to fetch messages");
 
-    assert_eq!(messages.len(), 3, "Should have 3 messages: 2 existing + 1 new user message");
+    assert_eq!(
+        messages.len(),
+        3,
+        "Should have 3 messages: 2 existing + 1 new user message"
+    );
 
     let new_user_message = messages
         .iter()
         .find(|m| m.content == "New message with context");
-    assert!(new_user_message.is_some(), "New user message should be saved");
+    assert!(
+        new_user_message.is_some(),
+        "New user message should be saved"
+    );
 
     // Cleanup
     cleanup_test_data(&app_state, test_user.id).await;
@@ -543,8 +588,8 @@ mod unit_tests {
             "max_tokens": 1000
         }"#;
 
-        let request: StreamChatRequest = serde_json::from_str(json)
-            .expect("Should deserialize valid request");
+        let request: StreamChatRequest =
+            serde_json::from_str(json).expect("Should deserialize valid request");
 
         assert_eq!(request.content, "Hello world");
         assert_eq!(request.model, Some("claude-code-sonnet".to_string()));
@@ -559,8 +604,8 @@ mod unit_tests {
             "content": "Hello world"
         }"#;
 
-        let request: StreamChatRequest = serde_json::from_str(json)
-            .expect("Should deserialize minimal request");
+        let request: StreamChatRequest =
+            serde_json::from_str(json).expect("Should deserialize minimal request");
 
         assert_eq!(request.content, "Hello world");
         assert_eq!(request.model, None);

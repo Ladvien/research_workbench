@@ -1,7 +1,7 @@
-// Message interface is now in index.ts, import from there if needed
+import { Message } from './index';
 
 export interface ChatState {
-  messages: any[]; // Will use Message from index.ts
+  messages: Message[];
   isLoading: boolean;
   error: string | null;
 }
@@ -20,7 +20,7 @@ export interface BranchInfo {
 }
 
 export interface ConversationTreeResponse {
-  messages: any[]; // Will use Message from index.ts
+  messages: Message[];
   branches: BranchInfo[];
   activeThread: string[];
 }
@@ -30,7 +30,7 @@ export interface EditMessageRequest {
 }
 
 export interface EditMessageResponse {
-  message: any; // Will use Message from index.ts
+  message: Message;
   affectedMessages: string[];
 }
 
@@ -39,6 +39,6 @@ export interface SwitchBranchRequest {
 }
 
 export interface SwitchBranchResponse {
-  activeMessages: any[]; // Will use Message from index.ts
+  activeMessages: Message[];
   success: boolean;
 }

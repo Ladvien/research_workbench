@@ -104,7 +104,10 @@ impl ClaudeCodeService {
 
         match output {
             Ok(output) if output.status.success() => {
-                tracing::debug!("Claude CLI available: {}", String::from_utf8_lossy(&output.stdout));
+                tracing::debug!(
+                    "Claude CLI available: {}",
+                    String::from_utf8_lossy(&output.stdout)
+                );
                 Ok(())
             }
             Ok(output) => {
@@ -114,12 +117,10 @@ impl ClaudeCodeService {
                     stderr
                 )))
             }
-            Err(e) => {
-                Err(AppError::InternalServerError(format!(
-                    "Claude CLI not found at {}: {}",
-                    claude_path, e
-                )))
-            }
+            Err(e) => Err(AppError::InternalServerError(format!(
+                "Claude CLI not found at {}: {}",
+                claude_path, e
+            ))),
         }
     }
 
@@ -383,10 +384,7 @@ impl LLMService for ClaudeCodeService {
             } else {
                 "/mnt/datadrive_m2/research_workbench"
             };
-            tracing::error!(
-                "Claude Code CLI working directory: {}",
-                working_dir
-            );
+            tracing::error!("Claude Code CLI working directory: {}", working_dir);
             tracing::error!("Claude Code CLI command: {}", command_debug);
 
             // Try to parse the JSON response to get a more specific error

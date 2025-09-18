@@ -3,7 +3,8 @@ import { renderHook, act } from '@testing-library/react';
 import { useAuthStore } from '../../src/hooks/useAuthStore';
 
 // Mock fetch globally
-global.fetch = vi.fn();
+const mockFetch = vi.fn() as ReturnType<typeof vi.fn>;
+global.fetch = mockFetch;
 
 // Mock console methods
 const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -108,7 +109,7 @@ describe('useAuthStore', () => {
       await act(async () => {
         try {
           await result.current.login('test@example.com', 'wrong-password');
-        } catch (error) {
+        } catch {
           // Expected to throw
         }
       });
@@ -121,14 +122,14 @@ describe('useAuthStore', () => {
     });
 
     it('handles network error during login', async () => {
-      (fetch as any).mockRejectedValueOnce(new Error('Network error'));
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       const { result } = renderHook(() => useAuthStore());
 
       await act(async () => {
         try {
           await result.current.login('test@example.com', 'password');
-        } catch (error) {
+        } catch {
           // Expected to throw
         }
       });
@@ -250,7 +251,7 @@ describe('useAuthStore', () => {
     });
 
     it('clears client state even if network request fails', async () => {
-      (fetch as any).mockRejectedValueOnce(new Error('Network error'));
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       const { result } = renderHook(() => useAuthStore());
 
@@ -278,7 +279,7 @@ describe('useAuthStore', () => {
           } as Response);
       });
 
-      (fetch as any).mockReturnValueOnce(logoutPromise);
+      mockFetch.mockReturnValueOnce(logoutPromise);
 
       const { result } = renderHook(() => useAuthStore());
 

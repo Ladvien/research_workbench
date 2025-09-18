@@ -66,16 +66,34 @@ fn test_model_information() {
         // Verify provider-specific constraints
         match model.provider {
             Provider::OpenAI => {
-                assert!(model.id.starts_with("gpt-"), "OpenAI models should start with 'gpt-'");
-                assert!(model.cost_per_token.is_some(), "OpenAI models should have cost info");
+                assert!(
+                    model.id.starts_with("gpt-"),
+                    "OpenAI models should start with 'gpt-'"
+                );
+                assert!(
+                    model.cost_per_token.is_some(),
+                    "OpenAI models should have cost info"
+                );
             }
             Provider::Anthropic => {
-                assert!(model.id.starts_with("claude-"), "Anthropic models should start with 'claude-'");
-                assert!(model.cost_per_token.is_some(), "Anthropic models should have cost info");
+                assert!(
+                    model.id.starts_with("claude-"),
+                    "Anthropic models should start with 'claude-'"
+                );
+                assert!(
+                    model.cost_per_token.is_some(),
+                    "Anthropic models should have cost info"
+                );
             }
             Provider::ClaudeCode => {
-                assert!(model.id.starts_with("claude-code-"), "Claude Code models should start with 'claude-code-'");
-                assert!(model.cost_per_token.is_none(), "Claude Code models should not have direct cost");
+                assert!(
+                    model.id.starts_with("claude-code-"),
+                    "Claude Code models should start with 'claude-code-'"
+                );
+                assert!(
+                    model.cost_per_token.is_none(),
+                    "Claude Code models should not have direct cost"
+                );
             }
         }
     }
@@ -92,11 +110,20 @@ fn test_service_factory_creation() {
     let claude_code_service = LLMServiceFactory::create_service(&Provider::ClaudeCode, &config);
 
     // With empty API keys, should fail for OpenAI and Anthropic
-    assert!(openai_service.is_err(), "Should fail with empty OpenAI API key");
-    assert!(anthropic_service.is_err(), "Should fail with empty Anthropic API key");
+    assert!(
+        openai_service.is_err(),
+        "Should fail with empty OpenAI API key"
+    );
+    assert!(
+        anthropic_service.is_err(),
+        "Should fail with empty Anthropic API key"
+    );
 
     // Claude Code should succeed even without API key (uses CLI)
-    assert!(claude_code_service.is_ok(), "Should create Claude Code service");
+    assert!(
+        claude_code_service.is_ok(),
+        "Should create Claude Code service"
+    );
 }
 
 #[test]
@@ -111,14 +138,26 @@ fn test_service_factory_with_valid_keys() {
     let anthropic_service = LLMServiceFactory::create_service(&Provider::Anthropic, &config);
     let claude_code_service = LLMServiceFactory::create_service(&Provider::ClaudeCode, &config);
 
-    assert!(openai_service.is_ok(), "Should create OpenAI service with API key");
-    assert!(anthropic_service.is_ok(), "Should create Anthropic service with API key");
-    assert!(claude_code_service.is_ok(), "Should create Claude Code service");
+    assert!(
+        openai_service.is_ok(),
+        "Should create OpenAI service with API key"
+    );
+    assert!(
+        anthropic_service.is_ok(),
+        "Should create Anthropic service with API key"
+    );
+    assert!(
+        claude_code_service.is_ok(),
+        "Should create Claude Code service"
+    );
 
     // Verify provider types
     assert_eq!(openai_service.unwrap().provider(), Provider::OpenAI);
     assert_eq!(anthropic_service.unwrap().provider(), Provider::Anthropic);
-    assert_eq!(claude_code_service.unwrap().provider(), Provider::ClaudeCode);
+    assert_eq!(
+        claude_code_service.unwrap().provider(),
+        Provider::ClaudeCode
+    );
 }
 
 /// Helper function to create test configuration
@@ -136,7 +175,10 @@ fn create_test_config() -> workbench_server::config::AppConfig {
         claude_code_enabled: true,
         claude_code_model: "claude-3-5-sonnet-20241022".to_string(),
         claude_code_session_timeout: 3600,
-        jwt_config: workbench_server::config::JwtConfig::new("test-secret-that-is-long-enough-for-testing-purposes".to_string()).unwrap(),
+        jwt_config: workbench_server::config::JwtConfig::new(
+            "test-secret-that-is-long-enough-for-testing-purposes".to_string(),
+        )
+        .unwrap(),
         redis_url: "redis://127.0.0.1:6379".to_string(),
         session_timeout_hours: 24,
         storage_path: "/tmp/workbench_test_storage".to_string(),

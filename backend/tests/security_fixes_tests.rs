@@ -11,7 +11,7 @@ use std::net::{IpAddr, SocketAddr};
 use tower::ServiceExt;
 use tower_sessions::Session;
 
-use research_workbench::{
+use workbench_server::{
     app_state::AppState,
     error::AppError,
     handlers::auth,
@@ -22,25 +22,28 @@ use research_workbench::{
 /// Test suite for JWT token validation security fixes
 mod jwt_validation_tests {
     use super::*;
-    use research_workbench::middleware::auth::AuthUtils;
+    use workbench_server::middleware::auth::AuthUtils;
 
     #[test]
     fn test_jwt_format_validation() {
         // Valid JWT format
         let valid_jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
-        assert!(AuthUtils::validate_jwt_format(valid_jwt), "Valid JWT should pass validation");
+        assert!(
+            AuthUtils::validate_jwt_format(valid_jwt),
+            "Valid JWT should pass validation"
+        );
 
         // Invalid JWT formats that could be injection attempts
         let invalid_jwts = vec![
-            "", // Empty
-            "not.a.jwt", // Too few parts
-            "header.payload", // Missing signature
-            "header.payload.signature.extra", // Too many parts
-            "header$.payload.signature", // Invalid characters
+            "",                                     // Empty
+            "not.a.jwt",                            // Too few parts
+            "header.payload",                       // Missing signature
+            "header.payload.signature.extra",       // Too many parts
+            "header$.payload.signature",            // Invalid characters
             "header.payload.signature with spaces", // Spaces in token
-            "../../../etc/passwd", // Path traversal attempt
-            "<script>alert('xss')</script>", // XSS attempt
-            "'; DROP TABLE users; --", // SQL injection attempt
+            "../../../etc/passwd",                  // Path traversal attempt
+            "<script>alert('xss')</script>",        // XSS attempt
+            "'; DROP TABLE users; --",              // SQL injection attempt
         ];
 
         for invalid_jwt in invalid_jwts {
@@ -55,7 +58,7 @@ mod jwt_validation_tests {
     #[test]
     fn test_cookie_token_extraction_security() {
         use axum::http::{HeaderMap, HeaderValue};
-        use research_workbench::middleware::auth;
+        use workbench_server::middleware::auth;
 
         // Create mock request parts
         let mut headers = HeaderMap::new();
@@ -115,7 +118,7 @@ mod jwt_validation_tests {
             "Bearer '; DROP TABLE users; --",
             "Bearer token with spaces",
             "Bearer token$with$special",
-            "Bearer ", // Empty token
+            "Bearer ",         // Empty token
             "NotBearer token", // Wrong prefix
         ];
 
@@ -161,10 +164,7 @@ mod request_tracking_tests {
 
         // Test X-Real-IP header
         let mut headers = HeaderMap::new();
-        headers.insert(
-            "x-real-ip",
-            HeaderValue::from_str("203.0.113.195").unwrap(),
-        );
+        headers.insert("x-real-ip", HeaderValue::from_str("203.0.113.195").unwrap());
         let parts = create_test_parts_with_headers(headers);
         let ip = AuthUtils::extract_client_ip(&parts);
         assert_eq!(ip, Some("203.0.113.195".to_string()));
@@ -209,7 +209,8 @@ mod request_tracking_tests {
         let mut headers = HeaderMap::new();
         headers.insert(
             "user-agent",
-            HeaderValue::from_str("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36").unwrap(),
+            HeaderValue::from_str("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .unwrap(),
         );
         let parts = create_test_parts_with_headers(headers);
         let ua = AuthUtils::extract_user_agent(&parts);
@@ -219,10 +220,7 @@ mod request_tracking_tests {
         // Test User-Agent length limiting
         let long_ua = "A".repeat(1000);
         let mut headers = HeaderMap::new();
-        headers.insert(
-            "user-agent",
-            HeaderValue::from_str(&long_ua).unwrap(),
-        );
+        headers.insert("user-agent", HeaderValue::from_str(&long_ua).unwrap());
         let parts = create_test_parts_with_headers(headers);
         let ua = AuthUtils::extract_user_agent(&parts);
         assert!(ua.is_some());
@@ -230,7 +228,7 @@ mod request_tracking_tests {
 
         // Test User-Agent sanitization
         let malicious_uas = vec![
-            "Mozilla/5.0\x00\x01\x02", // Control characters
+            "Mozilla/5.0\x00\x01\x02",     // Control characters
             "Mozilla/5.0\u{200B}\u{FEFF}", // Zero-width characters
         ];
 
@@ -240,11 +238,13 @@ mod request_tracking_tests {
                 headers.insert("user-agent", header_value);
                 let parts = create_test_parts_with_headers(headers);
                 let ua = AuthUtils::extract_user_agent(&parts);
-                
+
                 if let Some(sanitized) = ua {
                     // Ensure no dangerous characters remain
                     assert!(
-                        sanitized.chars().all(|c| c.is_ascii_graphic() || c.is_ascii_whitespace()),
+                        sanitized
+                            .chars()
+                            .all(|c| c.is_ascii_graphic() || c.is_ascii_whitespace()),
                         "Sanitized User-Agent should only contain safe characters"
                     );
                 }
@@ -257,12 +257,18 @@ mod request_tracking_tests {
         // Test when no headers are present
         let headers = HeaderMap::new();
         let parts = create_test_parts_with_headers(headers);
-        
+
         let ip = AuthUtils::extract_client_ip(&parts);
-        assert!(ip.is_none(), "Should return None when no IP headers present");
-        
+        assert!(
+            ip.is_none(),
+            "Should return None when no IP headers present"
+        );
+
         let ua = AuthUtils::extract_user_agent(&parts);
-        assert!(ua.is_none(), "Should return None when no User-Agent header present");
+        assert!(
+            ua.is_none(),
+            "Should return None when no User-Agent header present"
+        );
     }
 }
 
@@ -270,9 +276,9 @@ mod request_tracking_tests {
 mod session_security_tests {
     use super::*;
     use chrono::Utc;
-    use research_workbench::middleware::session_auth::SessionSecurityValidator;
-    use research_workbench::services::session::SessionData;
     use uuid::Uuid;
+    use workbench_server::middleware::session_auth::SessionSecurityValidator;
+    use workbench_server::services::session::SessionData;
 
     #[test]
     fn test_session_age_validation() {
@@ -361,7 +367,10 @@ mod session_security_tests {
             Some("Test Agent"),
             &session_with_different_ip,
         );
-        assert!(result.is_ok(), "IP mismatch currently allowed (logged as warning)");
+        assert!(
+            result.is_ok(),
+            "IP mismatch currently allowed (logged as warning)"
+        );
     }
 }
 
@@ -373,7 +382,7 @@ mod integration_tests {
     async fn test_comprehensive_security_validation() {
         // This test would require a full application setup
         // For now, we test the individual components
-        
+
         // Test JWT validation
         let valid_jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
         assert!(AuthUtils::validate_jwt_format(valid_jwt));
@@ -421,18 +430,23 @@ mod auth_handler_security_tests {
         // Simulate the data that would be logged by auth handlers
         let test_ip = "203.0.113.195";
         let test_user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
-        
+
         // Validate IP format
         assert!(test_ip.parse::<IpAddr>().is_ok(), "IP should be valid");
-        
+
         // Validate User-Agent doesn't contain dangerous characters
         assert!(
-            test_user_agent.chars().all(|c| c.is_ascii_graphic() || c.is_ascii_whitespace()),
+            test_user_agent
+                .chars()
+                .all(|c| c.is_ascii_graphic() || c.is_ascii_whitespace()),
             "User-Agent should only contain safe characters"
         );
-        
+
         // Test length limits
-        assert!(test_user_agent.len() <= 500, "User-Agent should be within length limits");
+        assert!(
+            test_user_agent.len() <= 500,
+            "User-Agent should be within length limits"
+        );
     }
 
     #[test]
@@ -442,7 +456,7 @@ mod auth_handler_security_tests {
             "../../../etc/passwd",
             "<script>alert('xss')</script>",
             "'; DROP TABLE users; --",
-            "\x00\x01\x02", // Control characters
+            "\x00\x01\x02",     // Control characters
             "\u{200B}\u{FEFF}", // Zero-width characters
         ];
 
@@ -453,7 +467,7 @@ mod auth_handler_security_tests {
                 "Malicious input '{}' should be rejected by JWT validation",
                 input
             );
-            
+
             // IP validation should reject these
             assert!(
                 input.parse::<IpAddr>().is_err(),

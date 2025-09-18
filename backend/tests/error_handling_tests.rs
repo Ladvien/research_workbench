@@ -24,8 +24,8 @@ async fn test_database_error_handling() {
     let conversations_response = app.oneshot(conversations_request).await.unwrap();
     // Should handle database operations gracefully
     assert!(
-        conversations_response.status().is_success() ||
-        conversations_response.status().is_server_error()
+        conversations_response.status().is_success()
+            || conversations_response.status().is_server_error()
     );
 
     if conversations_response.status().is_server_error() {
@@ -84,7 +84,10 @@ async fn test_json_parsing_errors() {
 
         // Should return properly formatted error response
         assert!(error_response["error"].is_object());
-        assert!(error_response["error"]["code"].as_str().unwrap().contains("BAD_REQUEST"));
+        assert!(error_response["error"]["code"]
+            .as_str()
+            .unwrap()
+            .contains("BAD_REQUEST"));
     }
 }
 
@@ -95,8 +98,8 @@ async fn test_validation_error_handling() {
 
     // Test missing required fields
     let invalid_requests = vec![
-        json!({}), // Empty object
-        json!({"title": ""}), // Empty title
+        json!({}),                                                          // Empty object
+        json!({"title": ""}),                                               // Empty title
         json!({"title": "Valid Title"}), // Missing provider and model
         json!({"title": "Valid Title", "provider": ""}), // Empty provider
         json!({"title": "Valid Title", "provider": "openai"}), // Missing model
@@ -128,8 +131,14 @@ async fn test_validation_error_handling() {
         // Should return validation error
         assert!(error_response["error"].is_object());
         assert!(
-            error_response["error"]["code"].as_str().unwrap().contains("BAD_REQUEST") ||
-            error_response["error"]["code"].as_str().unwrap().contains("VALIDATION")
+            error_response["error"]["code"]
+                .as_str()
+                .unwrap()
+                .contains("BAD_REQUEST")
+                || error_response["error"]["code"]
+                    .as_str()
+                    .unwrap()
+                    .contains("VALIDATION")
         );
     }
 }
@@ -280,8 +289,8 @@ async fn test_method_not_allowed_error_handling() {
     // Test using wrong HTTP method
     let wrong_method_cases = vec![
         ("/api/v1/conversations", Method::PUT), // Should be GET or POST
-        ("/api/v1/auth/me", Method::POST),       // Should be GET
-        ("/api/v1/auth/login", Method::GET),     // Should be POST
+        ("/api/v1/auth/me", Method::POST),      // Should be GET
+        ("/api/v1/auth/login", Method::GET),    // Should be POST
     ];
 
     for (endpoint, wrong_method) in wrong_method_cases {
@@ -313,18 +322,21 @@ async fn test_content_type_error_handling() {
         .method(Method::POST)
         .uri("/api/v1/conversations")
         .header("cookie", &test_user.session_cookie)
-        .body(Body::from(json!({
-            "title": "Test",
-            "provider": "openai",
-            "model": "gpt-3.5-turbo"
-        }).to_string()))
+        .body(Body::from(
+            json!({
+                "title": "Test",
+                "provider": "openai",
+                "model": "gpt-3.5-turbo"
+            })
+            .to_string(),
+        ))
         .unwrap();
 
     let no_content_type_response = app.clone().oneshot(no_content_type_request).await.unwrap();
     // Should handle missing content-type gracefully
     assert!(
-        no_content_type_response.status().is_success() ||
-        no_content_type_response.status().is_client_error()
+        no_content_type_response.status().is_success()
+            || no_content_type_response.status().is_client_error()
     );
 
     // Test sending with wrong content-type
@@ -337,7 +349,10 @@ async fn test_content_type_error_handling() {
         .unwrap();
 
     let wrong_content_type_response = app.oneshot(wrong_content_type_request).await.unwrap();
-    assert_eq!(wrong_content_type_response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        wrong_content_type_response.status(),
+        StatusCode::BAD_REQUEST
+    );
 }
 
 /// Test large payload error handling
@@ -365,9 +380,9 @@ async fn test_large_payload_error_handling() {
     let large_payload_response = app.oneshot(large_payload_request).await.unwrap();
     // Should either accept or reject large payloads gracefully
     assert!(
-        large_payload_response.status().is_success() ||
-        large_payload_response.status().is_client_error() ||
-        large_payload_response.status().is_server_error()
+        large_payload_response.status().is_success()
+            || large_payload_response.status().is_client_error()
+            || large_payload_response.status().is_server_error()
     );
 
     // If rejected, should have proper error format
@@ -400,12 +415,15 @@ async fn test_concurrent_error_scenarios() {
                     .uri("/api/v1/conversations")
                     .header("content-type", "application/json")
                     .header("cookie", &session_cookie)
-                    .body(Body::from(json!({
-                        "title": format!("Concurrent Test {}", i),
-                        "provider": "openai",
-                        "model": "gpt-3.5-turbo",
-                        "metadata": {}
-                    }).to_string()))
+                    .body(Body::from(
+                        json!({
+                            "title": format!("Concurrent Test {}", i),
+                            "provider": "openai",
+                            "model": "gpt-3.5-turbo",
+                            "metadata": {}
+                        })
+                        .to_string(),
+                    ))
                     .unwrap()
             } else {
                 // Invalid request
@@ -433,14 +451,16 @@ async fn test_concurrent_error_scenarios() {
             assert_eq!(
                 response.status(),
                 StatusCode::CREATED,
-                "Valid concurrent request {} should succeed", i
+                "Valid concurrent request {} should succeed",
+                i
             );
         } else {
             // Invalid requests should return proper error
             assert_eq!(
                 response.status(),
                 StatusCode::BAD_REQUEST,
-                "Invalid concurrent request {} should return 400", i
+                "Invalid concurrent request {} should return 400",
+                i
             );
         }
     }
@@ -454,13 +474,33 @@ async fn test_error_response_consistency() {
     // Generate various types of errors
     let error_scenarios = vec![
         // Validation error
-        (Method::POST, "/api/v1/conversations", "{ \"title\": \"\" }", StatusCode::BAD_REQUEST),
+        (
+            Method::POST,
+            "/api/v1/conversations",
+            "{ \"title\": \"\" }",
+            StatusCode::BAD_REQUEST,
+        ),
         // JSON parsing error
-        (Method::POST, "/api/v1/conversations", "{ invalid", StatusCode::BAD_REQUEST),
+        (
+            Method::POST,
+            "/api/v1/conversations",
+            "{ invalid",
+            StatusCode::BAD_REQUEST,
+        ),
         // Not found error
-        (Method::GET, "/api/v1/conversations/00000000-0000-0000-0000-000000000000", "", StatusCode::NOT_FOUND),
+        (
+            Method::GET,
+            "/api/v1/conversations/00000000-0000-0000-0000-000000000000",
+            "",
+            StatusCode::NOT_FOUND,
+        ),
         // Method not allowed
-        (Method::PUT, "/api/v1/conversations", "", StatusCode::METHOD_NOT_ALLOWED),
+        (
+            Method::PUT,
+            "/api/v1/conversations",
+            "",
+            StatusCode::METHOD_NOT_ALLOWED,
+        ),
     ];
 
     for (method, endpoint, body, expected_status) in error_scenarios {
@@ -489,19 +529,40 @@ async fn test_error_response_consistency() {
             let error_response: serde_json::Value = serde_json::from_slice(&error_body).unwrap();
 
             // All error responses should have consistent structure
-            assert!(error_response["error"].is_object(), "Error response should have 'error' object");
-            assert!(error_response["error"]["code"].is_string(), "Error should have 'code' field");
-            assert!(error_response["error"]["message"].is_string(), "Error should have 'message' field");
-            assert!(error_response["error"]["timestamp"].is_string(), "Error should have 'timestamp' field");
-            assert!(error_response["error"]["request_id"].is_string(), "Error should have 'request_id' field");
+            assert!(
+                error_response["error"].is_object(),
+                "Error response should have 'error' object"
+            );
+            assert!(
+                error_response["error"]["code"].is_string(),
+                "Error should have 'code' field"
+            );
+            assert!(
+                error_response["error"]["message"].is_string(),
+                "Error should have 'message' field"
+            );
+            assert!(
+                error_response["error"]["timestamp"].is_string(),
+                "Error should have 'timestamp' field"
+            );
+            assert!(
+                error_response["error"]["request_id"].is_string(),
+                "Error should have 'request_id' field"
+            );
 
             // Verify timestamp is valid ISO 8601
             let timestamp = error_response["error"]["timestamp"].as_str().unwrap();
-            assert!(chrono::DateTime::parse_from_rfc3339(timestamp).is_ok(), "Timestamp should be valid RFC3339");
+            assert!(
+                chrono::DateTime::parse_from_rfc3339(timestamp).is_ok(),
+                "Timestamp should be valid RFC3339"
+            );
 
             // Verify request_id format
             let request_id = error_response["error"]["request_id"].as_str().unwrap();
-            assert!(request_id.starts_with("req_"), "Request ID should start with 'req_'");
+            assert!(
+                request_id.starts_with("req_"),
+                "Request ID should start with 'req_'"
+            );
         }
     }
 }

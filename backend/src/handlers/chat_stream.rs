@@ -3,8 +3,8 @@ use axum::{
     response::{sse::Event, Sse},
     Json,
 };
-use futures::Stream;
 use futures::stream::StreamExt;
+use futures::Stream;
 use serde_json;
 use std::{convert::Infallible, time::Duration};
 use uuid::Uuid;
@@ -79,7 +79,11 @@ pub async fn stream_message(
     );
 
     // Optimized: Get conversation and verify ownership in a single query
-    tracing::debug!("Looking up conversation with ID: {} for user: {}", conversation_id, user.id);
+    tracing::debug!(
+        "Looking up conversation with ID: {} for user: {}",
+        conversation_id,
+        user.id
+    );
     let conversation = sqlx::query_as::<_, crate::models::Conversation>(
         r#"
         SELECT id, user_id, title, model, provider, created_at, updated_at, metadata
@@ -222,8 +226,8 @@ pub async fn stream_message(
     });
 
     // Send optimized chunks as token events with throttling for better perceived performance
-    let chunk_stream = futures::stream::iter(chunks.into_iter().enumerate())
-        .map(move |(i, chunk)| {
+    let chunk_stream =
+        futures::stream::iter(chunks.into_iter().enumerate()).map(move |(i, chunk)| {
             tracing::trace!(
                 "Sending chunk {} for message ID: {}: '{}'",
                 i,

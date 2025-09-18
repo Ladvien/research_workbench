@@ -256,7 +256,10 @@ async fn test_session_hijacking_protection() {
     let hijack_response = app.oneshot(hijack_request).await.unwrap();
     // Session should still work for testing, but in production might have additional checks
     // This test mainly verifies the session system handles different headers gracefully
-    assert!(hijack_response.status().is_success() || hijack_response.status() == StatusCode::UNAUTHORIZED);
+    assert!(
+        hijack_response.status().is_success()
+            || hijack_response.status() == StatusCode::UNAUTHORIZED
+    );
 }
 
 /// Test session info endpoint
@@ -465,7 +468,12 @@ async fn test_concurrent_session_operations() {
     for handle in handles {
         let (i, result) = handle.await.unwrap();
         let response = result.unwrap();
-        assert_eq!(response.status(), StatusCode::OK, "Login {} should succeed", i);
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "Login {} should succeed",
+            i
+        );
 
         if let Some(cookie) = response
             .headers()
@@ -486,7 +494,12 @@ async fn test_concurrent_session_operations() {
             .unwrap();
 
         let me_response = app.clone().oneshot(me_request).await.unwrap();
-        assert_eq!(me_response.status(), StatusCode::OK, "Session {} should be valid", i);
+        assert_eq!(
+            me_response.status(),
+            StatusCode::OK,
+            "Session {} should be valid",
+            i
+        );
     }
 }
 

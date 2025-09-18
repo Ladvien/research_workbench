@@ -29,9 +29,7 @@ async fn test_password_strength_validation() {
             .method(Method::POST)
             .uri("/api/v1/auth/password-strength")
             .header("content-type", "application/json")
-            .body(Body::from(
-                json!({ "password": weak_password }).to_string(),
-            ))
+            .body(Body::from(json!({ "password": weak_password }).to_string()))
             .unwrap();
 
         let strength_response = app.clone().oneshot(strength_request).await.unwrap();
@@ -106,8 +104,8 @@ async fn test_registration_weak_password_rejection() {
     // Should contain password strength error
     let error_message = error_response["error"]["message"].as_str().unwrap_or("");
     assert!(
-        error_message.to_lowercase().contains("password") ||
-        error_message.to_lowercase().contains("strength"),
+        error_message.to_lowercase().contains("password")
+            || error_message.to_lowercase().contains("strength"),
         "Error should mention password strength: {}",
         error_message
     );
@@ -256,8 +254,8 @@ async fn test_account_lockout_protection() {
         } else {
             // 6th attempt might trigger lockout (depending on implementation)
             assert!(
-                failed_login_response.status() == StatusCode::UNAUTHORIZED ||
-                failed_login_response.status() == StatusCode::TOO_MANY_REQUESTS
+                failed_login_response.status() == StatusCode::UNAUTHORIZED
+                    || failed_login_response.status() == StatusCode::TOO_MANY_REQUESTS
             );
         }
     }
@@ -278,9 +276,9 @@ async fn test_account_lockout_protection() {
     let correct_login_response = app.oneshot(correct_login_request).await.unwrap();
     // Depending on lockout implementation, this might succeed or be locked out
     assert!(
-        correct_login_response.status() == StatusCode::OK ||
-        correct_login_response.status() == StatusCode::TOO_MANY_REQUESTS ||
-        correct_login_response.status() == StatusCode::UNAUTHORIZED
+        correct_login_response.status() == StatusCode::OK
+            || correct_login_response.status() == StatusCode::TOO_MANY_REQUESTS
+            || correct_login_response.status() == StatusCode::UNAUTHORIZED
     );
 }
 
@@ -372,9 +370,9 @@ async fn test_refresh_token_functionality() {
     let refresh_response = app.oneshot(refresh_request).await.unwrap();
     // Refresh endpoint should either work or return appropriate error
     assert!(
-        refresh_response.status() == StatusCode::OK ||
-        refresh_response.status() == StatusCode::UNAUTHORIZED ||
-        refresh_response.status() == StatusCode::BAD_REQUEST
+        refresh_response.status() == StatusCode::OK
+            || refresh_response.status() == StatusCode::UNAUTHORIZED
+            || refresh_response.status() == StatusCode::BAD_REQUEST
     );
 }
 
@@ -530,8 +528,8 @@ async fn test_sql_injection_protection() {
         let register_response = app.clone().oneshot(register_request).await.unwrap();
         // SQL injection attempts should be rejected or handled safely
         assert!(
-            register_response.status() == StatusCode::BAD_REQUEST ||
-            register_response.status() == StatusCode::UNPROCESSABLE_ENTITY
+            register_response.status() == StatusCode::BAD_REQUEST
+                || register_response.status() == StatusCode::UNPROCESSABLE_ENTITY
         );
 
         // Also test login with injection attempts
@@ -550,8 +548,8 @@ async fn test_sql_injection_protection() {
         let login_response = app.clone().oneshot(login_request).await.unwrap();
         // Should safely handle injection attempts
         assert!(
-            login_response.status() == StatusCode::UNAUTHORIZED ||
-            login_response.status() == StatusCode::BAD_REQUEST
+            login_response.status() == StatusCode::UNAUTHORIZED
+                || login_response.status() == StatusCode::BAD_REQUEST
         );
     }
 }

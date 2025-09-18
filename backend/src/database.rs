@@ -42,8 +42,13 @@ impl Database {
         match sqlx::migrate!("./migrations").run(&pool).await {
             Ok(_) => info!("Database migrations completed successfully"),
             Err(e) => {
-                info!("Migration failed: {}. This is expected in prototype mode.", e);
-                info!("Continuing without migrations - tables should be created manually if needed");
+                info!(
+                    "Migration failed: {}. This is expected in prototype mode.",
+                    e
+                );
+                info!(
+                    "Continuing without migrations - tables should be created manually if needed"
+                );
             }
         }
 
@@ -67,8 +72,13 @@ impl Database {
         match sqlx::migrate!("./migrations").run(&pool).await {
             Ok(_) => info!("Database migrations completed successfully"),
             Err(e) => {
-                info!("Migration failed: {}. This is expected in prototype mode.", e);
-                info!("Continuing without migrations - tables should be created manually if needed");
+                info!(
+                    "Migration failed: {}. This is expected in prototype mode.",
+                    e
+                );
+                info!(
+                    "Continuing without migrations - tables should be created manually if needed"
+                );
             }
         }
 
@@ -89,7 +99,7 @@ impl Database {
             "message_embeddings",
             "attachments",
             "api_usage",
-            "user_sessions"
+            "user_sessions",
         ];
 
         for table_name in required_tables {
@@ -98,7 +108,7 @@ impl Database {
                     SELECT FROM information_schema.tables
                     WHERE table_schema = 'public'
                     AND table_name = $1
-                )"
+                )",
             )
             .bind(table_name)
             .fetch_one(&self.pool)
@@ -123,7 +133,7 @@ impl Database {
                 "SELECT EXISTS (
                     SELECT FROM pg_extension
                     WHERE extname = $1
-                )"
+                )",
             )
             .bind(extension_name)
             .fetch_one(&self.pool)

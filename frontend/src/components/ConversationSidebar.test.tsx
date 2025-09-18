@@ -5,7 +5,9 @@ import { useConversationStore } from '../hooks/useConversationStore';
 import { Conversation } from '../types';
 
 // Mock the conversation store
-vi.mock('../hooks/useConversationStore');
+vi.mock('../hooks/useConversationStore', () => ({
+  useConversationStore: vi.fn()
+}));
 const mockUseConversationStore = useConversationStore as MockedFunction<typeof useConversationStore>;
 
 const mockConversations: Conversation[] = [

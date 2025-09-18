@@ -5,7 +5,7 @@ use crate::{
         JwtClaims, LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, User,
         UserResponse,
     },
-    repositories::{user::UserRepository, refresh_token::RefreshTokenRepository, Repository},
+    repositories::{refresh_token::RefreshTokenRepository, user::UserRepository, Repository},
     services::session::SessionManager,
 };
 use anyhow::Result;
@@ -23,7 +23,11 @@ pub struct AuthService {
 }
 
 impl AuthService {
-    pub fn new(user_repository: UserRepository, refresh_token_repository: RefreshTokenRepository, jwt_config: JwtConfig) -> Self {
+    pub fn new(
+        user_repository: UserRepository,
+        refresh_token_repository: RefreshTokenRepository,
+        jwt_config: JwtConfig,
+    ) -> Self {
         Self {
             user_repository,
             refresh_token_repository,
@@ -76,7 +80,9 @@ impl AuthService {
 
         // Generate refresh token (7 days)
         let refresh_token = RefreshTokenRepository::generate_refresh_token();
-        self.refresh_token_repository.create_refresh_token(user.id, &refresh_token).await?;
+        self.refresh_token_repository
+            .create_refresh_token(user.id, &refresh_token)
+            .await?;
 
         Ok(RegisterResponse {
             user: user.into(),
@@ -124,7 +130,9 @@ impl AuthService {
 
         // Generate refresh token (7 days)
         let refresh_token = RefreshTokenRepository::generate_refresh_token();
-        self.refresh_token_repository.create_refresh_token(user.id, &refresh_token).await?;
+        self.refresh_token_repository
+            .create_refresh_token(user.id, &refresh_token)
+            .await?;
 
         Ok(LoginResponse {
             user: user.into(),
@@ -302,13 +310,18 @@ impl AuthService {
     }
 
     /// Refresh access token using refresh token
-    pub async fn refresh_access_token(&self, refresh_token: &str) -> Result<LoginResponse, AppError> {
+    pub async fn refresh_access_token(
+        &self,
+        refresh_token: &str,
+    ) -> Result<LoginResponse, AppError> {
         // Find refresh token in database
         let token_record = self
             .refresh_token_repository
             .find_by_token_hash(refresh_token)
             .await?
-            .ok_or_else(|| AppError::AuthenticationError("Invalid or expired refresh token".to_string()))?;
+            .ok_or_else(|| {
+                AppError::AuthenticationError("Invalid or expired refresh token".to_string())
+            })?;
 
         // Get user
         let user = self
@@ -321,9 +334,13 @@ impl AuthService {
         let access_token = self.generate_jwt_token(&user)?;
 
         // Implement refresh token rotation: invalidate old token and create new one
-        self.refresh_token_repository.invalidate_token(refresh_token).await?;
+        self.refresh_token_repository
+            .invalidate_token(refresh_token)
+            .await?;
         let new_refresh_token = RefreshTokenRepository::generate_refresh_token();
-        self.refresh_token_repository.create_refresh_token(user.id, &new_refresh_token).await?;
+        self.refresh_token_repository
+            .create_refresh_token(user.id, &new_refresh_token)
+            .await?;
 
         Ok(LoginResponse {
             user: user.into(),
@@ -334,12 +351,18 @@ impl AuthService {
 
     /// Logout - invalidate refresh token
     pub async fn logout_with_refresh_token(&self, refresh_token: &str) -> Result<(), AppError> {
-        self.refresh_token_repository.invalidate_token(refresh_token).await?;
+        self.refresh_token_repository
+            .invalidate_token(refresh_token)
+            .await?;
         Ok(())
     }
 
     /// Admin function to unlock a user account (TODO: implement after database migration)
-    pub async fn admin_unlock_account(&self, _user_id: Uuid, _admin_user_id: Uuid) -> Result<(), AppError> {
+    pub async fn admin_unlock_account(
+        &self,
+        _user_id: Uuid,
+        _admin_user_id: Uuid,
+    ) -> Result<(), AppError> {
         // TODO: Implement after database migration adds lockout fields
         Err(AppError::InternalServerError(
             "Account unlock feature not yet implemented - requires database migration".to_string(),
@@ -347,7 +370,10 @@ impl AuthService {
     }
 
     /// Get account lockout status (TODO: implement after database migration)
-    pub async fn get_account_lockout_status(&self, _user_id: Uuid) -> Result<Option<(i32, Option<chrono::DateTime<chrono::Utc>>)>, AppError> {
+    pub async fn get_account_lockout_status(
+        &self,
+        _user_id: Uuid,
+    ) -> Result<Option<(i32, Option<chrono::DateTime<chrono::Utc>>)>, AppError> {
         // TODO: Implement after database migration adds lockout fields
         Ok(None)
     }

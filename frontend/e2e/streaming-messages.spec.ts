@@ -162,9 +162,6 @@ test.describe('Streaming Messages', () => {
     await input.fill('Complex question requiring thought');
     await input.press('Enter');
 
-    // Check for thinking indicator if it appears before streaming
-    const thinkingIndicator = page.locator('text=Thinking...');
-
     // Either thinking or streaming should appear
     await expect(page.locator('text=Thinking..., text=Streaming...')).toBeVisible({ timeout: 5000 });
 
@@ -177,9 +174,6 @@ test.describe('Streaming Messages', () => {
     const input = page.locator('textarea[placeholder*="Type your message"]');
     await input.fill('.');
     await input.press('Enter');
-
-    // Should show waiting indicator
-    const waitingMessage = page.locator('text=Waiting for response...');
 
     // Either waiting or streaming should appear
     const indicator = page.locator('text=Waiting for response..., text=Streaming...');
