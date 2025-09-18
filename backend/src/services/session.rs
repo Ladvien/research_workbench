@@ -838,6 +838,376 @@ impl SessionManager {
 // Sessions table is created via migration 20250916000000_add_user_sessions.sql
 
 #[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Instant;
+    use uuid::Uuid;
+
+    async fn create_test_session_manager() -> SessionManager {
+        // Use memory store for testing to avoid external dependencies
+        SessionManager::new(
+            None, // No Redis for tests
+            None, // No PostgreSQL for tests
+            5,    // max_sessions_per_user
+            24,   // session_timeout_hours
+        )
+    }
+
+    #[tokio::test]
+    async fn test_session_creation() {
+        let session_manager = create_test_session_manager().await;
+        let user_id = Uuid::new_v4();
+        let session_id = "test_session_123".to_string();
+
+        let session_data = SessionData {
+            user_id,
+            created_at: Utc::now(),
+            last_accessed: Utc::now(),
+            ip_address: Some("127.0.0.1".into()),
+            user_agent: Some("Test User Agent".into()),
+        };
+
+        let result = session_manager.store_session(session_id.clone(), session_data.clone()).await;
+        assert!(result.is_ok(), "Session creation should succeed");
+
+        // Verify session can be retrieved
+        let retrieved = session_manager.get_session(&session_id).await;
+        assert!(retrieved.is_ok(), "Session retrieval should succeed");
+
+        if let Ok(Some(retrieved_data)) = retrieved {
+            assert_eq!(retrieved_data.user_id, user_id, "User ID should match");
+            assert_eq!(retrieved_data.ip_address, session_data.ip_address, "IP address should match");
+            assert_eq!(retrieved_data.user_agent, session_data.user_agent, "User agent should match");
+        } else {
+            panic!("Session should be found");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_session_update() {
+        let session_manager = create_test_session_manager().await;
+        let user_id = Uuid::new_v4();
+        let session_id = "test_session_update".to_string();
+
+        let initial_time = Utc::now() - chrono::Duration::minutes(5);
+        let session_data = SessionData {
+            user_id,
+            created_at: initial_time,
+            last_accessed: initial_time,
+            ip_address: Some("127.0.0.1".into()),
+            user_agent: Some("Test User Agent".into()),
+        };
+
+        // Create session
+        let _ = session_manager.store_session(session_id.clone(), session_data).await;
+
+        // Update session
+        let result = session_manager.update_session_access(&session_id).await;
+        assert!(result.is_ok(), "Session update should succeed");
+
+        // Verify last_accessed was updated
+        let retrieved = session_manager.get_session(&session_id).await.unwrap().unwrap();
+        assert!(retrieved.last_accessed > initial_time, "Last accessed time should be updated");
+    }
+
+    #[tokio::test]
+    async fn test_session_invalidation() {
+        let session_manager = create_test_session_manager().await;
+        let user_id = Uuid::new_v4();
+        let session_id = "test_session_invalidate".to_string();
+
+        let session_data = SessionData {
+            user_id,
+            created_at: Utc::now(),
+            last_accessed: Utc::now(),
+            ip_address: Some("127.0.0.1".into()),
+            user_agent: Some("Test User Agent".into()),
+        };
+
+        // Create session
+        let _ = session_manager.store_session(session_id.clone(), session_data).await;
+
+        // Verify session exists
+        let retrieved = session_manager.get_session(&session_id).await.unwrap();
+        assert!(retrieved.is_some(), "Session should exist before invalidation");
+
+        // Invalidate session
+        let result = session_manager.invalidate_session(&session_id).await;
+        assert!(result.is_ok(), "Session invalidation should succeed");
+
+        // Verify session no longer exists
+        let retrieved = session_manager.get_session(&session_id).await.unwrap();
+        assert!(retrieved.is_none(), "Session should not exist after invalidation");
+    }
+
+    #[tokio::test]
+    async fn test_user_sessions_invalidation() {
+        let session_manager = create_test_session_manager().await;
+        let user_id = Uuid::new_v4();
+
+        // Create multiple sessions for the user
+        for i in 0..3 {
+            let session_id = format!("user_session_{}", i);
+            let session_data = SessionData {
+                user_id,
+                created_at: Utc::now(),
+                last_accessed: Utc::now(),
+                ip_address: Some("127.0.0.1".into()),
+                user_agent: Some("Test User Agent".into()),
+            };
+            let _ = session_manager.store_session(session_id, session_data).await;
+        }
+
+        // Verify sessions exist
+        let count_before = session_manager.count_user_sessions(user_id).await.unwrap();
+        assert_eq!(count_before, 3, "Should have 3 sessions before invalidation");
+
+        // Invalidate all user sessions
+        let result = session_manager.invalidate_user_sessions(user_id).await;
+        assert!(result.is_ok(), "User session invalidation should succeed");
+
+        // Verify all sessions are gone
+        let count_after = session_manager.count_user_sessions(user_id).await.unwrap();
+        assert_eq!(count_after, 0, "Should have 0 sessions after invalidation");
+    }
+
+    #[tokio::test]
+    async fn test_session_limit_enforcement() {
+        let session_manager = SessionManager::new(
+            None, // No Redis for tests
+            None, // No PostgreSQL for tests
+            2,    // max_sessions_per_user (reduced for testing)
+            24,   // session_timeout_hours
+        );
+
+        let user_id = Uuid::new_v4();
+
+        // Create sessions up to the limit
+        for i in 0..2 {
+            let session_id = format!("limit_session_{}", i);
+            let session_data = SessionData {
+                user_id,
+                created_at: Utc::now(),
+                last_accessed: Utc::now(),
+                ip_address: Some("127.0.0.1".into()),
+                user_agent: Some("Test User Agent".into()),
+            };
+            let result = session_manager.store_session(session_id, session_data).await;
+            assert!(result.is_ok(), "Session creation within limit should succeed");
+        }
+
+        // Verify we have the expected number of sessions
+        let count = session_manager.count_user_sessions(user_id).await.unwrap();
+        assert_eq!(count, 2, "Should have 2 sessions at the limit");
+
+        // Try to create one more session (should succeed but remove oldest)
+        let session_data = SessionData {
+            user_id,
+            created_at: Utc::now(),
+            last_accessed: Utc::now(),
+            ip_address: Some("127.0.0.1".into()),
+            user_agent: Some("Test User Agent".into()),
+        };
+        let result = session_manager.store_session("limit_session_overflow".to_string(), session_data).await;
+        assert!(result.is_ok(), "Session creation over limit should still succeed");
+
+        // Should still have max sessions
+        let count_after = session_manager.count_user_sessions(user_id).await.unwrap();
+        assert_eq!(count_after, 2, "Should still have 2 sessions after overflow");
+    }
+
+    #[tokio::test]
+    async fn test_expired_session_cleanup() {
+        let session_manager = SessionManager::new(
+            None, // No Redis for tests
+            None, // No PostgreSQL for tests
+            5,    // max_sessions_per_user
+            0,    // session_timeout_hours (immediate expiration for testing)
+        );
+
+        let user_id = Uuid::new_v4();
+        let session_id = "expired_session".to_string();
+
+        let old_time = Utc::now() - chrono::Duration::hours(25); // Very old
+        let session_data = SessionData {
+            user_id,
+            created_at: old_time,
+            last_accessed: old_time,
+            ip_address: Some("127.0.0.1".into()),
+            user_agent: Some("Test User Agent".into()),
+        };
+
+        // Store expired session
+        let _ = session_manager.store_session(session_id.clone(), session_data).await;
+
+        // Try to retrieve - should trigger cleanup and return None
+        let retrieved = session_manager.get_session(&session_id).await.unwrap();
+        assert!(retrieved.is_none(), "Expired session should not be retrieved");
+    }
+
+    #[tokio::test]
+    async fn test_session_data_validation() {
+        let session_manager = create_test_session_manager().await;
+        let user_id = Uuid::new_v4();
+
+        // Test with various IP addresses
+        let ip_addresses = vec![
+            Some("127.0.0.1".into()),
+            Some("192.168.1.1".into()),
+            Some("::1".into()),
+            None,
+        ];
+
+        for (i, ip) in ip_addresses.iter().enumerate() {
+            let session_id = format!("ip_test_session_{}", i);
+            let session_data = SessionData {
+                user_id,
+                created_at: Utc::now(),
+                last_accessed: Utc::now(),
+                ip_address: ip.clone(),
+                user_agent: Some("Test User Agent".into()),
+            };
+
+            let result = session_manager.store_session(session_id.clone(), session_data.clone()).await;
+            assert!(result.is_ok(), "Session with IP {:?} should be stored successfully", ip);
+
+            let retrieved = session_manager.get_session(&session_id).await.unwrap().unwrap();
+            assert_eq!(retrieved.ip_address, *ip, "IP address should match for session {}", i);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_session_count_accuracy() {
+        let session_manager = create_test_session_manager().await;
+        let user1 = Uuid::new_v4();
+        let user2 = Uuid::new_v4();
+
+        // Create sessions for user1
+        for i in 0..3 {
+            let session_id = format!("user1_session_{}", i);
+            let session_data = SessionData {
+                user_id: user1,
+                created_at: Utc::now(),
+                last_accessed: Utc::now(),
+                ip_address: Some("127.0.0.1".into()),
+                user_agent: Some("Test User Agent".into()),
+            };
+            let _ = session_manager.store_session(session_id, session_data).await;
+        }
+
+        // Create sessions for user2
+        for i in 0..2 {
+            let session_id = format!("user2_session_{}", i);
+            let session_data = SessionData {
+                user_id: user2,
+                created_at: Utc::now(),
+                last_accessed: Utc::now(),
+                ip_address: Some("127.0.0.1".into()),
+                user_agent: Some("Test User Agent".into()),
+            };
+            let _ = session_manager.store_session(session_id, session_data).await;
+        }
+
+        // Verify counts
+        let user1_count = session_manager.count_user_sessions(user1).await.unwrap();
+        let user2_count = session_manager.count_user_sessions(user2).await.unwrap();
+
+        assert_eq!(user1_count, 3, "User1 should have 3 sessions");
+        assert_eq!(user2_count, 2, "User2 should have 2 sessions");
+
+        // Invalidate one user's sessions
+        let _ = session_manager.invalidate_user_sessions(user1).await;
+
+        // Verify counts after invalidation
+        let user1_count_after = session_manager.count_user_sessions(user1).await.unwrap();
+        let user2_count_after = session_manager.count_user_sessions(user2).await.unwrap();
+
+        assert_eq!(user1_count_after, 0, "User1 should have 0 sessions after invalidation");
+        assert_eq!(user2_count_after, 2, "User2 should still have 2 sessions");
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_session_operations() {
+        let session_manager = create_test_session_manager().await;
+        let user_id = Uuid::new_v4();
+
+        // Create multiple sessions concurrently
+        let mut handles = vec![];
+        for i in 0..5 {
+            let session_manager = session_manager.clone();
+            let handle = tokio::spawn(async move {
+                let session_id = format!("concurrent_session_{}", i);
+                let session_data = SessionData {
+                    user_id,
+                    created_at: Utc::now(),
+                    last_accessed: Utc::now(),
+                    ip_address: Some("127.0.0.1".into()),
+                    user_agent: Some("Test User Agent".into()),
+                };
+                session_manager.store_session(session_id, session_data).await
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all operations to complete
+        for handle in handles {
+            let result = handle.await.unwrap();
+            assert!(result.is_ok(), "Concurrent session creation should succeed");
+        }
+
+        // Verify final count (might be less than 5 due to session limits)
+        let count = session_manager.count_user_sessions(user_id).await.unwrap();
+        assert!(count <= 5, "Session count should not exceed limit");
+        assert!(count > 0, "Should have at least some sessions");
+    }
+
+    #[tokio::test]
+    async fn test_session_data_integrity() {
+        let session_manager = create_test_session_manager().await;
+        let user_id = Uuid::new_v4();
+        let session_id = "integrity_test_session".to_string();
+
+        let original_time = Utc::now();
+        let session_data = SessionData {
+            user_id,
+            created_at: original_time,
+            last_accessed: original_time,
+            ip_address: Some("192.168.1.100".into()),
+            user_agent: Some("Mozilla/5.0 (Test Browser)".into()),
+        };
+
+        // Store session
+        let _ = session_manager.store_session(session_id.clone(), session_data.clone()).await;
+
+        // Retrieve and verify all fields
+        let retrieved = session_manager.get_session(&session_id).await.unwrap().unwrap();
+
+        assert_eq!(retrieved.user_id, user_id, "User ID should be preserved");
+        assert_eq!(retrieved.created_at, original_time, "Created time should be preserved");
+        assert_eq!(retrieved.last_accessed, original_time, "Last accessed time should be preserved");
+        assert_eq!(retrieved.ip_address, Some("192.168.1.100".into()), "IP address should be preserved");
+        assert_eq!(retrieved.user_agent, Some("Mozilla/5.0 (Test Browser)".into()), "User agent should be preserved");
+    }
+
+    #[tokio::test]
+    async fn test_empty_session_retrieval() {
+        let session_manager = create_test_session_manager().await;
+
+        // Try to retrieve non-existent session
+        let result = session_manager.get_session("nonexistent_session").await;
+        assert!(result.is_ok(), "Retrieving non-existent session should not error");
+
+        if let Ok(session_data) = result {
+            assert!(session_data.is_none(), "Non-existent session should return None");
+        }
+
+        // Try to count sessions for non-existent user
+        let count = session_manager.count_user_sessions(Uuid::new_v4()).await.unwrap();
+        assert_eq!(count, 0, "Non-existent user should have 0 sessions");
+    }
+}
+
+#[cfg(test)]
 mod performance_tests {
     use super::*;
     use std::time::Instant;
