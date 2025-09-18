@@ -54,23 +54,7 @@ export const Chat: React.FC = () => {
 
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto px-8 py-16 space-y-8">
-        {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
-            <div className="flex justify-between items-start">
-              <div className="text-red-800 dark:text-red-400 text-sm">
-                {error}
-              </div>
-              <button
-                onClick={clearError}
-                className="text-red-500 hover:text-red-700 dark:hover:text-red-300"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
+        {errorDisplay}
 
         {!currentConversationId && currentMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">

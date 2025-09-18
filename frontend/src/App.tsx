@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { BranchingChat } from './components/BranchingChat';
 import { ConversationSidebar } from './components/ConversationSidebar';
 import { SearchBar } from './components/SearchBar';
 import { Navigation } from './components/Navigation';
-import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useConversationStore } from './hooks/useConversationStore';
 import { useAuth } from './hooks/useAuth';
-import { Login } from './components/Auth/Login';
-import { Register } from './components/Auth/Register';
+import { Login, Register } from './pages/auth';
+import { Chat } from './pages/chat';
+import { Dashboard } from './pages/dashboard';
 
 type CurrentView = 'chat' | 'analytics';
 
@@ -123,15 +122,13 @@ const AuthenticatedApp: React.FC = () => {
           {currentView === 'chat' ? (
             <ProtectedRoute permission="create_conversations">
               <ErrorBoundary>
-                <BranchingChat />
+                <Chat />
               </ErrorBoundary>
             </ProtectedRoute>
           ) : (
             <ProtectedRoute permission="view_analytics">
               <ErrorBoundary>
-                <div className="h-full overflow-y-auto">
-                  <AnalyticsDashboard />
-                </div>
+                <Dashboard />
               </ErrorBoundary>
             </ProtectedRoute>
           )}

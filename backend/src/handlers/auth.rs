@@ -31,7 +31,10 @@ const MAX_AUTH_ATTEMPTS: u32 = 5;
 const AUTH_WINDOW_DURATION: Duration = Duration::from_secs(300); // 5 minutes
 
 fn check_auth_rate_limit(key: &str) -> Result<(), AppError> {
-    let mut limiter = AUTH_RATE_LIMITER.lock().unwrap();
+    let mut limiter = AUTH_RATE_LIMITER.lock().map_err(|e| {
+        tracing::error!("Auth rate limiter mutex poisoned: {}", e);
+        AppError::InternalServerError("Rate limiting service unavailable".to_string())
+    })?;
     let now = Instant::now();
 
     // Clean up expired entries
@@ -88,12 +91,8 @@ pub async fn register(
 
     // Store session data in SessionManager for proper session tracking
     if let Some(session_manager) = &app_state.session_manager {
-        // Generate a session ID for tracking
-        let session_id = format!(
-            "register_{}_{}",
-            response.user.id,
-            chrono::Utc::now().timestamp()
-        );
+        // Generate a proper UUID session ID for tracking
+        let session_id = uuid::Uuid::new_v4().to_string();
 
         let session_data = crate::services::session::SessionData {
             user_id: response.user.id,
@@ -183,12 +182,8 @@ pub async fn login(
 
     // Store session data in SessionManager for proper session tracking
     if let Some(session_manager) = &app_state.session_manager {
-        // Generate a session ID for tracking
-        let session_id = format!(
-            "login_{}_{}",
-            response.user.id,
-            chrono::Utc::now().timestamp()
-        );
+        // Generate a proper UUID session ID for tracking
+        let session_id = uuid::Uuid::new_v4().to_string();
 
         let session_data = crate::services::session::SessionData {
             user_id: response.user.id,

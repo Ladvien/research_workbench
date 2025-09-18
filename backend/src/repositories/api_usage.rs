@@ -186,7 +186,7 @@ impl ApiUsageRepository {
                 date: row
                     .try_get::<Option<chrono::NaiveDate>, _>("usage_date")
                     .map_err(|e| AppError::Database(e.to_string()))?
-                    .unwrap(),
+                    .ok_or_else(|| AppError::Database("Missing usage_date".to_string()))?,
                 prompt_tokens: row
                     .try_get::<Option<i64>, _>("prompt_tokens")
                     .map_err(|e| AppError::Database(e.to_string()))?
