@@ -1,4 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get the directory name in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables from project root
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 /**
  * @see https://playwright.dev/docs/test-configuration
@@ -15,12 +25,12 @@ export default defineConfig({
   workers: 2,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
-  /* Global setup */
+  /* Global setup for authentication */
   globalSetup: './playwright/global-setup.ts',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:4510',
+    /* Base URL - use workbench.lolzlab.com as per CLAUDE.md */
+    baseURL: process.env.BASE_URL || 'https://workbench.lolzlab.com',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',

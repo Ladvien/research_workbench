@@ -279,9 +279,14 @@ mod integration_tests {
     }
 
     fn create_test_jwt_token() -> Result<String, Box<dyn std::error::Error>> {
-        // Mock JWT token creation for testing
-        // In real tests, this would use the actual JWT signing logic
-        Ok("mock.jwt.token".to_string())
+        // Use real JWT token generation for proper security testing
+        // This ensures integration tests validate actual JWT security
+        use crate::tests::jwt_test_utils;
+
+        match jwt_test_utils::create_test_jwt_token() {
+            Ok(token) => Ok(token),
+            Err(e) => Err(Box::new(e) as Box<dyn std::error::Error>),
+        }
     }
 
     // Mock handlers for testing

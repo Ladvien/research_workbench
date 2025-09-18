@@ -39,7 +39,7 @@ fn create_test_router() -> Router {
 #[tokio::test]
 async fn test_auth_health_endpoint() {
     let app = create_test_router();
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app).expect("Test assertion failed");
 
     let response = server.get("/api/v1/auth/health").await;
 
@@ -54,7 +54,7 @@ async fn test_auth_health_endpoint() {
 #[tokio::test]
 async fn test_password_strength_endpoint_valid() {
     let app = create_test_router();
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app).expect("Test assertion failed");
 
     // Test strong password
     let strong_password = json!({
@@ -69,14 +69,14 @@ async fn test_password_strength_endpoint_valid() {
     assert_eq!(response.status_code(), StatusCode::OK);
 
     let strength_response: Value = response.json();
-    assert!(strength_response["valid"].as_bool().unwrap());
-    assert!(strength_response["strength"]["score"].as_u64().unwrap() >= 70);
+    assert!(strength_response["valid"].as_bool().expect("Test assertion failed"));
+    assert!(strength_response["strength"]["score"].as_u64().expect("Test assertion failed") >= 70);
 }
 
 #[tokio::test]
 async fn test_password_strength_endpoint_weak() {
     let app = create_test_router();
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app).expect("Test assertion failed");
 
     // Test weak password
     let weak_password = json!({
@@ -91,14 +91,14 @@ async fn test_password_strength_endpoint_weak() {
     assert_eq!(response.status_code(), StatusCode::OK);
 
     let strength_response: Value = response.json();
-    assert!(!strength_response["valid"].as_bool().unwrap());
-    assert!(strength_response["strength"]["score"].as_u64().unwrap() < 70);
+    assert!(!strength_response["valid"].as_bool().expect("Test assertion failed"));
+    assert!(strength_response["strength"]["score"].as_u64().expect("Test assertion failed") < 70);
 }
 
 #[tokio::test]
 async fn test_password_strength_endpoint_missing_field() {
     let app = create_test_router();
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app).expect("Test assertion failed");
 
     // Test missing password field
     let invalid_request = json!({
@@ -117,7 +117,7 @@ async fn test_password_strength_endpoint_missing_field() {
 #[tokio::test]
 async fn test_password_strength_various_patterns() {
     let app = create_test_router();
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app).expect("Test assertion failed");
 
     let test_cases = vec![
         // (password, should_be_valid)
@@ -153,7 +153,7 @@ async fn test_password_strength_various_patterns() {
         );
 
         let strength_response: Value = response.json();
-        let is_valid = strength_response["valid"].as_bool().unwrap();
+        let is_valid = strength_response["valid"].as_bool().expect("Test assertion failed");
 
         assert_eq!(
             is_valid, should_be_valid,
@@ -166,7 +166,7 @@ async fn test_password_strength_various_patterns() {
 #[tokio::test]
 async fn test_password_strength_edge_cases() {
     let app = create_test_router();
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app).expect("Test assertion failed");
 
     // Test very long password
     let long_password = "A".repeat(100) + "1!a";
@@ -211,7 +211,7 @@ async fn test_password_strength_edge_cases() {
 #[tokio::test]
 async fn test_invalid_json_requests() {
     let app = create_test_router();
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app).expect("Test assertion failed");
 
     // Test malformed JSON
     let response = server
@@ -235,7 +235,7 @@ async fn test_invalid_json_requests() {
 #[tokio::test]
 async fn test_content_type_handling() {
     let app = create_test_router();
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app).expect("Test assertion failed");
 
     // Test with correct content type
     let response = server
@@ -260,7 +260,7 @@ async fn test_content_type_handling() {
 #[tokio::test]
 async fn test_multiple_password_strength_requests() {
     let app = create_test_router();
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app).expect("Test assertion failed");
 
     let num_requests = 10;
 
@@ -286,7 +286,7 @@ async fn test_multiple_password_strength_requests() {
 
         let response_data: Value = response.json();
         assert!(
-            response_data["valid"].as_bool().unwrap(),
+            response_data["valid"].as_bool().expect("Test assertion failed"),
             "Password for request {} should be valid",
             i
         );
@@ -296,7 +296,7 @@ async fn test_multiple_password_strength_requests() {
 #[tokio::test]
 async fn test_response_headers() {
     let app = create_test_router();
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app).expect("Test assertion failed");
 
     let response = server.get("/api/v1/auth/health").await;
 
@@ -306,14 +306,14 @@ async fn test_response_headers() {
     // Should have content-type header
     assert!(headers.get("content-type").is_some());
 
-    let content_type = headers.get("content-type").unwrap().to_str().unwrap();
+    let content_type = headers.get("content-type").expect("Test assertion failed").to_str().expect("Test assertion failed");
     assert!(content_type.contains("application/json"));
 }
 
 #[tokio::test]
 async fn test_cors_headers() {
     let app = create_test_router();
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app).expect("Test assertion failed");
 
     // Test OPTIONS request for CORS preflight
     let response = server
@@ -329,7 +329,7 @@ async fn test_cors_headers() {
 #[tokio::test]
 async fn test_endpoint_routing() {
     let app = create_test_router();
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app).expect("Test assertion failed");
 
     // Test valid endpoints
     let valid_endpoints = vec![
@@ -380,7 +380,7 @@ async fn test_endpoint_routing() {
 #[tokio::test]
 async fn test_method_not_allowed() {
     let app = create_test_router();
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app).expect("Test assertion failed");
 
     // Test wrong HTTP method for health endpoint
     let response = server.post("/api/v1/auth/health").json(&json!({})).await;
@@ -396,7 +396,7 @@ async fn test_method_not_allowed() {
 #[tokio::test]
 async fn test_large_request_handling() {
     let app = create_test_router();
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app).expect("Test assertion failed");
 
     // Test with very large password
     let large_password = "A".repeat(10000) + "1!a";

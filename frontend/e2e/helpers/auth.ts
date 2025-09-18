@@ -1,4 +1,5 @@
 import { Page } from '@playwright/test';
+import { TEST_CONFIG } from '../config/test-config';
 
 /**
  * Helper function to ensure user is logged in
@@ -6,9 +7,8 @@ import { Page } from '@playwright/test';
  */
 export async function login(page: Page) {
   // Navigate to the app if not already there
-  const baseURL = 'http://localhost:4510';
-  if (!page.url().startsWith(baseURL)) {
-    await page.goto(baseURL);
+  if (!page.url().startsWith(TEST_CONFIG.BASE_URL)) {
+    await page.goto(TEST_CONFIG.BASE_URL);
     await page.waitForLoadState('networkidle');
   }
 
@@ -30,8 +30,8 @@ export async function login(page: Page) {
       .catch(() => false);
 
     if (hasLoginForm) {
-      await page.fill('input[type="email"]', 'cthomasbrittain@yahoo.com');
-      await page.fill('input[type="password"]', 'IVMPEscH33EhfnlPZcAwpkfR');
+      await page.fill('input[type="email"]', TEST_CONFIG.TEST_USER_EMAIL);
+      await page.fill('input[type="password"]', TEST_CONFIG.TEST_USER_PASSWORD);
       await page.click('button:has-text("Sign in")');
 
       // Wait for login with longer timeout
@@ -39,6 +39,52 @@ export async function login(page: Page) {
     } else {
       throw new Error('Login form not found and not logged in');
     }
+  }
+}
+
+/**
+ * Helper function to login with admin credentials
+ */
+export async function loginAsAdmin(page: Page) {
+  // Navigate to the app
+  await page.goto(TEST_CONFIG.BASE_URL);
+  await page.waitForLoadState('networkidle');
+
+  // Check for login form
+  const hasLoginForm = await page.locator('input[type="email"]')
+    .isVisible({ timeout: 2000 })
+    .catch(() => false);
+
+  if (hasLoginForm) {
+    await page.fill('input[type="email"]', TEST_CONFIG.ADMIN_EMAIL);
+    await page.fill('input[type="password"]', TEST_CONFIG.ADMIN_PASSWORD);
+    await page.click('button:has-text("Sign in")');
+
+    // Wait for login with longer timeout
+    await page.waitForSelector('textarea[placeholder*="Type your message"]', { timeout: 20000 });
+  } else {
+    throw new Error('Login form not found');
+  }
+}
+
+/**
+ * Helper function to logout current user
+ */
+export async function logout(page: Page) {
+  // Look for logout button or user menu
+  const userMenu = page.locator('[data-testid="user-menu"], button[aria-label*="User"], button:has-text("Logout")');
+
+  if (await userMenu.isVisible({ timeout: 2000 })) {
+    await userMenu.click();
+
+    // Look for logout option
+    const logoutButton = page.locator('button:has-text("Logout"), button:has-text("Sign out")');
+    if (await logoutButton.isVisible({ timeout: 2000 })) {
+      await logoutButton.click();
+    }
+
+    // Wait for redirect to login page
+    await page.waitForSelector('input[type="email"]', { timeout: 10000 });
   }
 }
 

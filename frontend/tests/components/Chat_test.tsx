@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { Chat } from '../../src/components/Chat';
 import { useConversationStore } from '../../src/hooks/useConversationStore';
 import type { Message } from '../../src/types';
 
 // Mock the Message component to simplify testing
 vi.mock('../../src/components/Message', () => ({
-  Message: ({ message }: { message: any }) => (
+  Message: ({ message }: { message: Message }) => (
     <div data-testid={`message-${message.id}`} data-role={message.role}>
       {message.content}
     </div>

@@ -11,12 +11,13 @@ mod middleware;
 mod models;
 mod openai;
 mod repositories;
+mod seed;
 mod services;
 
 use app_state::AppState;
 use config::AppConfig;
 use database::Database;
-use middleware::rate_limit::api_rate_limit_middleware;
+use middleware::{csrf::csrf_middleware, rate_limit::api_rate_limit_middleware};
 use services::{
     auth::AuthService, redis_session_store::PersistentSessionStore, session::SessionManager,
     DataAccessLayer,
@@ -55,16 +56,27 @@ async fn main() -> anyhow::Result<()> {
     } else {
         // DATABASE_URL is required - fail if not provided
         let database_url = std::env::var("DATABASE_URL")
-            .expect("DATABASE_URL environment variable is required but not set. Please set DATABASE_URL to a valid PostgreSQL connection string.");
+            .map_err(|_| anyhow::anyhow!("DATABASE_URL environment variable is required but not set. Please set DATABASE_URL to a valid PostgreSQL connection string."))?;
 
         // Validate DATABASE_URL format
         if !database_url.starts_with("postgresql://") && !database_url.starts_with("postgres://") {
-            panic!("DATABASE_URL must be a valid PostgreSQL connection string starting with postgresql:// or postgres://");
+            return Err(anyhow::anyhow!("DATABASE_URL must be a valid PostgreSQL connection string starting with postgresql:// or postgres://"));
         }
 
         tracing::info!("Connecting to database...");
         Database::new(&database_url).await?
     };
+
+    // Initialize database schema and seed test users
+    if let Err(e) = seed::init_database_schema(&database.pool).await {
+        tracing::warn!("Failed to initialize database schema: {}. This is expected if tables already exist.", e);
+    }
+
+    // Seed test users (only in development)
+    if cfg!(debug_assertions) {
+        tracing::info!("Seeding test users for development...");
+        seed::seed_test_users(&database.pool).await?;
+    }
 
     // Initialize data access layer
     let dal = DataAccessLayer::new(database.clone());
@@ -116,7 +128,7 @@ async fn main() -> anyhow::Result<()> {
         )));
 
     // Initialize auth service with session manager
-    let auth_service = AuthService::new(dal.users().clone(), config.jwt_config.clone())
+    let auth_service = AuthService::new(dal.users().clone(), dal.refresh_tokens().clone(), config.jwt_config.clone())
         .with_session_manager(session_manager.clone());
 
     // Create services
@@ -130,6 +142,7 @@ async fn main() -> anyhow::Result<()> {
         chat_service,
         dal,
         config.clone(),
+        Some(session_manager.clone()),
     );
 
     tracing::info!("Starting Workbench Server on {}", config.bind_address);
@@ -154,7 +167,7 @@ async fn main() -> anyhow::Result<()> {
     });
 
     // Build the application with all routes
-    let app = create_app(app_state, session_layer, &config).await?;
+    let app = create_app_internal(app_state, session_layer, &config).await?;
 
     // Create listener
     let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;
@@ -165,7 +178,16 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn create_app(
+#[cfg(test)]
+pub async fn create_app(
+    app_state: AppState,
+    session_layer: SessionManagerLayer<PersistentSessionStore>,
+    config: &AppConfig,
+) -> anyhow::Result<Router> {
+    create_app_internal(app_state, session_layer, config).await
+}
+
+async fn create_app_internal(
     app_state: AppState,
     session_layer: SessionManagerLayer<PersistentSessionStore>,
     config: &AppConfig,
@@ -188,10 +210,18 @@ async fn create_app(
             axum::routing::post(handlers::auth::logout),
         )
         .route("/api/v1/auth/me", axum::routing::get(handlers::auth::me))
+        .route(
+            "/api/v1/auth/refresh",
+            axum::routing::post(handlers::auth::refresh_token),
+        )
         .route("/api/v1/auth/health", get(handlers::auth::auth_health))
         .route(
             "/api/v1/auth/password-strength",
             axum::routing::post(handlers::auth::check_password_strength),
+        )
+        .route(
+            "/api/v1/auth/csrf-token",
+            axum::routing::get(middleware::csrf::get_csrf_token),
         )
         .route(
             "/api/v1/auth/change-password",
@@ -309,10 +339,24 @@ async fn create_app(
             "/api/v1/models/config/:model_id",
             get(handlers::models::get_model_config),
         )
+        // Analytics endpoints (protected)
+        .route(
+            "/api/analytics/overview",
+            axum::routing::get(handlers::analytics::get_analytics_overview),
+        )
+        .route(
+            "/api/analytics/health",
+            axum::routing::get(handlers::analytics::analytics_health),
+        )
         // Add application state
         .with_state(app_state.clone())
         // Add session middleware
         .layer(session_layer)
+        // Add CSRF protection middleware
+        .layer(axum_middleware::from_fn_with_state(
+            app_state.clone(),
+            csrf_middleware,
+        ))
         // Add API rate limiting middleware with Redis and in-memory fallback
         .layer(axum_middleware::from_fn_with_state(
             app_state.clone(),
@@ -328,7 +372,11 @@ async fn create_app(
 
             tower_http::cors::CorsLayer::new()
                 .allow_origin(
-                    origins.unwrap_or_else(|_| vec!["http://localhost:4510".parse().unwrap()]),
+                    origins.unwrap_or_else(|_| {
+                        vec!["http://localhost:4510"
+                            .parse()
+                            .unwrap_or_else(|_| "http://localhost:4510".parse().expect("Default CORS origin should always parse"))]
+                    }),
                 )
                 .allow_methods([
                     axum::http::Method::GET,

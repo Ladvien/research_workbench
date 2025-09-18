@@ -101,6 +101,29 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Auth API functions
 class AuthAPI {
+  private csrfToken: string | null = null;
+
+  // Get CSRF token from server
+  private async getCSRFToken(): Promise<string | null> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/csrf-token`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        this.csrfToken = data.csrf_token;
+        return this.csrfToken;
+      }
+    } catch (error) {
+      console.warn('Failed to get CSRF token:', error);
+    }
+    return null;
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -108,12 +131,27 @@ class AuthAPI {
     try {
       const fullUrl = `${API_BASE_URL}${endpoint}`;
       console.log('AuthAPI: Making request to:', fullUrl, 'with options:', options);
+
+      // Get CSRF token for non-GET requests
+      if (options.method && options.method !== 'GET') {
+        if (!this.csrfToken) {
+          await this.getCSRFToken();
+        }
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...options.headers as Record<string, string>,
+      };
+
+      // Add CSRF token header for unsafe methods
+      if (this.csrfToken && options.method && options.method !== 'GET') {
+        headers['X-CSRF-Token'] = this.csrfToken;
+      }
+
       const response = await fetch(fullUrl, {
-        credentials: 'include', // Include cookies for JWT
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+        credentials: 'include', // Include cookies for JWT and CSRF
+        headers,
         ...options,
       });
 
@@ -122,6 +160,41 @@ class AuthAPI {
 
       if (!response.ok) {
         const errorText = await response.text();
+
+        // If CSRF validation failed, clear token and retry once
+        if (response.status === 403 && errorText.includes('CSRF') && this.csrfToken) {
+          console.log('CSRF token invalid, refreshing and retrying...');
+          this.csrfToken = null;
+
+          // Retry the request once with new token
+          if (options.method && options.method !== 'GET') {
+            await this.getCSRFToken();
+            if (this.csrfToken) {
+              headers['X-CSRF-Token'] = this.csrfToken;
+              const retryResponse = await fetch(fullUrl, {
+                credentials: 'include',
+                headers,
+                ...options,
+              });
+
+              if (retryResponse.ok) {
+                const retryContentType = retryResponse.headers.get('content-type');
+                if (!retryContentType?.includes('application/json')) {
+                  return {
+                    data: {} as T,
+                    status: retryResponse.status,
+                  };
+                }
+                const retryData = await retryResponse.json();
+                return {
+                  data: retryData,
+                  status: retryResponse.status,
+                };
+              }
+            }
+          }
+        }
+
         return {
           error: errorText || `HTTP ${response.status}`,
           status: response.status,
@@ -201,9 +274,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       if (response.data) {
-        // Backend returns { message: "Login successful", user: {...} }
+        // Backend returns { message: "Login successful", user: {...}, csrf_token: "..." }
         // Extract the user from the response
         const user = response.data.user || response.data;
+
+        // Store CSRF token if provided
+        if (response.data.csrf_token) {
+          authAPI.csrfToken = response.data.csrf_token;
+        }
+
         dispatch({ type: 'AUTH_SUCCESS', payload: user });
         return true;
       }
@@ -229,9 +308,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       if (response.data) {
-        // Backend returns { message: "Registration successful", user: {...} }
+        // Backend returns { message: "Registration successful", user: {...}, csrf_token: "..." }
         // Extract the user from the response
         const user = response.data.user || response.data;
+
+        // Store CSRF token if provided
+        if (response.data.csrf_token) {
+          authAPI.csrfToken = response.data.csrf_token;
+        }
+
         dispatch({ type: 'AUTH_SUCCESS', payload: user });
         return true;
       }

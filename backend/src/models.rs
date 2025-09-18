@@ -11,6 +11,9 @@ pub struct User {
     pub email: String,
     pub username: String,
     pub password_hash: String,
+    // TODO: Uncomment after database migration adds lockout fields
+    // pub failed_attempts: i32,
+    // pub locked_until: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -214,13 +217,30 @@ pub struct ChangePasswordRequest {
     pub new_password: String,
 }
 
+#[derive(Debug, Deserialize, Validate)]
+pub struct RefreshTokenRequest {
+    #[validate(length(min = 1, message = "Refresh token is required"))]
+    pub refresh_token: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct LoginResponse {
     pub user: UserResponse,
     pub access_token: String,
+    pub refresh_token: String,
 }
 
-#[derive(Debug, Serialize)]
+// Refresh token database model
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct RefreshToken {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub token_hash: String,
+    pub expires_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct UserResponse {
     pub id: Uuid,
     pub email: String,
@@ -264,6 +284,7 @@ pub struct RegisterRequest {
 pub struct RegisterResponse {
     pub user: UserResponse,
     pub access_token: String,
+    pub refresh_token: String,
 }
 
 // File attachment DTOs

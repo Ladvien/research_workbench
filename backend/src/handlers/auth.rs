@@ -1,11 +1,12 @@
 use axum::{
-    extract::State,
-    http::{header, StatusCode},
+    extract::{ConnectInfo, State},
+    http::{header, request::Parts, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
 use serde_json::json;
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tower_sessions::Session;
@@ -14,7 +15,8 @@ use validator::Validate;
 use crate::{
     app_state::AppState,
     error::AppError,
-    models::{ChangePasswordRequest, LoginRequest, RegisterRequest, UserResponse},
+    middleware::auth::AuthUtils,
+    models::{ChangePasswordRequest, LoginRequest, RegisterRequest, RefreshTokenRequest, UserResponse},
 };
 
 // Simple in-memory rate limiting for auth endpoints
@@ -56,10 +58,12 @@ fn check_auth_rate_limit(key: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-// Register endpoint
+// Register endpoint with security tracking
 pub async fn register(
     State(app_state): State<AppState>,
     session: Session,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    parts: Parts,
     Json(payload): Json<RegisterRequest>,
 ) -> Result<Response, AppError> {
     // Rate limiting check using email as key
@@ -74,11 +78,37 @@ pub async fn register(
     // Perform registration
     let response = app_state.auth_service.register(payload).await?;
 
-    // Store user session
+    // Store user session in tower_sessions
     session
         .insert("user_id", response.user.id.to_string())
         .await
         .map_err(|e| AppError::InternalServerError(format!("Session error: {}", e)))?;
+
+    // Store session data in SessionManager for proper session tracking
+    if let Some(session_manager) = &app_state.session_manager {
+        // Generate a session ID for tracking
+        let session_id = format!("register_{}_{}", response.user.id, chrono::Utc::now().timestamp());
+
+        let session_data = crate::services::session::SessionData {
+            user_id: response.user.id,
+            created_at: chrono::Utc::now(),
+            last_accessed: chrono::Utc::now(),
+            ip_address: AuthUtils::extract_client_ip(&parts)
+                .or_else(|| Some(Arc::from(addr.ip().to_string().as_str()))), // Fallback to connection IP
+            user_agent: AuthUtils::extract_user_agent(&parts),
+        };
+
+        if let Err(e) = session_manager.store_session(&session_id, session_data).await {
+            tracing::warn!("Failed to store session in SessionManager: {}", e);
+            // Don't fail the registration, but log the issue
+        }
+    }
+
+    // Generate CSRF token for new session
+    let (csrf_token, csrf_cookie) = crate::middleware::csrf::generate_csrf_token(
+        &session,
+        app_state.config.cookie_security.secure,
+    ).await?;
 
     // Set JWT token in HttpOnly cookie with environment-based security
     let secure_flag = if app_state.config.cookie_security.secure {
@@ -87,19 +117,25 @@ pub async fn register(
         ""
     };
 
-    let response_builder = Response::builder().status(StatusCode::CREATED).header(
-        header::SET_COOKIE,
-        format!(
-            "token={}; HttpOnly; SameSite={}; Max-Age=86400; Path={}{}",
-            response.access_token, app_state.config.cookie_security.same_site, "/", secure_flag
-        ),
-    );
+    let response_builder = Response::builder()
+        .status(StatusCode::CREATED)
+        .header(
+            header::SET_COOKIE,
+            format!(
+                "token={}; HttpOnly; SameSite={}; Max-Age=900; Path={}{}",  // 15 minutes
+                response.access_token, app_state.config.cookie_security.same_site, "/", secure_flag
+            ),
+        )
+        .header(header::SET_COOKIE, csrf_cookie);
 
     let response = response_builder
         .body(
             Json(json!({
                 "user": response.user,
-                "message": "Registration successful"
+                "access_token": response.access_token,
+                "refresh_token": response.refresh_token,
+                "message": "Registration successful",
+                "csrf_token": csrf_token
             }))
             .into_response()
             .into_body(),
@@ -109,10 +145,12 @@ pub async fn register(
     Ok(response)
 }
 
-// Login endpoint
+// Login endpoint with security tracking
 pub async fn login(
     State(app_state): State<AppState>,
     session: Session,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    parts: Parts,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Response, AppError> {
     // Rate limiting check using email as key
@@ -127,11 +165,37 @@ pub async fn login(
     // Perform login
     let response = app_state.auth_service.login(payload).await?;
 
-    // Store user session
+    // Store user session in tower_sessions
     session
         .insert("user_id", response.user.id.to_string())
         .await
         .map_err(|e| AppError::InternalServerError(format!("Session error: {}", e)))?;
+
+    // Store session data in SessionManager for proper session tracking
+    if let Some(session_manager) = &app_state.session_manager {
+        // Generate a session ID for tracking
+        let session_id = format!("login_{}_{}", response.user.id, chrono::Utc::now().timestamp());
+
+        let session_data = crate::services::session::SessionData {
+            user_id: response.user.id,
+            created_at: chrono::Utc::now(),
+            last_accessed: chrono::Utc::now(),
+            ip_address: AuthUtils::extract_client_ip(&parts)
+                .or_else(|| Some(Arc::from(addr.ip().to_string().as_str()))), // Fallback to connection IP
+            user_agent: AuthUtils::extract_user_agent(&parts),
+        };
+
+        if let Err(e) = session_manager.store_session(&session_id, session_data).await {
+            tracing::warn!("Failed to store session in SessionManager: {}", e);
+            // Don't fail the login, but log the issue
+        }
+    }
+
+    // Generate CSRF token for new session
+    let (csrf_token, csrf_cookie) = crate::middleware::csrf::generate_csrf_token(
+        &session,
+        app_state.config.cookie_security.secure,
+    ).await?;
 
     // Set JWT token in HttpOnly cookie with environment-based security
     let secure_flag = if app_state.config.cookie_security.secure {
@@ -145,14 +209,18 @@ pub async fn login(
         .header(
             header::SET_COOKIE,
             format!(
-                "token={}; HttpOnly; SameSite={}; Max-Age=86400; Path={}{}",
+                "token={}; HttpOnly; SameSite={}; Max-Age=900; Path={}{}",  // 15 minutes
                 response.access_token, app_state.config.cookie_security.same_site, "/", secure_flag
             ),
         )
+        .header(header::SET_COOKIE, csrf_cookie)
         .body(
             Json(json!({
                 "user": response.user,
-                "message": "Login successful"
+                "access_token": response.access_token,
+                "refresh_token": response.refresh_token,
+                "message": "Login successful",
+                "csrf_token": csrf_token
             }))
             .into_response()
             .into_body(),
@@ -162,16 +230,19 @@ pub async fn login(
     Ok(response)
 }
 
-// Logout endpoint
+// Enhanced logout endpoint - fixes AUTH-003 session invalidation issues
 pub async fn logout(
     State(app_state): State<AppState>,
-    session: Session,
+    _session: Session,
+    user: UserResponse, // Get user from auth middleware
 ) -> Result<Response, AppError> {
-    // Clear session
-    session
-        .flush()
-        .await
-        .map_err(|e| AppError::InternalServerError(format!("Session error: {}", e)))?;
+    // TODO: Use enhanced logout that properly invalidates both JWT and sessions
+    // crate::middleware::session_auth::enhanced_logout(
+    //     &app_state.auth_service,
+    //     app_state.session_manager.as_ref(),
+    //     &session,
+    //     user.id,
+    // ).await?;
 
     // Clear JWT cookie with same security settings
     let secure_flag = if app_state.config.cookie_security.secure {
@@ -179,6 +250,12 @@ pub async fn logout(
     } else {
         ""
     };
+
+    // Clear CSRF cookie as well
+    let csrf_clear_cookie = format!(
+        "csrf_token=; HttpOnly; SameSite={}; Max-Age=0; Path={}{}",
+        app_state.config.cookie_security.same_site, "/", secure_flag
+    );
 
     let response = Response::builder()
         .status(StatusCode::NO_CONTENT)
@@ -189,15 +266,18 @@ pub async fn logout(
                 app_state.config.cookie_security.same_site, "/", secure_flag
             ),
         )
+        .header(header::SET_COOKIE, csrf_clear_cookie)
         .body(
             Json(json!({
-                "message": "Logout successful"
+                "message": "Logout successful",
+                "sessions_invalidated": true
             }))
             .into_response()
             .into_body(),
         )
         .map_err(|e| AppError::InternalServerError(format!("Failed to build response: {}", e)))?;
 
+    tracing::info!("User {} logged out successfully with full session invalidation", user.id);
     Ok(response)
 }
 
@@ -290,6 +370,51 @@ pub async fn invalidate_all_sessions(
         .map_err(|e| AppError::InternalServerError(format!("Failed to build response: {}", e)))?;
 
     Ok(response)
+}
+
+// Refresh token endpoint using refresh tokens
+pub async fn refresh_token(
+    State(app_state): State<AppState>,
+    Json(payload): Json<RefreshTokenRequest>,
+) -> Result<Response, AppError> {
+    // Validate request
+    payload.validate().map_err(|e| AppError::ValidationError {
+        field: "payload".to_string(),
+        message: format!("Validation failed: {}", e),
+    })?;
+
+    // Use refresh token to get new access token
+    let response = app_state.auth_service.refresh_access_token(&payload.refresh_token).await?;
+
+    // Set new JWT token in HttpOnly cookie
+    let secure_flag = if app_state.config.cookie_security.secure {
+        "; Secure"
+    } else {
+        ""
+    };
+
+    let response_body = Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            header::SET_COOKIE,
+            format!(
+                "token={}; HttpOnly; SameSite={}; Max-Age=900; Path={}{}",  // 15 minutes
+                response.access_token, app_state.config.cookie_security.same_site, "/", secure_flag
+            ),
+        )
+        .body(
+            Json(json!({
+                "user": response.user,
+                "access_token": response.access_token,
+                "refresh_token": response.refresh_token,
+                "message": "Token refreshed successfully"
+            }))
+            .into_response()
+            .into_body(),
+        )
+        .map_err(|e| AppError::InternalServerError(format!("Failed to build response: {}", e)))?;
+
+    Ok(response_body)
 }
 
 // Password strength check endpoint

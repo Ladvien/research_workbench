@@ -53,7 +53,7 @@ export const Chat: React.FC = () => {
       </div>
 
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-8 py-16 space-y-8">
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
             <div className="flex justify-between items-start">
@@ -104,8 +104,10 @@ export const Chat: React.FC = () => {
 
         {/* Display streaming message */}
         {streamingMessage && (
-          <div className="flex justify-start mb-4" data-testid="streaming-message">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm max-w-[80%]">
+          <div className="flex w-full justify-center" data-testid="streaming-message">
+            <div className="w-full max-w-5xl px-12">
+              <div className="flex justify-start">
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5 shadow-sm max-w-[70%]">
               <div className="text-xs font-medium mb-2 text-gray-500 dark:text-gray-400 flex items-center">
                 <span>Assistant</span>
                 {isStreaming && (
@@ -118,31 +120,36 @@ export const Chat: React.FC = () => {
               <div className="prose prose-sm dark:prose-invert max-w-none" data-testid="streaming-content">
                 {streamingMessage.content || <span className="text-gray-400">Waiting for response...</span>}
                 {isStreaming && <span className="animate-pulse bg-blue-500 text-blue-500 ml-1">|</span>}
+                </div>
+                {isStreaming && (
+                  <button
+                    onClick={stopStreaming}
+                    className="ml-2 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    title="Stop generation"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6h12v12H6z" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
-            {isStreaming && (
-              <button
-                onClick={stopStreaming}
-                className="ml-2 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                title="Stop generation"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6h12v12H6z" />
-                </svg>
-              </button>
-            )}
           </div>
         )}
 
         {isLoading && (
-          <div className="flex justify-start mb-4">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm max-w-[80%]">
+          <div className="flex w-full justify-center">
+            <div className="w-full max-w-5xl px-12">
+              <div className="flex justify-start">
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5 shadow-sm max-w-[70%]">
               <div className="text-xs font-medium mb-2 text-gray-500 dark:text-gray-400">
                 Assistant
               </div>
-              <div className="flex items-center space-x-2">
-                <LoadingDots size="md" variant="default" />
-                <span className="text-sm text-gray-500 dark:text-gray-400">Thinking...</span>
+                <div className="flex items-center space-x-2">
+                  <LoadingDots size="md" variant="default" />
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Thinking...</span>
+                </div>
+                </div>
               </div>
             </div>
           </div>

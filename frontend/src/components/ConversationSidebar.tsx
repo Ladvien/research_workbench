@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useConversationStore } from '../hooks/useConversationStore';
 import { ConversationSkeleton, LoadingSpinner } from './LoadingSpinner';
 import { Conversation } from '../types';
@@ -172,9 +172,9 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       // The loadConversation function will handle 404 errors and clear invalid IDs
       loadConversation(currentConversationId);
     }
-  }, []); // Empty dependency to run only once on mount
+  }, [loadConversations, currentConversationId, loadConversation]); // Add proper dependencies
 
-  const handleNewConversation = async () => {
+  const handleNewConversation = useCallback(async () => {
     try {
       await createConversation({
         title: 'New Conversation',
@@ -183,9 +183,9 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     } catch (error) {
       console.error('Failed to create conversation:', error);
     }
-  };
+  }, [createConversation]);
 
-  const handleRenameConversation = async (id: string, newTitle: string) => {
+  const handleRenameConversation = useCallback(async (id: string, newTitle: string) => {
     setOperationLoadingId(id);
     setOperationType('rename');
     try {
@@ -196,13 +196,13 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       setOperationLoadingId(null);
       setOperationType(null);
     }
-  };
+  }, [updateConversationTitle]);
 
-  const handleDeleteConversation = (id: string) => {
+  const handleDeleteConversation = useCallback((id: string) => {
     setShowDeleteDialog(id);
-  };
+  }, []);
 
-  const confirmDelete = async () => {
+  const confirmDelete = useCallback(async () => {
     if (!showDeleteDialog) return;
 
     setOperationLoadingId(showDeleteDialog);
@@ -217,7 +217,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       setOperationLoadingId(null);
       setOperationType(null);
     }
-  };
+  }, [showDeleteDialog, deleteConversation]);
 
   if (!isOpen) {
     return (

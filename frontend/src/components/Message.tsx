@@ -14,10 +14,12 @@ export const Message: React.FC<MessageProps> = ({ message }) => {
   const isSystem = role === 'system';
 
   return (
-    <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div
-        className={`
-          max-w-[80%] px-4 py-3 rounded-lg shadow-sm
+    <div className={`flex w-full justify-center`}>
+      <div className="w-full max-w-5xl px-12">
+        <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+          <div
+            className={`
+              max-w-[70%] px-5 py-4 rounded-lg shadow-sm
           ${isUser
             ? 'bg-blue-500 text-white ml-auto'
             : isAssistant
@@ -49,6 +51,7 @@ export const Message: React.FC<MessageProps> = ({ message }) => {
             hour: '2-digit',
             minute: '2-digit'
           })}
+        </div>
         </div>
       </div>
     </div>

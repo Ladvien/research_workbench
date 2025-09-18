@@ -371,7 +371,7 @@ impl MessageRepository {
             if let Some(parent_id) = message.parent_id {
                 parent_map
                     .entry(parent_id)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(message);
             }
         }

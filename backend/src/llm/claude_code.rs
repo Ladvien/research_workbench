@@ -25,20 +25,30 @@ pub struct ClaudeCodeService {
 #[derive(Debug, Deserialize)]
 struct ClaudeCodeResponse {
     #[serde(rename = "type")]
+    #[allow(dead_code)]
     response_type: String,
+    #[allow(dead_code)]
     subtype: Option<String>,
+    #[allow(dead_code)]
     is_error: Option<bool>,
+    #[allow(dead_code)]
     duration_ms: Option<u64>,
+    #[allow(dead_code)]
     duration_api_ms: Option<u64>,
+    #[allow(dead_code)]
     num_turns: Option<u32>,
     result: String,
+    #[allow(dead_code)]
     session_id: Option<String>,
+    #[allow(dead_code)]
     total_cost_usd: Option<f64>,
     #[serde(default)]
     usage: Option<ClaudeCodeUsage>,
     #[serde(rename = "modelUsage")]
     model_usage: Option<std::collections::HashMap<String, ClaudeCodeModelUsage>>,
+    #[allow(dead_code)]
     permission_denials: Option<Vec<serde_json::Value>>,
+    #[allow(dead_code)]
     uuid: Option<String>,
 }
 
@@ -80,12 +90,54 @@ impl ClaudeCodeService {
         self
     }
 
+    async fn check_claude_cli_availability(&self) -> Result<(), AppError> {
+        // Check if Claude CLI is available
+        let claude_path = if cfg!(target_os = "macos") {
+            "/opt/homebrew/bin/claude"
+        } else {
+            "/home/ladvien/.npm-global/bin/claude"
+        };
+
+        let output = std::process::Command::new(claude_path)
+            .arg("--version")
+            .output();
+
+        match output {
+            Ok(output) if output.status.success() => {
+                tracing::debug!("Claude CLI available: {}", String::from_utf8_lossy(&output.stdout));
+                Ok(())
+            }
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                Err(AppError::InternalServerError(format!(
+                    "Claude CLI failed version check: {}",
+                    stderr
+                )))
+            }
+            Err(e) => {
+                Err(AppError::InternalServerError(format!(
+                    "Claude CLI not found at {}: {}",
+                    claude_path, e
+                )))
+            }
+        }
+    }
+
     async fn execute_claude_command(
         &self,
         prompt: &str,
         stream: bool,
     ) -> Result<(tokio::process::Child, String), AppError> {
-        let mut cmd = Command::new("/home/ladvien/.npm-global/bin/claude");
+        // Check CLI availability first
+        self.check_claude_cli_availability().await?;
+
+        let claude_path = if cfg!(target_os = "macos") {
+            "/opt/homebrew/bin/claude"
+        } else {
+            "/home/ladvien/.npm-global/bin/claude"
+        };
+
+        let mut cmd = Command::new(claude_path);
 
         // Add basic flags
         cmd.arg("--print"); // Non-interactive mode
@@ -120,10 +172,16 @@ impl ClaudeCodeService {
         cmd.arg(prompt);
 
         // Configure stdio and working directory
+        let working_dir = if cfg!(target_os = "macos") {
+            "/Users/ladvien/research_workbench"
+        } else {
+            "/mnt/datadrive_m2/research_workbench"
+        };
+
         cmd.stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .stdin(Stdio::null())
-            .current_dir("/mnt/datadrive_m2/research_workbench");
+            .current_dir(working_dir);
 
         // Set up a minimal, clean environment for Claude CLI
         // Only preserve essential environment variables needed for Claude authentication
@@ -153,7 +211,13 @@ impl ClaudeCodeService {
         }
 
         // Get the final command for debugging
-        let args: Vec<String> = std::iter::once("/home/ladvien/.npm-global/bin/claude".to_string())
+        let claude_path = if cfg!(target_os = "macos") {
+            "/opt/homebrew/bin/claude"
+        } else {
+            "/home/ladvien/.npm-global/bin/claude"
+        };
+
+        let args: Vec<String> = std::iter::once(claude_path.to_string())
             .chain(
                 cmd.as_std()
                     .get_args()
@@ -314,8 +378,14 @@ impl LLMService for ClaudeCodeService {
             tracing::error!("Claude Code CLI failed with status {}", output.status);
             tracing::error!("Claude Code CLI stderr: '{}'", stderr);
             tracing::error!("Claude Code CLI stdout: '{}'", stdout);
+            let working_dir = if cfg!(target_os = "macos") {
+                "/Users/ladvien/research_workbench"
+            } else {
+                "/mnt/datadrive_m2/research_workbench"
+            };
             tracing::error!(
-                "Claude Code CLI working directory: /mnt/datadrive_m2/research_workbench"
+                "Claude Code CLI working directory: {}",
+                working_dir
             );
             tracing::error!("Claude Code CLI command: {}", command_debug);
 

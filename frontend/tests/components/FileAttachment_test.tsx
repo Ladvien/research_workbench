@@ -1,17 +1,18 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import FileAttachment, { AttachmentFile } from '../../src/components/FileAttachment';
 
 // Mock lucide-react icons
 vi.mock('lucide-react', () => ({
-  Upload: ({ className, ...props }: any) => <div data-testid="upload-icon" className={className} {...props} />,
-  X: ({ className, ...props }: any) => <div data-testid="x-icon" className={className} {...props} />,
-  File: ({ className, ...props }: any) => <div data-testid="file-icon" className={className} {...props} />,
-  Image: ({ className, ...props }: any) => <div data-testid="image-icon" className={className} {...props} />,
-  FileText: ({ className, ...props }: any) => <div data-testid="filetext-icon" className={className} {...props} />,
-  Download: ({ className, ...props }: any) => <div data-testid="download-icon" className={className} {...props} />,
-  Trash2: ({ className, ...props }: any) => <div data-testid="trash-icon" className={className} {...props} />,
+  Upload: ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div data-testid="upload-icon" className={className} {...props} />,
+  X: ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div data-testid="x-icon" className={className} {...props} />,
+  File: ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div data-testid="file-icon" className={className} {...props} />,
+  Image: ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div data-testid="image-icon" className={className} {...props} />,
+  FileText: ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div data-testid="filetext-icon" className={className} {...props} />,
+  Download: ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div data-testid="download-icon" className={className} {...props} />,
+  Trash2: ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div data-testid="trash-icon" className={className} {...props} />,
 }));
 
 const mockAttachments: AttachmentFile[] = [

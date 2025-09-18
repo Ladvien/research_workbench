@@ -5,7 +5,18 @@ import { configure, cleanup } from '@testing-library/react';
 import { server } from './mocks/server';
 
 // Configure React 18+ test environment
-(global as any).IS_REACT_ACT_ENVIRONMENT = true;
+declare global {
+  interface Window {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+    act?: (callback: () => void | Promise<void>) => Promise<void>;
+    gc?: () => void;
+  }
+  var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
+  var act: ((callback: () => void | Promise<void>) => Promise<void>) | undefined;
+  var gc: (() => void) | undefined;
+}
+
+(global as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 // AGENT-5 Performance Optimizations: Configure React Testing Library for React 18+
 configure({
@@ -55,8 +66,20 @@ Object.defineProperty(window, 'sessionStorage', {
 });
 
 // Optimized fetch mock with response caching
+interface MockResponse {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  headers: Headers;
+  json: ReturnType<typeof vi.fn>;
+  text: ReturnType<typeof vi.fn>;
+  blob: ReturnType<typeof vi.fn>;
+  arrayBuffer: ReturnType<typeof vi.fn>;
+  clone: ReturnType<typeof vi.fn>;
+}
+
 const createOptimizedFetchMock = () => {
-  const responseCache = new Map<string, any>();
+  const responseCache = new Map<string, MockResponse>();
 
   return vi.fn().mockImplementation(async (url: string, options?: RequestInit) => {
     // Cache GET requests for performance
@@ -136,7 +159,7 @@ afterEach(async () => {
 
   // Reset fetch cache for next test
   if (global.fetch && typeof global.fetch === 'function' && 'mockReset' in global.fetch) {
-    (global.fetch as any).mockReset();
+    (global.fetch as ReturnType<typeof vi.fn>).mockReset();
   }
 });
 
@@ -164,13 +187,13 @@ beforeAll(async () => {
   const { act } = await import('@testing-library/react');
 
   // Make act globally available for React 18+
-  (global as any).act = act;
+  (global as typeof globalThis & { act?: typeof act }).act = act;
 
   // Override console.warn to suppress specific React testing warnings
   const originalConsoleWarn = console.warn;
   const originalConsoleError = console.error;
 
-  console.warn = (...args: any[]) => {
+  console.warn = (...args: unknown[]) => {
     const message = args[0];
     if (
       typeof message === 'string' && (
@@ -184,7 +207,7 @@ beforeAll(async () => {
     originalConsoleWarn(...args);
   };
 
-  console.error = (...args: any[]) => {
+  console.error = (...args: unknown[]) => {
     const message = args[0];
     if (
       typeof message === 'string' && (

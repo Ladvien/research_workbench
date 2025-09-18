@@ -33,16 +33,33 @@ cd research_workbench
 
 # Set up environment
 cp .env.example .env
-# Edit .env with your configuration
+# Edit .env with your configuration:
+# - Set DATABASE_URL with your PostgreSQL credentials
+# - Change BIND_ADDRESS to 0.0.0.0:4512
+# - Add your OPENAI_API_KEY and ANTHROPIC_API_KEY
+# - Generate a secure JWT_SECRET
 
-# Start backend
+# Install frontend dependencies
+cd frontend
+pnpm install
+cd ..
+
+# Start services (each in a separate terminal):
+
+# 1. Start nginx (required for proper routing)
+sudo nginx -c $(pwd)/config/nginx.conf
+
+# 2. Start backend
 cd backend
 cargo run
 
-# Start frontend (in another terminal)
+# 3. Start frontend
 cd frontend
-pnpm install
-pnpm dev
+VITE_PORT=4511 pnpm dev
+# or use the local script:
+# pnpm dev:local
+
+# Access the application at http://localhost:4510
 ```
 
 ## Development
@@ -52,7 +69,8 @@ pnpm dev
 - Node.js 18+ and pnpm
 - Rust 1.70+
 - PostgreSQL 17
-- Redis (optional, for session caching)
+- Redis (for session management)
+- nginx (for local routing)
 
 ### Configuration
 
@@ -60,9 +78,11 @@ All configuration is handled through environment variables. See `.env.example` f
 
 Key variables:
 - `DATABASE_URL` - PostgreSQL connection string
+- `BIND_ADDRESS` - Backend server address (must be 0.0.0.0:4512)
 - `OPENAI_API_KEY` - For GPT models
 - `ANTHROPIC_API_KEY` - For Claude models
 - `JWT_SECRET` - Session security
+- `REDIS_URL` - Redis connection for sessions
 
 ### Testing
 

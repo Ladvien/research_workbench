@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import type { Message as MessageType, BranchInfo } from '../types/chat';
 import { BranchingAPI } from '../utils/branchingApi';
@@ -46,7 +46,7 @@ export const EditableMessage: React.FC<EditableMessageProps> = ({
     }
   }, [isEditing]);
 
-  const handleEdit = async () => {
+  const handleEdit = useCallback(async () => {
     if (editContent.trim() === content.trim()) {
       setIsEditing(false);
       return;
@@ -68,15 +68,15 @@ export const EditableMessage: React.FC<EditableMessageProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [editContent, content, onEdit, message.id]);
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     setEditContent(content);
     setIsEditing(false);
     setError(null);
-  };
+  }, [content]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!confirm('Are you sure you want to delete this message?')) {
       return;
     }
@@ -95,9 +95,9 @@ export const EditableMessage: React.FC<EditableMessageProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [onDelete, message.id]);
 
-  const handleBranchSwitch = async (branchId: string) => {
+  const handleBranchSwitch = useCallback(async (branchId: string) => {
     setIsLoading(true);
     setError(null);
 
@@ -110,9 +110,9 @@ export const EditableMessage: React.FC<EditableMessageProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [onBranchSwitch]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && e.metaKey) {
       e.preventDefault();
       handleEdit();
@@ -120,7 +120,11 @@ export const EditableMessage: React.FC<EditableMessageProps> = ({
       e.preventDefault();
       handleCancel();
     }
-  };
+  }, [handleEdit, handleCancel]);
+
+  const handleStartEdit = useCallback(() => {
+    setIsEditing(true);
+  }, []);
 
 
   return (
@@ -221,7 +225,7 @@ export const EditableMessage: React.FC<EditableMessageProps> = ({
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <div className="flex gap-1">
                 <button
-                  onClick={() => setIsEditing(true)}
+                  onClick={handleStartEdit}
                   className="p-1 rounded text-blue-100 hover:bg-blue-400 transition-colors"
                   title="Edit message"
                   disabled={isLoading}

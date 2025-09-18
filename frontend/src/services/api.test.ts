@@ -393,41 +393,25 @@ describe('ApiClient', () => {
       });
     });
 
-    describe('createMessageBranch', () => {
-      it('should create message branch', async () => {
-        const mockResponse = {
-          ok: true,
-          status: 201,
-          json: vi.fn().mockResolvedValue(mockMessage),
-        };
-        mockFetch.mockResolvedValue(mockResponse);
-
-        const result = await apiClient.createMessageBranch(
-          'conv-123',
-          'parent-456',
-          'Branch content',
-          'user'
-        );
-
-        expect(mockFetch).toHaveBeenCalledWith(
-          '/api/v1/conversations/conv-123/messages/parent-456/branch',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ content: 'Branch content', role: 'user' }),
-            credentials: 'include',
-          }
-        );
-        expect(result.data).toEqual(mockMessage);
-      });
-    });
   });
 
   describe('streamMessage', () => {
-    let mockReader: any;
-    let mockResponse: any;
+    interface MockReader {
+      read: ReturnType<typeof vi.fn>;
+      releaseLock: ReturnType<typeof vi.fn>;
+    }
+
+    interface MockResponse {
+      ok: boolean;
+      status: number;
+      headers: Map<string, string>;
+      body: {
+        getReader: ReturnType<typeof vi.fn>;
+      };
+    }
+
+    let mockReader: MockReader;
+    let mockResponse: MockResponse;
 
     beforeEach(() => {
       mockReader = {

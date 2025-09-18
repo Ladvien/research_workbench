@@ -3,6 +3,7 @@ pub mod attachment;
 pub mod conversation;
 pub mod embedding;
 pub mod message;
+pub mod refresh_token;
 pub mod user;
 
 use crate::database::Database;
@@ -26,6 +27,7 @@ pub struct RepositoryManager {
     pub conversations: conversation::ConversationRepository,
     pub embeddings: embedding::EmbeddingRepository,
     pub messages: message::MessageRepository,
+    pub refresh_tokens: refresh_token::RefreshTokenRepository,
     pub users: user::UserRepository,
 }
 
@@ -37,6 +39,7 @@ impl RepositoryManager {
             conversations: conversation::ConversationRepository::new(database.clone()),
             embeddings: embedding::EmbeddingRepository::new(database.pool()),
             messages: message::MessageRepository::new(database.clone()),
+            refresh_tokens: refresh_token::RefreshTokenRepository::new(database.clone()),
             users: user::UserRepository::new(database),
         }
     }

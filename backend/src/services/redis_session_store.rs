@@ -29,7 +29,7 @@ impl SessionStore for PersistentSessionStore {
             .get("user_id")
             .and_then(|v| v.as_str())
             .and_then(|s| Uuid::parse_str(s).ok())
-            .unwrap_or_else(|| Uuid::new_v4()); // Fallback for anonymous sessions
+            .unwrap_or_else(Uuid::new_v4); // Fallback for anonymous sessions
 
         let session_data = SessionData {
             user_id,

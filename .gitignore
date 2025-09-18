@@ -262,3 +262,16 @@ secrets/
 # yarn.lock
 # pnpm-lock.yaml
 # Cargo.lock
+
+# Test artifacts and reports
+test-results/
+playwright-report/
+coverage/
+*.profraw
+
+# Reviewed commits tracking
+.reviewed_commits*
+
+# Local development scripts
+monitor_*.sh
+security_monitor.sh

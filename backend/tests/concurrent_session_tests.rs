@@ -71,7 +71,7 @@ async fn test_race_condition_session_limit_enforcement() {
     let results: Vec<Result<(), AppError>> = futures::future::join_all(handles)
         .await
         .into_iter()
-        .map(|r| r.unwrap())
+        .map(|r| r.expect("Test assertion failed"))
         .collect();
 
     // Count successful creations
@@ -81,7 +81,7 @@ async fn test_race_condition_session_limit_enforcement() {
     let final_count = session_manager
         .get_user_session_count(user_id)
         .await
-        .unwrap();
+        .expect("Test assertion failed");
 
     // Should not exceed the limit of 3 sessions
     assert!(
@@ -138,7 +138,7 @@ async fn test_rapid_parallel_session_creation() {
         let batch_results: Vec<Result<(), AppError>> = futures::future::join_all(batch_handles)
             .await
             .into_iter()
-            .map(|r| r.unwrap())
+            .map(|r| r.expect("Test assertion failed"))
             .collect();
 
         let batch_successful = batch_results.iter().filter(|r| r.is_ok()).count();
@@ -148,7 +148,7 @@ async fn test_rapid_parallel_session_creation() {
         let count_after_batch = session_manager
             .get_user_session_count(user_id)
             .await
-            .unwrap();
+            .expect("Test assertion failed");
 
         assert!(
             count_after_batch <= 3,
@@ -164,7 +164,7 @@ async fn test_rapid_parallel_session_creation() {
     let final_count = session_manager
         .get_user_session_count(user_id)
         .await
-        .unwrap();
+        .expect("Test assertion failed");
 
     assert!(
         final_count <= 3,
@@ -194,13 +194,13 @@ async fn test_concurrent_session_operations_mixed() {
         session_manager
             .store_session(&session_id, session_data)
             .await
-            .unwrap();
+            .expect("Test assertion failed");
     }
 
     let initial_count = session_manager
         .get_user_session_count(user_id)
         .await
-        .unwrap();
+        .expect("Test assertion failed");
     assert_eq!(initial_count, 2);
 
     // Mix of operations: create, get, delete
@@ -278,7 +278,7 @@ async fn test_concurrent_session_operations_mixed() {
     let results: Vec<String> = futures::future::join_all(handles)
         .await
         .into_iter()
-        .map(|r| r.unwrap())
+        .map(|r| r.expect("Test assertion failed"))
         .collect();
 
     // Analyze results
@@ -296,7 +296,7 @@ async fn test_concurrent_session_operations_mixed() {
     let final_count = session_manager
         .get_user_session_count(user_id)
         .await
-        .unwrap();
+        .expect("Test assertion failed");
 
     assert!(final_count <= 3, "Session limit violated: {}", final_count);
 }
@@ -349,7 +349,7 @@ async fn test_session_eviction_under_load() {
         let wave_results: Vec<Result<(), AppError>> = futures::future::join_all(wave_handles)
             .await
             .into_iter()
-            .map(|r| r.unwrap())
+            .map(|r| r.expect("Test assertion failed"))
             .collect();
 
         let wave_successful = wave_results.iter().filter(|r| r.is_ok()).count();
@@ -366,7 +366,7 @@ async fn test_session_eviction_under_load() {
         let total_count = session_manager
             .get_user_session_count(user_id)
             .await
-            .unwrap();
+            .expect("Test assertion failed");
 
         println!(
             "Wave {}: {} existing from this wave, {} total sessions",
@@ -395,7 +395,7 @@ async fn test_session_eviction_under_load() {
     let final_count = session_manager
         .get_user_session_count(user_id)
         .await
-        .unwrap();
+        .expect("Test assertion failed");
 
     assert_eq!(final_existing, final_count, "Session count mismatch");
     assert!(
@@ -440,7 +440,7 @@ async fn test_concurrent_user_session_invalidation() {
             session_manager
                 .store_session(&session_id, session_data)
                 .await
-                .unwrap();
+                .expect("Test assertion failed");
         }
     }
 
@@ -448,11 +448,11 @@ async fn test_concurrent_user_session_invalidation() {
     let user1_count = session_manager
         .get_user_session_count(user1_id)
         .await
-        .unwrap();
+        .expect("Test assertion failed");
     let user2_count = session_manager
         .get_user_session_count(user2_id)
         .await
-        .unwrap();
+        .expect("Test assertion failed");
 
     assert_eq!(user1_count, 3);
     assert_eq!(user2_count, 3);
@@ -504,11 +504,11 @@ async fn test_concurrent_user_session_invalidation() {
     let user1_final_count = session_manager
         .get_user_session_count(user1_id)
         .await
-        .unwrap();
+        .expect("Test assertion failed");
     let user2_final_count = session_manager
         .get_user_session_count(user2_id)
         .await
-        .unwrap();
+        .expect("Test assertion failed");
 
     // User2 should be unaffected
     assert_eq!(user2_final_count, 3, "User2 sessions should be unaffected");
@@ -540,7 +540,7 @@ async fn test_high_concurrency_stress() {
         let session_id = format!("stress_session_{}", i);
 
         let handle = tokio::spawn(async move {
-            let _permit = semaphore.acquire().await.unwrap();
+            let _permit = semaphore.acquire().await.expect("Test assertion failed");
 
             let session_data = SessionData {
                 user_id,
@@ -573,7 +573,7 @@ async fn test_high_concurrency_stress() {
     let results: Vec<(bool, bool, bool)> = futures::future::join_all(handles)
         .await
         .into_iter()
-        .map(|r| r.unwrap())
+        .map(|r| r.expect("Test assertion failed"))
         .collect();
 
     // Analyze results
@@ -607,7 +607,7 @@ async fn test_high_concurrency_stress() {
     let final_count = session_manager
         .get_user_session_count(user_id)
         .await
-        .unwrap();
+        .expect("Test assertion failed");
 
     assert!(
         final_count <= 3,
@@ -634,14 +634,14 @@ async fn test_atomic_session_replacement() {
     session_manager
         .store_session(session_id, initial_session)
         .await
-        .unwrap();
+        .expect("Test assertion failed");
 
     // Verify initial session
     let initial_retrieved = session_manager
         .get_session(session_id)
         .await
-        .unwrap()
-        .unwrap();
+        .expect("Test assertion failed")
+        .expect("Test assertion failed");
     assert_eq!(initial_retrieved.ip_address, Some("192.0.2.1".into()));
 
     // Concurrently update the same session
@@ -672,7 +672,7 @@ async fn test_atomic_session_replacement() {
     let update_results: Vec<Result<(), AppError>> = futures::future::join_all(handles)
         .await
         .into_iter()
-        .map(|r| r.unwrap())
+        .map(|r| r.expect("Test assertion failed"))
         .collect();
 
     let successful_updates = update_results.iter().filter(|r| r.is_ok()).count();
@@ -685,11 +685,11 @@ async fn test_atomic_session_replacement() {
     let final_session = session_manager
         .get_session(session_id)
         .await
-        .unwrap()
-        .unwrap();
+        .expect("Test assertion failed")
+        .expect("Test assertion failed");
 
     // Should have one of the updated IP addresses
-    let ip_str = final_session.ip_address.as_ref().unwrap().as_ref();
+    let ip_str = final_session.ip_address.as_ref().expect("Test assertion failed").as_ref();
     assert!(
         ip_str.starts_with("203.0.113."),
         "Final IP should be from updates: {}",
@@ -700,6 +700,6 @@ async fn test_atomic_session_replacement() {
     let final_count = session_manager
         .get_user_session_count(user_id)
         .await
-        .unwrap();
+        .expect("Test assertion failed");
     assert_eq!(final_count, 1, "Should still have exactly one session");
 }

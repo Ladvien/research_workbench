@@ -7,36 +7,56 @@ import { ConversationState, StreamingMessage } from '../types';
 import { apiClient } from '../services/api';
 import { categorizeError, formatErrorForUser } from '../utils/errorHandling';
 
-// Helper function to generate conversation title from first message
+// Memoized title generation cache for performance
+const titleCache = new Map<string, string>();
+
+// Optimized helper function to generate conversation title from first message
 const generateTitleFromMessage = (content: string): string => {
+  // Check cache first
+  const cacheKey = content.slice(0, 200); // Use first 200 chars as cache key
+  if (titleCache.has(cacheKey)) {
+    return titleCache.get(cacheKey)!;
+  }
+
+  let title: string;
+
   // Remove extra whitespace and line breaks
   const cleanContent = content.trim().replace(/\s+/g, ' ');
 
   // If content is very short, use it as is
   if (cleanContent.length <= 30) {
-    return cleanContent;
-  }
+    title = cleanContent;
+  } else {
+    // Try to extract the first sentence
+    const firstSentence = cleanContent.split(/[.!?]/)[0];
 
-  // Try to extract the first sentence
-  const firstSentence = cleanContent.split(/[.!?]/)[0];
+    if (firstSentence.length > 0 && firstSentence.length <= 50) {
+      title = firstSentence.trim();
+    } else {
+      // If first sentence is too long, truncate at word boundary
+      const words = cleanContent.split(' ');
+      let tempTitle = '';
 
-  if (firstSentence.length > 0 && firstSentence.length <= 50) {
-    return firstSentence.trim();
-  }
+      for (const word of words) {
+        const testTitle = tempTitle + (tempTitle ? ' ' : '') + word;
+        if (testTitle.length > 40) {
+          break;
+        }
+        tempTitle = testTitle;
+      }
 
-  // If first sentence is too long, truncate at word boundary
-  const words = cleanContent.split(' ');
-  let title = '';
-
-  for (const word of words) {
-    const testTitle = title + (title ? ' ' : '') + word;
-    if (testTitle.length > 40) {
-      break;
+      title = tempTitle || cleanContent.substring(0, 40) + '...';
     }
-    title = testTitle;
   }
 
-  return title || cleanContent.substring(0, 40) + '...';
+  // Cache the result (limit cache size to prevent memory leaks)
+  if (titleCache.size > 1000) {
+    const firstKey = titleCache.keys().next().value;
+    titleCache.delete(firstKey);
+  }
+  titleCache.set(cacheKey, title);
+
+  return title;
 };
 
 export const useConversationStore = create<ConversationState>()(

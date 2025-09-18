@@ -3,7 +3,8 @@ use axum::{
     response::{sse::Event, Sse},
     Json,
 };
-use futures::{Stream, StreamExt};
+use futures::Stream;
+use futures::stream::StreamExt;
 use serde_json;
 use std::{convert::Infallible, time::Duration};
 use uuid::Uuid;
@@ -13,7 +14,6 @@ use crate::{
     error::AppError,
     llm::{ChatMessage, ChatRequest, LLMServiceFactory},
     models::{MessageRole, UserResponse},
-    repositories::Repository,
 };
 
 #[derive(serde::Deserialize, Debug)]
@@ -22,6 +22,46 @@ pub struct StreamChatRequest {
     pub model: Option<String>,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
+}
+
+/// Create optimized streaming chunks for better performance than word-by-word streaming
+fn create_optimized_streaming_chunks(content: &str, avg_chunk_size: usize) -> Vec<String> {
+    let mut chunks = Vec::new();
+    let mut current_chunk = String::with_capacity(avg_chunk_size * 2);
+    let words: Vec<&str> = content.split_whitespace().collect();
+
+    for word in words {
+        // Add word to current chunk
+        if !current_chunk.is_empty() {
+            current_chunk.push(' ');
+        }
+        current_chunk.push_str(word);
+
+        // If chunk is getting close to target size, finish it
+        if current_chunk.len() >= avg_chunk_size {
+            // Try to end at a natural break point
+            if word.ends_with(['.', '!', '?', ':', ';', ',']) {
+                chunks.push(current_chunk.clone());
+                current_chunk.clear();
+            } else if current_chunk.len() >= avg_chunk_size * 2 {
+                // Force break if too long
+                chunks.push(current_chunk.clone());
+                current_chunk.clear();
+            }
+        }
+    }
+
+    // Add remaining content
+    if !current_chunk.is_empty() {
+        chunks.push(current_chunk);
+    }
+
+    // Ensure we have reasonable chunks
+    if chunks.is_empty() {
+        chunks.push(content.to_string());
+    }
+
+    chunks
 }
 
 // Streaming endpoint that uses the actual LLM service
@@ -38,14 +78,20 @@ pub async fn stream_message(
         request.content.chars().take(100).collect::<String>()
     );
 
-    // Get the conversation to find out which model to use
-    tracing::debug!("Looking up conversation with ID: {}", conversation_id);
-    let conversation = app_state
-        .dal
-        .conversations()
-        .find_by_id(conversation_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Conversation not found".to_string()))?;
+    // Optimized: Get conversation and verify ownership in a single query
+    tracing::debug!("Looking up conversation with ID: {} for user: {}", conversation_id, user.id);
+    let conversation = sqlx::query_as::<_, crate::models::Conversation>(
+        r#"
+        SELECT id, user_id, title, model, provider, created_at, updated_at, metadata
+        FROM conversations
+        WHERE id = $1 AND user_id = $2
+        "#,
+    )
+    .bind(conversation_id)
+    .bind(user.id)
+    .fetch_optional(app_state.dal.repositories.conversations.pool())
+    .await?
+    .ok_or_else(|| AppError::NotFound("Conversation not found".to_string()))?;
 
     tracing::info!(
         "Found conversation: provider={}, model={}, title='{}'",
@@ -53,11 +99,6 @@ pub async fn stream_message(
         conversation.model,
         conversation.title.as_deref().unwrap_or("No title")
     );
-
-    // Verify user owns the conversation
-    if conversation.user_id != user.id {
-        return Err(AppError::Forbidden("Access denied".to_string()));
-    }
 
     // Save user message to database
     tracing::debug!("Saving user message to database");
@@ -93,15 +134,21 @@ pub async fn stream_message(
 
     // Get the appropriate LLM service
     let config = &app_state.config;
-    let provider = match conversation.provider.as_str() {
-        "open_a_i" | "openai" | "OpenAI" => crate::llm::Provider::OpenAI,
-        "anthropic" | "Anthropic" => crate::llm::Provider::Anthropic,
-        "claude_code" | "ClaudeCode" => crate::llm::Provider::ClaudeCode,
+    let provider = match conversation.provider.to_lowercase().as_str() {
+        "openai" | "open_a_i" => crate::llm::Provider::OpenAI,
+        "anthropic" => crate::llm::Provider::Anthropic,
+        "claude_code" | "claudecode" => crate::llm::Provider::ClaudeCode,
         _ => {
-            return Err(AppError::BadRequest(format!(
-                "Invalid provider: {}",
-                conversation.provider
-            )))
+            // Try to derive provider from model ID as fallback
+            match crate::llm::LLMServiceFactory::provider_from_model(&conversation.model) {
+                Ok(provider) => provider,
+                Err(_) => {
+                    return Err(AppError::BadRequest(format!(
+                        "Invalid provider '{}' and cannot derive from model '{}'",
+                        conversation.provider, conversation.model
+                    )))
+                }
+            }
         }
     };
 
@@ -148,15 +195,12 @@ pub async fn stream_message(
     let content = llm_response.message.content;
     let message_id = assistant_message.id;
 
-    // Split the content into words for simulated streaming
-    let words: Vec<String> = content
-        .split_whitespace()
-        .map(|w| format!("{w} "))
-        .collect();
+    // Optimized: Create streaming chunks for better performance
+    let chunks = create_optimized_streaming_chunks(&content, 15); // Average 15 chars per chunk
 
     tracing::info!(
-        "Starting stream simulation with {} words for message ID: {}",
-        words.len(),
+        "Starting optimized stream simulation with {} chunks for message ID: {}",
+        chunks.len(),
         message_id
     );
 
@@ -177,29 +221,30 @@ pub async fn stream_message(
         )
     });
 
-    // Then send all words as token events
-    let word_stream = futures::stream::iter(words.into_iter().enumerate()).map(move |(i, word)| {
-        tracing::debug!(
-            "Sending token {} for message ID: {}: '{}'",
-            i,
-            message_id,
-            word.trim()
-        );
-        Ok::<Event, Infallible>(
-            Event::default().data(
-                serde_json::json!({
-                    "type": "token",
-                    "data": {
-                        "content": word
-                    }
-                })
-                .to_string(),
-            ),
-        )
-    });
+    // Send optimized chunks as token events with throttling for better perceived performance
+    let chunk_stream = futures::stream::iter(chunks.into_iter().enumerate())
+        .map(move |(i, chunk)| {
+            tracing::trace!(
+                "Sending chunk {} for message ID: {}: '{}'",
+                i,
+                message_id,
+                chunk.chars().take(20).collect::<String>()
+            );
+            Ok::<Event, Infallible>(
+                Event::default().data(
+                    serde_json::json!({
+                        "type": "token",
+                        "data": {
+                            "content": chunk
+                        }
+                    })
+                    .to_string(),
+                ),
+            )
+        }); // Removed throttle for now to fix compilation
 
     let stream = start_stream
-        .chain(word_stream)
+        .chain(chunk_stream)
         .chain(futures::stream::once(async move {
             // Send completion event
             tracing::debug!(

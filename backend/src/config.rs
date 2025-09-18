@@ -215,7 +215,7 @@ impl AppConfig {
         // Support for secret rotation via additional environment variables
         // JWT_SECRET_V1, JWT_SECRET_V2, etc. for previous secrets
         for version in 1..=5 {
-            if let Ok(old_secret) = std::env::var(&format!("JWT_SECRET_V{}", version)) {
+            if let Ok(old_secret) = std::env::var(format!("JWT_SECRET_V{}", version)) {
                 jwt_config.add_previous_secret(version, old_secret)?;
             }
         }

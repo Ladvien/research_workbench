@@ -1,13 +1,14 @@
 // Test data fixtures for E2E tests
+import { TEST_CONFIG } from '../config/test-config';
 
 export const testUsers = {
   default: {
-    email: 'test@workbench.com',
-    password: 'testpassword123'
+    email: TEST_CONFIG.TEST_USER_EMAIL,
+    password: TEST_CONFIG.TEST_USER_PASSWORD
   },
   admin: {
-    email: 'admin@workbench.com',
-    password: 'adminpassword123'
+    email: TEST_CONFIG.ADMIN_EMAIL,
+    password: TEST_CONFIG.ADMIN_PASSWORD
   },
   newUser: {
     email: `test${Date.now()}@workbench.com`,

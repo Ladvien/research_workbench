@@ -85,7 +85,7 @@ export const renderWithAuth = (
 };
 
 // Helper to create a mock function with proper typing
-export const createMockFunction = <T extends (...args: any[]) => any>(
+export const createMockFunction = <T extends (...args: unknown[]) => unknown>(
   implementation?: T
 ): T => {
   return vi.fn(implementation) as T;
@@ -151,7 +151,7 @@ export const mockLocalStorage = () => {
 };
 
 // Mock for window.fetch
-export const mockFetch = (response: any = {}, options: { ok?: boolean; status?: number } = {}) => {
+export const mockFetch = (response: unknown = {}, options: { ok?: boolean; status?: number } = {}) => {
   const mockResponse = {
     ok: options.ok ?? true,
     status: options.status ?? 200,
@@ -170,11 +170,11 @@ export const mockFetch = (response: any = {}, options: { ok?: boolean; status?: 
 };
 
 // Helper for mocking Zustand stores with React 18+ compatibility
-export const mockZustandStore = (initialState: Partial<any>) => {
+export const mockZustandStore = <T extends Record<string, unknown>>(initialState: Partial<T>) => {
   return {
     ...initialState,
     getState: vi.fn(() => initialState),
-    setState: vi.fn((updates: Partial<any>) => {
+    setState: vi.fn((updates: Partial<T>) => {
       Object.assign(initialState, updates);
     }),
     subscribe: vi.fn(),
@@ -255,6 +255,52 @@ export const createMockImage = (
   return new File([canvas.toDataURL()], name, { type: 'image/png' });
 };
 
+// Enhanced Zustand store mocking utilities
+export const createMockConversationStore = (overrides: Record<string, unknown> = {}) => {
+  const mockStore = {
+    // State
+    currentConversationId: null,
+    conversations: [],
+    currentMessages: [],
+    streamingMessage: null,
+    selectedModel: 'claude-code-opus',
+    isLoading: false,
+    isStreaming: false,
+    error: null,
+    abortController: null,
+
+    // Actions (all mocked as spy functions)
+    setCurrentConversation: vi.fn(),
+    setSelectedModel: vi.fn(),
+    loadConversations: vi.fn().mockResolvedValue(undefined),
+    loadConversation: vi.fn().mockResolvedValue(undefined),
+    createConversation: vi.fn().mockResolvedValue('new-conversation-id'),
+    sendMessage: vi.fn().mockResolvedValue(undefined),
+    sendStreamingMessage: vi.fn().mockResolvedValue(undefined),
+    stopStreaming: vi.fn(),
+    updateConversationTitle: vi.fn().mockResolvedValue(undefined),
+    deleteConversation: vi.fn().mockResolvedValue(undefined),
+    clearError: vi.fn(),
+
+    ...overrides,
+  };
+
+  return mockStore;
+};
+
+// Mock store for useBranching hook
+export const createMockBranchingStore = (overrides: Record<string, unknown> = {}) => ({
+  treeData: null,
+  isLoading: false,
+  error: null,
+  loadTree: vi.fn().mockResolvedValue(undefined),
+  editMessage: vi.fn().mockResolvedValue(undefined),
+  switchBranch: vi.fn().mockResolvedValue(undefined),
+  deleteMessage: vi.fn().mockResolvedValue(undefined),
+  clearError: vi.fn(),
+  ...overrides,
+});
+
 // Message factory for testing
 export const createMockMessage = (overrides = {}) => ({
   id: 'msg-test-' + Math.random().toString(36).substr(2, 9),
@@ -280,3 +326,34 @@ export const createMockConversation = (overrides = {}) => ({
   metadata: {},
   ...overrides
 });
+
+// Test data sets
+export const mockConversations = [
+  createMockConversation({
+    id: '1',
+    title: 'Test Conversation 1',
+    model: 'gpt-4',
+    created_at: '2025-09-14T10:00:00Z',
+    updated_at: '2025-09-14T10:30:00Z',
+  }),
+  createMockConversation({
+    id: '2',
+    title: 'Test Conversation 2',
+    model: 'gpt-3.5-turbo',
+    created_at: '2025-09-14T09:00:00Z',
+    updated_at: '2025-09-14T09:30:00Z',
+  }),
+];
+
+export const mockMessages = [
+  createMockMessage({
+    id: 'msg-1',
+    role: 'user',
+    content: 'Hello, how are you?',
+  }),
+  createMockMessage({
+    id: 'msg-2',
+    role: 'assistant',
+    content: 'I am doing well, thank you for asking!',
+  }),
+];

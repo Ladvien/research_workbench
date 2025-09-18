@@ -44,7 +44,7 @@ pub async fn edit_message(
     }
 
     // Get messages that will be deactivated (downstream from edit point)
-    let downstream_messages = get_downstream_messages(&message_repo, message_id).await?;
+    let downstream_messages = get_downstream_messages(message_repo, message_id).await?;
     let affected_message_ids: Vec<Uuid> = downstream_messages.iter().map(|m| m.id).collect();
 
     // Perform the edit and branch creation

@@ -667,7 +667,7 @@ test.describe('Conversation Management', () => {
     });
 
     test('should integrate with analytics tracking', async () => {
-      let analyticsEvents: string[] = [];
+      const analyticsEvents: string[] = [];
       
       // Track analytics events
       await sidebarPage.page.route('**/api/analytics/**', route => {

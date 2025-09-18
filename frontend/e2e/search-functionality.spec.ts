@@ -550,7 +550,7 @@ test.describe('Search Functionality', () => {
     test('should track search interactions', async () => {
       await searchPage.goto();
       
-      let analyticsEvents: string[] = [];
+      const analyticsEvents: string[] = [];
       
       // Intercept analytics calls
       await searchPage.page.route('**/api/analytics**', route => {

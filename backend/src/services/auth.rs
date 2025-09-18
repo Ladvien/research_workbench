@@ -5,7 +5,7 @@ use crate::{
         JwtClaims, LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, User,
         UserResponse,
     },
-    repositories::{user::UserRepository, Repository},
+    repositories::{user::UserRepository, refresh_token::RefreshTokenRepository, Repository},
     services::session::SessionManager,
 };
 use anyhow::Result;
@@ -17,14 +17,16 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct AuthService {
     user_repository: UserRepository,
+    refresh_token_repository: RefreshTokenRepository,
     jwt_config: Arc<JwtConfig>,
     session_manager: Option<SessionManager>,
 }
 
 impl AuthService {
-    pub fn new(user_repository: UserRepository, jwt_config: JwtConfig) -> Self {
+    pub fn new(user_repository: UserRepository, refresh_token_repository: RefreshTokenRepository, jwt_config: JwtConfig) -> Self {
         Self {
             user_repository,
+            refresh_token_repository,
             jwt_config: Arc::new(jwt_config),
             session_manager: None,
         }
@@ -69,12 +71,17 @@ impl AuthService {
             .create_from_request(create_user_request)
             .await?;
 
-        // Generate JWT token
-        let token = self.generate_jwt_token(&user)?;
+        // Generate JWT token (15 minutes)
+        let access_token = self.generate_jwt_token(&user)?;
+
+        // Generate refresh token (7 days)
+        let refresh_token = RefreshTokenRepository::generate_refresh_token();
+        self.refresh_token_repository.create_refresh_token(user.id, &refresh_token).await?;
 
         Ok(RegisterResponse {
             user: user.into(),
-            access_token: token,
+            access_token,
+            refresh_token,
         })
     }
 
@@ -88,29 +95,47 @@ impl AuthService {
                 "Invalid credentials".to_string(),
             ))?;
 
+        // TODO: Account lockout check - commented out until database migration is ready
+        // if self.user_repository.is_account_locked(user.id).await? {
+        //     return Err(AppError::AuthenticationError(
+        //         "Account temporarily locked due to multiple failed login attempts".to_string(),
+        //     ));
+        // }
+
         // Verify password
         let is_valid = self
             .user_repository
             .verify_password(&user, &request.password)
             .await?;
+
         if !is_valid {
+            // TODO: Record failed login attempt - commented out until database migration is ready
+            // self.user_repository.record_failed_login(user.id).await?;
             return Err(AppError::AuthenticationError(
                 "Invalid credentials".to_string(),
             ));
         }
 
-        // Generate JWT token
-        let token = self.generate_jwt_token(&user)?;
+        // TODO: Reset failed attempts on successful login - commented out until database migration is ready
+        // self.user_repository.reset_failed_attempts(user.id).await?;
+
+        // Generate JWT token (15 minutes)
+        let access_token = self.generate_jwt_token(&user)?;
+
+        // Generate refresh token (7 days)
+        let refresh_token = RefreshTokenRepository::generate_refresh_token();
+        self.refresh_token_repository.create_refresh_token(user.id, &refresh_token).await?;
 
         Ok(LoginResponse {
             user: user.into(),
-            access_token: token,
+            access_token,
+            refresh_token,
         })
     }
 
     pub fn generate_jwt_token(&self, user: &User) -> Result<String, AppError> {
         let now = Utc::now();
-        let expiration = now + Duration::hours(24); // Token valid for 24 hours
+        let expiration = now + Duration::minutes(15); // Token valid for 15 minutes
 
         let claims = JwtClaims {
             sub: user.id.to_string(),
@@ -263,5 +288,73 @@ impl AuthService {
         } else {
             Ok(0)
         }
+    }
+
+    /// Generate access token for a user (for refresh endpoint)
+    pub async fn generate_access_token(&self, user_id: Uuid) -> Result<String, AppError> {
+        let user = self
+            .user_repository
+            .find_by_id(user_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
+        self.generate_jwt_token(&user)
+    }
+
+    /// Refresh access token using refresh token
+    pub async fn refresh_access_token(&self, refresh_token: &str) -> Result<LoginResponse, AppError> {
+        // Find refresh token in database
+        let token_record = self
+            .refresh_token_repository
+            .find_by_token_hash(refresh_token)
+            .await?
+            .ok_or_else(|| AppError::AuthenticationError("Invalid or expired refresh token".to_string()))?;
+
+        // Get user
+        let user = self
+            .user_repository
+            .find_by_id(token_record.user_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
+        // Generate new access token
+        let access_token = self.generate_jwt_token(&user)?;
+
+        // Implement refresh token rotation: invalidate old token and create new one
+        self.refresh_token_repository.invalidate_token(refresh_token).await?;
+        let new_refresh_token = RefreshTokenRepository::generate_refresh_token();
+        self.refresh_token_repository.create_refresh_token(user.id, &new_refresh_token).await?;
+
+        Ok(LoginResponse {
+            user: user.into(),
+            access_token,
+            refresh_token: new_refresh_token,
+        })
+    }
+
+    /// Logout - invalidate refresh token
+    pub async fn logout_with_refresh_token(&self, refresh_token: &str) -> Result<(), AppError> {
+        self.refresh_token_repository.invalidate_token(refresh_token).await?;
+        Ok(())
+    }
+
+    /// Admin function to unlock a user account (TODO: implement after database migration)
+    pub async fn admin_unlock_account(&self, _user_id: Uuid, _admin_user_id: Uuid) -> Result<(), AppError> {
+        // TODO: Implement after database migration adds lockout fields
+        Err(AppError::InternalServerError(
+            "Account unlock feature not yet implemented - requires database migration".to_string(),
+        ))
+    }
+
+    /// Get account lockout status (TODO: implement after database migration)
+    pub async fn get_account_lockout_status(&self, _user_id: Uuid) -> Result<Option<(i32, Option<chrono::DateTime<chrono::Utc>>)>, AppError> {
+        // TODO: Implement after database migration adds lockout fields
+        Ok(None)
+    }
+
+    /// Background task to unlock expired accounts (TODO: implement after database migration)
+    pub async fn unlock_expired_accounts(&self) -> Result<i32, AppError> {
+        // TODO: Implement after database migration adds lockout fields
+        Ok(0)
     }
 }

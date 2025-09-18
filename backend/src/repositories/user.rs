@@ -9,6 +9,7 @@ use argon2::{
     Argon2,
 };
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -65,7 +66,7 @@ impl UserRepository {
             r#"
             INSERT INTO users (id, email, username, password_hash)
             VALUES ($1, $2, $3, $4)
-            RETURNING id, email, username, password_hash, created_at, updated_at
+            RETURNING id, email, username, password_hash, failed_attempts, locked_until, created_at, updated_at
             "#,
         )
         .bind(id)
@@ -127,6 +128,42 @@ impl UserRepository {
             .await?;
 
         Ok(count > 0)
+    }
+
+    /// Check if user account is currently locked (TODO: implement after database migration)
+    pub async fn is_account_locked(&self, _user_id: Uuid) -> Result<bool> {
+        // TODO: Implement after database migration adds lockout fields
+        Ok(false)
+    }
+
+    /// Increment failed login attempts (TODO: implement after database migration)
+    pub async fn record_failed_login(&self, _user_id: Uuid) -> Result<bool> {
+        // TODO: Implement after database migration adds lockout fields
+        Ok(true)
+    }
+
+    /// Reset failed login attempts (TODO: implement after database migration)
+    pub async fn reset_failed_attempts(&self, _user_id: Uuid) -> Result<bool> {
+        // TODO: Implement after database migration adds lockout fields
+        Ok(true)
+    }
+
+    /// Admin function to unlock a specific user account (TODO: implement after database migration)
+    pub async fn admin_unlock_account(&self, _user_id: Uuid, _admin_user_id: Uuid) -> Result<bool> {
+        // TODO: Implement after database migration adds lockout fields
+        Ok(false)
+    }
+
+    /// Get account lockout status (TODO: implement after database migration)
+    pub async fn get_lockout_status(&self, _user_id: Uuid) -> Result<Option<(i32, Option<DateTime<Utc>>)>> {
+        // TODO: Implement after database migration adds lockout fields
+        Ok(None)
+    }
+
+    /// Unlock expired accounts (TODO: implement after database migration)
+    pub async fn unlock_expired_accounts(&self) -> Result<i32> {
+        // TODO: Implement after database migration adds lockout fields
+        Ok(0)
     }
 }
 

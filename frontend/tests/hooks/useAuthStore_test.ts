@@ -64,7 +64,7 @@ describe('useAuthStore', () => {
         expiresAt: Date.now() + 3600000, // 1 hour from now
       };
 
-      (fetch as any).mockResolvedValueOnce({
+      (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => ({ user: mockUser, tokens: mockTokens }),
@@ -97,7 +97,7 @@ describe('useAuthStore', () => {
     });
 
     it('handles login error', async () => {
-      (fetch as any).mockResolvedValueOnce({
+      (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: false,
         status: 401,
         text: async () => 'Invalid credentials',
@@ -148,7 +148,7 @@ describe('useAuthStore', () => {
         updated_at: '2023-01-01',
       };
 
-      (fetch as any).mockResolvedValueOnce({
+      (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         status: 201,
         json: async () => ({ user: mockUser }),
@@ -199,7 +199,7 @@ describe('useAuthStore', () => {
     });
 
     it('successfully logs out user', async () => {
-      (fetch as any).mockResolvedValueOnce({
+      (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         status: 200,
       });
@@ -227,7 +227,7 @@ describe('useAuthStore', () => {
     });
 
     it('clears client state even if server logout fails', async () => {
-      (fetch as any).mockResolvedValueOnce({
+      (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: false,
         status: 500,
         text: async () => 'Server error',
@@ -310,7 +310,7 @@ describe('useAuthStore', () => {
         updated_at: '2023-01-01',
       };
 
-      (fetch as any).mockResolvedValueOnce({
+      (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => mockUser,
@@ -349,7 +349,7 @@ describe('useAuthStore', () => {
         updated_at: '2023-01-01',
       };
 
-      (fetch as any).mockResolvedValueOnce({
+      (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: false,
         status: 401,
         text: async () => 'Token expired',
@@ -404,7 +404,7 @@ describe('useAuthStore', () => {
         expiresAt: Date.now() + 3600000,
       };
 
-      (fetch as any).mockResolvedValueOnce({
+      (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => ({ user: mockUser, tokens: mockTokens }),

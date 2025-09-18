@@ -20,6 +20,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     textareaRef.current?.focus();
   }, []);
 
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
+    }
+  }, [message]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
@@ -51,8 +60,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   return (
-    <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-      <form onSubmit={handleSubmit} className="flex items-end space-x-3">
+    <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
+      <form onSubmit={handleSubmit} className="flex items-end space-x-4">
         <div className="flex-1">
           <textarea
             ref={textareaRef}
@@ -65,7 +74,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             className="
               w-full px-4 py-3
               border border-gray-300 dark:border-gray-600
-              rounded-lg resize-none
+              rounded-lg resize-none overflow-hidden
               focus:ring-2 focus:ring-blue-500 focus:border-blue-500
               dark:bg-gray-700 dark:text-white
               disabled:opacity-50 disabled:cursor-not-allowed
@@ -74,10 +83,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             "
             style={{
               minHeight: '44px',
-              maxHeight: '120px',
+              maxHeight: '160px',
             }}
           />
-          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
             Press Enter to send • Shift+Enter or Alt+Enter for new line
           </div>
         </div>
@@ -93,7 +102,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             rounded-lg transition-colors
             focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
             dark:focus:ring-offset-gray-800
-            min-w-[80px]
+            min-w-[80px] flex items-center justify-center
+            h-[44px]
           "
         >
           {disabled ? (

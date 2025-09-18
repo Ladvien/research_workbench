@@ -1,17 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { login } from './helpers/auth';
-
-// Test configuration
-const ADMIN_EMAIL = 'cthomasbrittain@yahoo.com';
-const ADMIN_PASSWORD = 'IVMPEscH33EhfnlPZcAwpkfR';
-const TEST_MESSAGE = 'What is 2 + 2? Please respond with just the number.';
-const CLAUDE_CODE_MODEL = 'claude-code-sonnet';
+import { TEST_CONFIG } from './config/test-config';
 
 test.describe('Admin Login, Model Selection, and Chat Flow', () => {
   test.beforeEach(async ({ page }) => {
     // Set longer timeout for Claude Code integration
     // Claude Code CLI can take 60-90 seconds to execute and respond
-    test.setTimeout(180000);
+    test.setTimeout(TEST_CONFIG.LONG_TIMEOUT * 2);
 
     // Navigate to the application
     await page.goto('/');
@@ -75,7 +70,7 @@ test.describe('Admin Login, Model Selection, and Chat Flow', () => {
           claudeCodeSelected = true;
           break;
         }
-      } catch (e) {
+      } catch {
         continue;
       }
     }
@@ -100,8 +95,8 @@ test.describe('Admin Login, Model Selection, and Chat Flow', () => {
     await expect(chatInput).toBeEnabled({ timeout: 5000 });
 
     // Step 7: Type the test message
-    console.log(`Typing test message: "${TEST_MESSAGE}"`);
-    await chatInput.fill(TEST_MESSAGE);
+    console.log(`Typing test message: "${TEST_CONFIG.TEST_MESSAGE}"`);
+    await chatInput.fill(TEST_CONFIG.TEST_MESSAGE);
     await page.waitForTimeout(500);
 
     // Step 7: Set up network monitoring for streaming endpoint
@@ -116,7 +111,7 @@ test.describe('Admin Login, Model Selection, and Chat Flow', () => {
       }
 
       return isStreamEndpoint && isSuccess;
-    }, { timeout: 90000 });
+    }, { timeout: TEST_CONFIG.LONG_TIMEOUT });
 
     // Step 7: Find and click send button
     const sendButton = page.getByRole('button', { name: 'Send' });
@@ -126,14 +121,14 @@ test.describe('Admin Login, Model Selection, and Chat Flow', () => {
       await expect(sendButton).toBeEnabled({ timeout: 2000 });
       console.log('Clicking Send button...');
       await sendButton.click();
-    } catch (e) {
+    } catch {
       console.log('Send button not found, trying Enter key...');
       await chatInput.press('Enter');
     }
 
     // Step 7: Verify the message was sent
     console.log('Verifying user message appears in chat...');
-    await expect(page.locator(`text="${TEST_MESSAGE}"`).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(`text="${TEST_CONFIG.TEST_MESSAGE}"`).first()).toBeVisible({ timeout: 10000 });
 
     // Step 7: Wait for streaming endpoint to be called
     console.log('Waiting for streaming API call...');
@@ -171,7 +166,7 @@ test.describe('Admin Login, Model Selection, and Chat Flow', () => {
         }
       }
       return false;
-    }, { timeout: 90000 }); // Claude Code can take 60+ seconds
+    }, { timeout: TEST_CONFIG.LONG_TIMEOUT }); // Claude Code can take 60+ seconds
 
     // Step 7: Verify response quality and content
     console.log('Verifying response quality...');

@@ -18,6 +18,10 @@ impl ConversationRepository {
         Self { database }
     }
 
+    pub fn pool(&self) -> &sqlx::PgPool {
+        &self.database.pool
+    }
+
     pub async fn find_by_user_id(
         &self,
         user_id: Uuid,
@@ -49,40 +53,64 @@ impl ConversationRepository {
         id: Uuid,
         user_id: Uuid,
     ) -> Result<Option<ConversationWithMessages>> {
-        // First get the conversation
-        let conversation = sqlx::query_as::<_, Conversation>(
+        // Optimized: Use a single query with JOIN to avoid N+1 pattern
+        let rows = sqlx::query(
             r#"
-            SELECT id, user_id, title, model, provider, created_at, updated_at, metadata
-            FROM conversations
-            WHERE id = $1 AND user_id = $2
+            SELECT
+                c.id as conv_id, c.user_id, c.title, c.model, c.provider,
+                c.created_at as conv_created_at, c.updated_at as conv_updated_at, c.metadata as conv_metadata,
+                m.id as msg_id, m.conversation_id, m.parent_id, m.role, m.content,
+                m.tokens_used, m.created_at as msg_created_at, m.is_active, m.metadata as msg_metadata
+            FROM conversations c
+            LEFT JOIN messages m ON c.id = m.conversation_id AND m.is_active = true
+            WHERE c.id = $1 AND c.user_id = $2
+            ORDER BY m.created_at ASC
             "#,
         )
         .bind(id)
         .bind(user_id)
-        .fetch_optional(&self.database.pool)
+        .fetch_all(&self.database.pool)
         .await?;
 
-        if let Some(conv) = conversation {
-            // Get all messages for this conversation
-            let messages = sqlx::query_as(
-                r#"
-                SELECT id, conversation_id, parent_id, role, content, tokens_used, created_at, is_active, metadata
-                FROM messages
-                WHERE conversation_id = $1 AND is_active = true
-                ORDER BY created_at ASC
-                "#,
-            )
-            .bind(id)
-            .fetch_all(&self.database.pool)
-            .await?;
-
-            Ok(Some(ConversationWithMessages {
-                conversation: conv,
-                messages,
-            }))
-        } else {
-            Ok(None)
+        if rows.is_empty() {
+            return Ok(None);
         }
+
+        // Process the joined results
+        let first_row = &rows[0];
+        let conversation = Conversation {
+            id: first_row.get("conv_id"),
+            user_id: first_row.get("user_id"),
+            title: first_row.get("title"),
+            model: first_row.get("model"),
+            provider: first_row.get("provider"),
+            created_at: first_row.get("conv_created_at"),
+            updated_at: first_row.get("conv_updated_at"),
+            metadata: first_row.get("conv_metadata"),
+        };
+
+        let mut messages = Vec::new();
+        for row in rows {
+            // Skip rows where message is null (LEFT JOIN with no messages)
+            if let Some(msg_id) = row.try_get::<Option<Uuid>, _>("msg_id").unwrap_or(None) {
+                messages.push(crate::models::Message {
+                    id: msg_id,
+                    conversation_id: row.get("conversation_id"),
+                    parent_id: row.get("parent_id"),
+                    role: row.get("role"),
+                    content: row.get("content"),
+                    tokens_used: row.get("tokens_used"),
+                    created_at: row.get("msg_created_at"),
+                    is_active: row.get("is_active"),
+                    metadata: row.get("msg_metadata"),
+                });
+            }
+        }
+
+        Ok(Some(ConversationWithMessages {
+            conversation,
+            messages,
+        }))
     }
 
     pub async fn create_from_request(

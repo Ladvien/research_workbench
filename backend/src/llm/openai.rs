@@ -9,6 +9,7 @@ use async_openai::{
 use async_trait::async_trait;
 use futures::Stream;
 use std::pin::Pin;
+use std::time::Duration;
 use tokio_stream::StreamExt;
 
 use super::{
@@ -24,6 +25,12 @@ pub struct OpenAIService {
 
 impl OpenAIService {
     pub fn new(config: AppConfig) -> Result<Self, AppError> {
+        if config.openai_api_key.is_empty() {
+            return Err(AppError::BadRequest(
+                "OpenAI API key not configured".to_string(),
+            ));
+        }
+
         let openai_config =
             async_openai::config::OpenAIConfig::new().with_api_key(&config.openai_api_key);
 
@@ -31,6 +38,7 @@ impl OpenAIService {
 
         Ok(Self { client, config })
     }
+
 
     #[allow(deprecated)] // function_call field required by async-openai v0.20 struct
     fn convert_messages(
@@ -132,28 +140,50 @@ impl LLMService for OpenAIService {
             request.model
         );
 
-        let messages = self.convert_messages(request.messages)?;
+        let request_clone = request.clone();
+        let messages = self.convert_messages(request_clone.messages)?;
+        let model = request_clone.model.clone();
 
-        let openai_request = CreateChatCompletionRequest {
-            model: request.model.clone(),
-            messages,
-            temperature: Some(
-                request
-                    .temperature
-                    .unwrap_or(self.config.openai_temperature),
-            ),
-            max_tokens: Some(request.max_tokens.unwrap_or(self.config.openai_max_tokens) as u16),
-            ..Default::default()
-        };
+        // Simple retry logic without complex closures for now
+        let mut attempts = 0;
+        let max_attempts = 3;
+        let mut delay = Duration::from_millis(1000);
 
-        let response = self
-            .client
-            .chat()
-            .create(openai_request)
-            .await
-            .map_err(|e| AppError::OpenAI(e.to_string()))?;
+        loop {
+            attempts += 1;
 
-        self.extract_response(response, &request.model)
+            let openai_request = CreateChatCompletionRequest {
+                model: model.clone(),
+                messages: messages.clone(),
+                temperature: Some(
+                    request_clone.temperature
+                        .unwrap_or(self.config.openai_temperature),
+                ),
+                max_tokens: Some(request_clone.max_tokens.unwrap_or(self.config.openai_max_tokens) as u16),
+                ..Default::default()
+            };
+
+            match self.client.chat().create(openai_request).await {
+                Ok(response) => {
+                    return self.extract_response(response, &model);
+                }
+                Err(e) => {
+                    let error = AppError::OpenAI(e.to_string());
+
+                    if attempts >= max_attempts {
+                        return Err(error);
+                    }
+
+                    if is_retryable_openai_error(&error) {
+                        tracing::warn!("Retryable error (attempt {}/{}): {}", attempts, max_attempts, error);
+                        tokio::time::sleep(delay).await;
+                        delay *= 2; // Exponential backoff
+                    } else {
+                        return Err(error);
+                    }
+                }
+            }
+        }
     }
 
     async fn chat_completion_stream(
@@ -231,5 +261,22 @@ impl LLMService for OpenAIService {
         }));
 
         Ok(boxed_stream)
+    }
+}
+
+fn is_retryable_openai_error(error: &AppError) -> bool {
+    match error {
+        AppError::OpenAI(msg) => {
+            // Retry on rate limits, timeouts, and server errors
+            msg.contains("rate_limit_exceeded") ||
+            msg.contains("timeout") ||
+            msg.contains("internal_server_error") ||
+            msg.contains("502") ||
+            msg.contains("503") ||
+            msg.contains("504") ||
+            msg.contains("too_many_requests") ||
+            msg.contains("server_error")
+        }
+        _ => false,
     }
 }

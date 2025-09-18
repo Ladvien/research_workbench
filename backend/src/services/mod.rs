@@ -42,4 +42,8 @@ impl DataAccessLayer {
     pub fn embeddings(&self) -> &crate::repositories::embedding::EmbeddingRepository {
         &self.repositories.embeddings
     }
+
+    pub fn refresh_tokens(&self) -> &crate::repositories::refresh_token::RefreshTokenRepository {
+        &self.repositories.refresh_tokens
+    }
 }

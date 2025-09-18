@@ -39,7 +39,7 @@ pub async fn send_message(
     // Save user message to database
     let user_message = app_state
         .chat_service
-        .send_message(user.id, conversation_id, request.content.clone())
+        .send_message(user.id, conversation_id, request.content)
         .await?;
 
     // Get conversation history for context
@@ -50,14 +50,14 @@ pub async fn send_message(
 
     // Convert messages to LLM format
     let chat_messages: Vec<ChatMessage> = messages
-        .iter()
+        .into_iter()
         .map(|msg| ChatMessage {
             role: match msg.role {
                 MessageRole::User => "user".to_string(),
                 MessageRole::Assistant => "assistant".to_string(),
                 MessageRole::System => "system".to_string(),
             },
-            content: msg.content.clone(),
+            content: msg.content,
         })
         .collect();
 
@@ -91,7 +91,7 @@ pub async fn send_message(
     // Save assistant response to database
     let assistant_message = app_state
         .chat_service
-        .send_assistant_message(conversation_id, llm_response.message.content.clone())
+        .send_assistant_message(conversation_id, llm_response.message.content)
         .await?;
 
     Ok(Json(serde_json::json!({

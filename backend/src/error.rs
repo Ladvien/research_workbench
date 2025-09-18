@@ -92,6 +92,9 @@ pub enum AppError {
 
     #[error("Too many requests: {0}")]
     TooManyRequests(String),
+
+    #[error("CSRF validation failed: {0}")]
+    CSRFValidationFailed(String),
 }
 
 impl IntoResponse for AppError {
@@ -179,6 +182,10 @@ impl IntoResponse for AppError {
             AppError::TooManyRequests(ref msg) => (
                 StatusCode::TOO_MANY_REQUESTS,
                 ErrorResponse::new("TOO_MANY_REQUESTS", msg),
+            ),
+            AppError::CSRFValidationFailed(ref msg) => (
+                StatusCode::FORBIDDEN,
+                ErrorResponse::new("CSRF_VALIDATION_FAILED", msg),
             ),
         };
 

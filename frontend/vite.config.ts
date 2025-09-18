@@ -47,7 +47,9 @@ export default defineConfig({
     strictPort: true, // Fail if port is already in use
     // Allow requests from these hosts
     hmr: {
-      host: 'workbench.lolzlab.com'
+      port: frontendPort,
+      protocol: 'ws',
+      host: 'localhost'
     },
     proxy: {
       '/api': {

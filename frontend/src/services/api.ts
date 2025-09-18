@@ -10,6 +10,7 @@ import {
   ApiResponse
 } from '../types';
 import { authService } from './auth';
+import { csrfManager } from '../utils/csrf';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -77,12 +78,22 @@ class ApiClient {
   }
 
   /**
-   * Get base headers for requests (no explicit auth headers needed for cookies)
+   * Get base headers for requests (includes CSRF protection)
    */
-  private getBaseHeaders(): Record<string, string> {
-    return {
+  private async getBaseHeaders(method: string = 'GET'): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
+
+    // Add CSRF token for unsafe methods
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase())) {
+      const csrfToken = await csrfManager.getToken();
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+      }
+    }
+
+    return headers;
   }
 
   /**
@@ -94,7 +105,8 @@ class ApiClient {
     retryCount = 0
   ): Promise<ApiResponse<T>> {
     try {
-      const baseHeaders = this.getBaseHeaders();
+      const method = (options.method || 'GET').toUpperCase();
+      const baseHeaders = await this.getBaseHeaders(method);
 
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         headers: {
@@ -118,6 +130,16 @@ class ApiClient {
             error: errorText || 'Unauthorized',
             status: 401,
           };
+        }
+      }
+
+      // Handle 403 CSRF validation errors
+      if (response.status === 403 && retryCount === 0 && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+        const errorText = await response.text();
+        if (errorText.includes('CSRF') || errorText.includes('csrf')) {
+          // Clear CSRF token and retry with fresh token
+          csrfManager.clearToken();
+          return this.request(endpoint, options, retryCount + 1);
         }
       }
 
@@ -168,7 +190,7 @@ class ApiClient {
   }
 
   async updateConversationTitle(id: string, title: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/api/v1/conversations/${id}/title`, {
+    return this.request<void>(`/api/v1/conversations/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ title }),
     });
@@ -204,7 +226,7 @@ class ApiClient {
     abortSignal?: AbortSignal
   ): Promise<void> {
     try {
-      const baseHeaders = this.getBaseHeaders();
+      const baseHeaders = await this.getBaseHeaders('POST');
 
       const requestBody = { content };
       console.log('[ApiClient] Streaming message request:', {
@@ -242,6 +264,17 @@ class ApiClient {
           } catch (refreshError) {
             onError('Authentication failed. Please log in again.');
             return;
+          }
+        }
+
+        // Handle 403 CSRF errors for streaming
+        if (response.status === 403) {
+          const errorText = await response.text();
+          if (errorText.includes('CSRF') || errorText.includes('csrf')) {
+            console.log('[ApiClient] CSRF error in streaming, refreshing token and retrying...');
+            csrfManager.clearToken();
+            // Retry the streaming request with fresh token
+            return this.streamMessage(conversationId, content, onToken, onError, onComplete, abortSignal);
           }
         }
 
@@ -339,20 +372,6 @@ class ApiClient {
     }
   }
 
-  async createMessageBranch(
-    conversationId: string,
-    parentId: string,
-    content: string,
-    role: 'user' | 'assistant' | 'system'
-  ): Promise<ApiResponse<Message>> {
-    return this.request<Message>(
-      `/api/v1/conversations/${conversationId}/messages/${parentId}/branch`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ content, role }),
-      }
-    );
-  }
 
   // Health check
   async healthCheck(): Promise<ApiResponse<{ status: string }>> {

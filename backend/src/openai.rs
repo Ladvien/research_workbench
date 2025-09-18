@@ -81,21 +81,21 @@ impl OpenAIService {
             .map(|msg| match msg.role.as_str() {
                 "system" => Ok(ChatCompletionRequestMessage::System(
                     ChatCompletionRequestSystemMessage {
-                        content: msg.content.clone().into(),
+                        content: msg.content,
                         role: async_openai::types::Role::System,
                         name: None,
                     },
                 )),
                 "user" => Ok(ChatCompletionRequestMessage::User(
                     ChatCompletionRequestUserMessage {
-                        content: msg.content.clone().into(),
+                        content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(msg.content),
                         role: async_openai::types::Role::User,
                         name: None,
                     },
                 )),
                 "assistant" => Ok(ChatCompletionRequestMessage::Assistant(
                     async_openai::types::ChatCompletionRequestAssistantMessage {
-                        content: Some(msg.content.clone()),
+                        content: Some(msg.content),
                         role: async_openai::types::Role::Assistant,
                         name: None,
                         tool_calls: None,
@@ -140,7 +140,7 @@ impl OpenAIService {
             .ok_or_else(|| AppError::OpenAI("No choices in OpenAI response".to_string()))?;
 
         let message = &choice.message;
-        let content = message.content.as_ref().unwrap_or(&String::new()).clone();
+        let content = message.content.as_deref().unwrap_or("").to_string();
 
         let usage = response.usage.map(|u| Usage {
             prompt_tokens: u.prompt_tokens,
@@ -171,21 +171,21 @@ impl OpenAIService {
             .map(|msg| match msg.role.as_str() {
                 "system" => Ok(ChatCompletionRequestMessage::System(
                     ChatCompletionRequestSystemMessage {
-                        content: msg.content.clone().into(),
+                        content: msg.content,
                         role: async_openai::types::Role::System,
                         name: None,
                     },
                 )),
                 "user" => Ok(ChatCompletionRequestMessage::User(
                     ChatCompletionRequestUserMessage {
-                        content: msg.content.clone().into(),
+                        content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(msg.content),
                         role: async_openai::types::Role::User,
                         name: None,
                     },
                 )),
                 "assistant" => Ok(ChatCompletionRequestMessage::Assistant(
                     async_openai::types::ChatCompletionRequestAssistantMessage {
-                        content: Some(msg.content.clone()),
+                        content: Some(msg.content),
                         role: async_openai::types::Role::Assistant,
                         name: None,
                         tool_calls: None,
@@ -226,7 +226,7 @@ impl OpenAIService {
                         if let Some(content) = &choice.delta.content {
                             return Ok(StreamEvent {
                                 event_type: StreamEventType::Token,
-                                data: Some(content.clone()),
+                                data: Some(content.to_string()),
                             });
                         }
                         if choice.finish_reason.is_some() {

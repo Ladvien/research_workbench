@@ -26,11 +26,23 @@ pub async fn create_conversation(
     Ok(Json(serde_json::to_value(conversation)?))
 }
 
-// Get user's conversations with pagination (temporary - no auth for now)
-pub async fn get_user_conversations() -> Result<Json<Value>, AppError> {
-    // For now, return empty array until authentication is properly configured
-    let empty_conversations: Vec<serde_json::Value> = vec![];
-    Ok(Json(serde_json::to_value(empty_conversations)?))
+// Get user's conversations
+pub async fn get_user_conversations(
+    State(app_state): State<AppState>,
+    user: UserResponse, // This comes from our auth middleware
+) -> Result<Json<Value>, AppError> {
+    use crate::models::PaginationParams;
+
+    let pagination = PaginationParams {
+        page: Some(1),
+        limit: Some(50),
+    };
+
+    let conversations = app_state
+        .conversation_service
+        .get_user_conversations(user.id, pagination)
+        .await?;
+    Ok(Json(serde_json::to_value(conversations)?))
 }
 
 // Get a specific conversation with messages

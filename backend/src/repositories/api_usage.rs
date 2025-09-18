@@ -48,7 +48,7 @@ impl ApiUsageRepository {
         end_date: Option<DateTime<Utc>>,
     ) -> Result<UsageStats, AppError> {
         let start = start_date.unwrap_or_else(|| Utc::now() - chrono::Duration::days(30));
-        let end = end_date.unwrap_or_else(|| Utc::now());
+        let end = end_date.unwrap_or_else(Utc::now);
 
         let row = sqlx::query(
             r#"
@@ -92,7 +92,7 @@ impl ApiUsageRepository {
         end_date: Option<DateTime<Utc>>,
     ) -> Result<Vec<ModelUsage>, AppError> {
         let start = start_date.unwrap_or_else(|| Utc::now() - chrono::Duration::days(30));
-        let end = end_date.unwrap_or_else(|| Utc::now());
+        let end = end_date.unwrap_or_else(Utc::now);
 
         let rows = sqlx::query(
             r#"
@@ -221,7 +221,7 @@ impl ApiUsageRepository {
         limit: Option<u32>,
     ) -> Result<Vec<ApiUsage>, AppError> {
         let start = start_date.unwrap_or_else(|| Utc::now() - chrono::Duration::days(30));
-        let end = end_date.unwrap_or_else(|| Utc::now());
+        let end = end_date.unwrap_or_else(Utc::now);
         let limit = limit.unwrap_or(1000);
 
         let records = sqlx::query_as::<_, ApiUsage>(

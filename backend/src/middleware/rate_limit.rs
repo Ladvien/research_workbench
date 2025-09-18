@@ -123,8 +123,17 @@ impl CircuitBreaker {
     }
 
     pub fn can_execute(&self) -> bool {
-        let mut state = self.state.lock().unwrap();
-        let last_failure = *self.last_failure_time.lock().unwrap();
+        let Ok(mut state) = self.state.lock() else {
+            tracing::error!("Circuit breaker state lock poisoned, allowing execution");
+            return true;
+        };
+        let last_failure = match self.last_failure_time.lock() {
+            Ok(guard) => *guard,
+            Err(_) => {
+                tracing::error!("Circuit breaker last_failure_time lock poisoned");
+                None
+            }
+        };
 
         match *state {
             CircuitBreakerState::Closed => true,
@@ -145,9 +154,18 @@ impl CircuitBreaker {
     }
 
     pub fn record_success(&self) {
-        let mut state = self.state.lock().unwrap();
-        let mut failure_count = self.failure_count.lock().unwrap();
-        let mut last_failure = self.last_failure_time.lock().unwrap();
+        let Ok(mut state) = self.state.lock() else {
+            tracing::error!("Circuit breaker state lock poisoned on record_success");
+            return;
+        };
+        let Ok(mut failure_count) = self.failure_count.lock() else {
+            tracing::error!("Circuit breaker failure_count lock poisoned on record_success");
+            return;
+        };
+        let Ok(mut last_failure) = self.last_failure_time.lock() else {
+            tracing::error!("Circuit breaker last_failure_time lock poisoned on record_success");
+            return;
+        };
 
         *state = CircuitBreakerState::Closed;
         *failure_count = 0;
@@ -155,9 +173,18 @@ impl CircuitBreaker {
     }
 
     pub fn record_failure(&self) {
-        let mut state = self.state.lock().unwrap();
-        let mut failure_count = self.failure_count.lock().unwrap();
-        let mut last_failure = self.last_failure_time.lock().unwrap();
+        let Ok(mut state) = self.state.lock() else {
+            tracing::error!("Circuit breaker state lock poisoned on record_failure");
+            return;
+        };
+        let Ok(mut failure_count) = self.failure_count.lock() else {
+            tracing::error!("Circuit breaker failure_count lock poisoned on record_failure");
+            return;
+        };
+        let Ok(mut last_failure) = self.last_failure_time.lock() else {
+            tracing::error!("Circuit breaker last_failure_time lock poisoned on record_failure");
+            return;
+        };
 
         *failure_count += 1;
         *last_failure = Some(Instant::now());
@@ -182,6 +209,12 @@ pub struct InMemoryRateLimiter {
     window_duration: Duration,
 }
 
+impl Default for InMemoryRateLimiter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InMemoryRateLimiter {
     pub fn new() -> Self {
         Self {
@@ -191,7 +224,8 @@ impl InMemoryRateLimiter {
     }
 
     pub fn check_rate_limit(&self, key: &str, limit: u32) -> Result<RateLimitInfo, AppError> {
-        let mut limits = self.limits.lock().unwrap();
+        let mut limits = self.limits.lock()
+            .map_err(|_| AppError::InternalServerError("Rate limiter lock poisoned".to_string()))?;
         let now = Instant::now();
 
         let entry = limits.entry(key.to_string()).or_insert(InMemoryRateLimit {
@@ -207,11 +241,7 @@ impl InMemoryRateLimiter {
 
         entry.count += 1;
 
-        let remaining = if entry.count > limit {
-            0
-        } else {
-            limit - entry.count
-        };
+        let remaining = limit.saturating_sub(entry.count);
 
         let reset_time = get_current_timestamp() + self.window_duration.as_secs();
 
@@ -230,7 +260,10 @@ impl InMemoryRateLimiter {
     }
 
     pub fn cleanup_expired(&self) {
-        let mut limits = self.limits.lock().unwrap();
+        let Ok(mut limits) = self.limits.lock() else {
+            tracing::error!("Rate limiter cleanup: lock poisoned");
+            return;
+        };
         let now = Instant::now();
 
         limits.retain(|_, entry| now.duration_since(entry.window_start) < self.window_duration);
@@ -349,11 +382,7 @@ impl RateLimitService {
                 .map_err(|e| AppError::Internal(anyhow::anyhow!("Redis EXPIRE failed: {}", e)))?;
         }
 
-        let remaining = if current_count > limit {
-            0
-        } else {
-            limit - current_count
-        };
+        let remaining = limit.saturating_sub(current_count);
         let reset_time = get_next_hour_timestamp();
         let retry_after = if remaining == 0 {
             Some(reset_time - get_current_timestamp())

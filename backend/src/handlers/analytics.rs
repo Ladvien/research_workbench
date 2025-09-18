@@ -1,7 +1,7 @@
 use crate::app_state::AppState;
 use crate::error::AppError;
-use crate::middleware::auth::UserResponse;
-use crate::repositories::api_usage::{UsageStats, ModelUsage, DailyUsage, ConversationUsage};
+use crate::models::UserResponse;
+use crate::repositories::api_usage::{UsageStats, ModelUsage, DailyUsage};
 use axum::{
     extract::{Query, State},
     http::HeaderMap,
@@ -64,7 +64,7 @@ pub async fn get_analytics_overview(
     user: UserResponse,
     Query(query): Query<AnalyticsQuery>,
 ) -> Result<impl IntoResponse, AppError> {
-    let repo = &state.repositories.api_usage;
+    let repo = &state.dal.repositories.api_usage;
 
     // Get overall stats
     let stats = repo
@@ -97,7 +97,7 @@ pub async fn get_cost_breakdown(
     user: UserResponse,
     Query(query): Query<AnalyticsQuery>,
 ) -> Result<impl IntoResponse, AppError> {
-    let repo = &state.repositories.api_usage;
+    let repo = &state.dal.repositories.api_usage;
 
     let by_model = repo
         .get_usage_by_model(user.id, query.start_date, query.end_date)
@@ -151,7 +151,7 @@ pub async fn get_usage_trends(
     user: UserResponse,
     Query(query): Query<AnalyticsQuery>,
 ) -> Result<impl IntoResponse, AppError> {
-    let repo = &state.repositories.api_usage;
+    let repo = &state.dal.repositories.api_usage;
 
     let days = query.days.unwrap_or(30);
     let daily = repo
@@ -178,7 +178,7 @@ pub async fn get_conversation_usage(
     user: UserResponse,
     Query(query): Query<AnalyticsQuery>,
 ) -> Result<impl IntoResponse, AppError> {
-    let repo = &state.repositories.api_usage;
+    let repo = &state.dal.repositories.api_usage;
 
     let conversation_usage = repo
         .get_conversation_usage(user.id, query.conversation_id)
@@ -193,7 +193,7 @@ pub async fn export_usage_csv(
     user: UserResponse,
     Query(query): Query<AnalyticsQuery>,
 ) -> Result<impl IntoResponse, AppError> {
-    let repo = &state.repositories.api_usage;
+    let repo = &state.dal.repositories.api_usage;
 
     let usage_records = repo
         .get_usage_for_export(user.id, query.start_date, query.end_date, query.limit)

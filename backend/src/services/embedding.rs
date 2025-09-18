@@ -15,6 +15,7 @@ use crate::{
 pub struct EmbeddingService {
     client: OpenAIClient<async_openai::config::OpenAIConfig>,
     repository: EmbeddingRepository,
+    #[allow(dead_code)]
     config: AppConfig,
 }
 
