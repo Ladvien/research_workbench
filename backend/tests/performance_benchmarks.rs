@@ -3,7 +3,7 @@ mod performance_benchmarks {
     use std::time::{Duration, Instant};
     use uuid::Uuid;
     use workbench_server::{
-        app_state::AppState, config::AppConfig, database::Database, models::*, services::*,
+        app_state::AppState, config::AppConfig, database::Database, models::*, repositories::Repository, services::*,
     };
 
     async fn setup_test_app() -> AppState {

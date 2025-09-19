@@ -840,7 +840,6 @@ impl SessionManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Instant;
     use uuid::Uuid;
 
     async fn create_test_session_manager() -> SessionManager {
@@ -868,7 +867,7 @@ mod tests {
         };
 
         let result = session_manager
-            .store_session(session_id.clone(), session_data.clone())
+            .store_session(&session_id, session_data.clone())
             .await;
         assert!(result.is_ok(), "Session creation should succeed");
 
@@ -908,11 +907,15 @@ mod tests {
 
         // Create session
         let _ = session_manager
-            .store_session(session_id.clone(), session_data)
+            .store_session(&session_id, session_data.clone())
             .await;
 
-        // Update session
-        let result = session_manager.update_session_access(&session_id).await;
+        // Update session (re-store with updated access time)
+        let mut updated_data = session_data.clone();
+        updated_data.last_accessed = chrono::Utc::now();
+        let result = session_manager
+            .store_session(&session_id, updated_data)
+            .await;
         assert!(result.is_ok(), "Session update should succeed");
 
         // Verify last_accessed was updated
@@ -943,7 +946,7 @@ mod tests {
 
         // Create session
         let _ = session_manager
-            .store_session(session_id.clone(), session_data)
+            .store_session(&session_id, session_data)
             .await;
 
         // Verify session exists
@@ -953,9 +956,9 @@ mod tests {
             "Session should exist before invalidation"
         );
 
-        // Invalidate session
-        let result = session_manager.invalidate_session(&session_id).await;
-        assert!(result.is_ok(), "Session invalidation should succeed");
+        // Delete session
+        let result = session_manager.delete_session(&session_id).await;
+        assert!(result.is_ok(), "Session deletion should succeed");
 
         // Verify session no longer exists
         let retrieved = session_manager.get_session(&session_id).await.unwrap();
@@ -981,12 +984,15 @@ mod tests {
                 user_agent: Some("Test User Agent".into()),
             };
             let _ = session_manager
-                .store_session(session_id, session_data)
+                .store_session(&session_id, session_data)
                 .await;
         }
 
         // Verify sessions exist
-        let count_before = session_manager.count_user_sessions(user_id).await.unwrap();
+        let count_before = session_manager
+            .get_user_session_count(user_id)
+            .await
+            .unwrap();
         assert_eq!(
             count_before, 3,
             "Should have 3 sessions before invalidation"
@@ -997,7 +1003,10 @@ mod tests {
         assert!(result.is_ok(), "User session invalidation should succeed");
 
         // Verify all sessions are gone
-        let count_after = session_manager.count_user_sessions(user_id).await.unwrap();
+        let count_after = session_manager
+            .get_user_session_count(user_id)
+            .await
+            .unwrap();
         assert_eq!(count_after, 0, "Should have 0 sessions after invalidation");
     }
 
@@ -1023,7 +1032,7 @@ mod tests {
                 user_agent: Some("Test User Agent".into()),
             };
             let result = session_manager
-                .store_session(session_id, session_data)
+                .store_session(&session_id, session_data)
                 .await;
             assert!(
                 result.is_ok(),
@@ -1032,7 +1041,10 @@ mod tests {
         }
 
         // Verify we have the expected number of sessions
-        let count = session_manager.count_user_sessions(user_id).await.unwrap();
+        let count = session_manager
+            .get_user_session_count(user_id)
+            .await
+            .unwrap();
         assert_eq!(count, 2, "Should have 2 sessions at the limit");
 
         // Try to create one more session (should succeed but remove oldest)
@@ -1044,7 +1056,7 @@ mod tests {
             user_agent: Some("Test User Agent".into()),
         };
         let result = session_manager
-            .store_session("limit_session_overflow".to_string(), session_data)
+            .store_session("limit_session_overflow", session_data)
             .await;
         assert!(
             result.is_ok(),
@@ -1052,7 +1064,10 @@ mod tests {
         );
 
         // Should still have max sessions
-        let count_after = session_manager.count_user_sessions(user_id).await.unwrap();
+        let count_after = session_manager
+            .get_user_session_count(user_id)
+            .await
+            .unwrap();
         assert_eq!(
             count_after, 2,
             "Should still have 2 sessions after overflow"
@@ -1082,7 +1097,7 @@ mod tests {
 
         // Store expired session
         let _ = session_manager
-            .store_session(session_id.clone(), session_data)
+            .store_session(&session_id, session_data)
             .await;
 
         // Try to retrieve - should trigger cleanup and return None
@@ -1117,7 +1132,7 @@ mod tests {
             };
 
             let result = session_manager
-                .store_session(session_id.clone(), session_data.clone())
+                .store_session(&session_id, session_data.clone())
                 .await;
             assert!(
                 result.is_ok(),
@@ -1155,7 +1170,7 @@ mod tests {
                 user_agent: Some("Test User Agent".into()),
             };
             let _ = session_manager
-                .store_session(session_id, session_data)
+                .store_session(&session_id, session_data)
                 .await;
         }
 
@@ -1170,13 +1185,13 @@ mod tests {
                 user_agent: Some("Test User Agent".into()),
             };
             let _ = session_manager
-                .store_session(session_id, session_data)
+                .store_session(&session_id, session_data)
                 .await;
         }
 
         // Verify counts
-        let user1_count = session_manager.count_user_sessions(user1).await.unwrap();
-        let user2_count = session_manager.count_user_sessions(user2).await.unwrap();
+        let user1_count = session_manager.get_user_session_count(user1).await.unwrap();
+        let user2_count = session_manager.get_user_session_count(user2).await.unwrap();
 
         assert_eq!(user1_count, 3, "User1 should have 3 sessions");
         assert_eq!(user2_count, 2, "User2 should have 2 sessions");
@@ -1185,8 +1200,8 @@ mod tests {
         let _ = session_manager.invalidate_user_sessions(user1).await;
 
         // Verify counts after invalidation
-        let user1_count_after = session_manager.count_user_sessions(user1).await.unwrap();
-        let user2_count_after = session_manager.count_user_sessions(user2).await.unwrap();
+        let user1_count_after = session_manager.get_user_session_count(user1).await.unwrap();
+        let user2_count_after = session_manager.get_user_session_count(user2).await.unwrap();
 
         assert_eq!(
             user1_count_after, 0,
@@ -1214,7 +1229,7 @@ mod tests {
                     user_agent: Some("Test User Agent".into()),
                 };
                 session_manager
-                    .store_session(session_id, session_data)
+                    .store_session(&session_id, session_data)
                     .await
             });
             handles.push(handle);
@@ -1227,7 +1242,10 @@ mod tests {
         }
 
         // Verify final count (might be less than 5 due to session limits)
-        let count = session_manager.count_user_sessions(user_id).await.unwrap();
+        let count = session_manager
+            .get_user_session_count(user_id)
+            .await
+            .unwrap();
         assert!(count <= 5, "Session count should not exceed limit");
         assert!(count > 0, "Should have at least some sessions");
     }
@@ -1249,7 +1267,7 @@ mod tests {
 
         // Store session
         let _ = session_manager
-            .store_session(session_id.clone(), session_data.clone())
+            .store_session(&session_id, session_data.clone())
             .await;
 
         // Retrieve and verify all fields
@@ -1300,7 +1318,7 @@ mod tests {
 
         // Try to count sessions for non-existent user
         let count = session_manager
-            .count_user_sessions(Uuid::new_v4())
+            .get_user_session_count(Uuid::new_v4())
             .await
             .unwrap();
         assert_eq!(count, 0, "Non-existent user should have 0 sessions");

@@ -3,14 +3,6 @@
 //! These tests verify that the hybrid JWT/Session conflicts have been resolved
 //! and that session invalidation works correctly on logout.
 
-use crate::{
-    app_state::AppState,
-    config::{AppConfig, JwtConfig},
-    handlers::auth,
-    models::{LoginRequest, RegisterRequest},
-    repositories::{refresh_token::RefreshTokenRepository, user::UserRepository},
-    services::{auth::AuthService, session::SessionManager},
-};
 use axum::{
     body::Body,
     extract::State,
@@ -20,6 +12,14 @@ use axum::{
 use serde_json::json;
 use sqlx::PgPool;
 use std::sync::Arc;
+use workbench_server::{
+    app_state::AppState,
+    config::{AppConfig, JwtConfig},
+    handlers::auth,
+    models::{LoginRequest, RegisterRequest, UserResponse},
+    repositories::{refresh_token::RefreshTokenRepository, user::UserRepository},
+    services::{auth::AuthService, session::SessionManager},
+};
 // use tower_sessions::{MemoryStore, Session, SessionManagerLayer};
 use uuid::Uuid;
 
@@ -36,16 +36,15 @@ async fn test_session_invalidation_on_logout() {
 
     // Mock user for testing
     let user_id = Uuid::new_v4();
-    let user = crate::models::UserResponse {
+    let _user = UserResponse {
         id: user_id,
         email: "test@workbench.com".to_string(),
         username: "testuser".to_string(),
         created_at: chrono::Utc::now(),
-        updated_at: chrono::Utc::now(),
     };
 
     // Create session data
-    let session_data = crate::services::session::SessionData {
+    let session_data = workbench_server::services::session::SessionData {
         user_id,
         created_at: chrono::Utc::now(),
         last_accessed: chrono::Utc::now(),
@@ -104,7 +103,7 @@ async fn test_concurrent_session_limits_enforcement() {
     // Create 5 sessions (should enforce limit of 3)
     for i in 1..=5 {
         let session_id = format!("limit_test_session_{}", i);
-        let session_data = crate::services::session::SessionData {
+        let session_data = workbench_server::services::session::SessionData {
             user_id,
             created_at: chrono::Utc::now(),
             last_accessed: chrono::Utc::now(),
@@ -146,7 +145,7 @@ async fn test_redis_session_integration() {
     let user_id = Uuid::new_v4();
     let session_id = "redis_integration_test";
 
-    let session_data = crate::services::session::SessionData {
+    let session_data = workbench_server::services::session::SessionData {
         user_id,
         created_at: chrono::Utc::now(),
         last_accessed: chrono::Utc::now(),
@@ -189,7 +188,7 @@ async fn test_session_security_validation() {
     let now = chrono::Utc::now();
 
     // Test valid session
-    let valid_session = crate::services::session::SessionData {
+    let valid_session = workbench_server::services::session::SessionData {
         user_id,
         created_at: now - chrono::Duration::minutes(30),
         last_accessed: now - chrono::Duration::minutes(5),
@@ -198,7 +197,7 @@ async fn test_session_security_validation() {
     };
 
     let result =
-        crate::middleware::session_auth::SessionSecurityValidator::validate_session_request(
+        workbench_server::middleware::session_auth::SessionSecurityValidator::validate_session_request(
             Some("192.168.1.100"),
             Some("Valid Agent"),
             &valid_session,
@@ -209,7 +208,7 @@ async fn test_session_security_validation() {
     );
 
     // Test expired session (created too long ago)
-    let expired_session = crate::services::session::SessionData {
+    let expired_session = workbench_server::services::session::SessionData {
         user_id,
         created_at: now - chrono::Duration::hours(25), // Over 24 hours
         last_accessed: now - chrono::Duration::hours(25),
@@ -218,7 +217,7 @@ async fn test_session_security_validation() {
     };
 
     let result =
-        crate::middleware::session_auth::SessionSecurityValidator::validate_session_request(
+        workbench_server::middleware::session_auth::SessionSecurityValidator::validate_session_request(
             Some("192.168.1.100"),
             Some("Expired Agent"),
             &expired_session,
@@ -229,7 +228,7 @@ async fn test_session_security_validation() {
     );
 
     // Test idle session (last accessed too long ago)
-    let idle_session = crate::services::session::SessionData {
+    let idle_session = workbench_server::services::session::SessionData {
         user_id,
         created_at: now - chrono::Duration::minutes(30),
         last_accessed: now - chrono::Duration::hours(3), // Over 2 hours idle
@@ -238,7 +237,7 @@ async fn test_session_security_validation() {
     };
 
     let result =
-        crate::middleware::session_auth::SessionSecurityValidator::validate_session_request(
+        workbench_server::middleware::session_auth::SessionSecurityValidator::validate_session_request(
             Some("192.168.1.100"),
             Some("Idle Agent"),
             &idle_session,
@@ -261,7 +260,7 @@ async fn test_user_session_isolation() {
 
     // Create sessions for both users
     for i in 1..=3 {
-        let session_data1 = crate::services::session::SessionData {
+        let session_data1 = workbench_server::services::session::SessionData {
             user_id: user1_id,
             created_at: chrono::Utc::now(),
             last_accessed: chrono::Utc::now(),
@@ -269,7 +268,7 @@ async fn test_user_session_isolation() {
             user_agent: Some("User1 Agent".into()),
         };
 
-        let session_data2 = crate::services::session::SessionData {
+        let session_data2 = workbench_server::services::session::SessionData {
             user_id: user2_id,
             created_at: chrono::Utc::now(),
             last_accessed: chrono::Utc::now(),
@@ -333,7 +332,7 @@ async fn test_password_change_session_invalidation() {
     // Create multiple sessions for user
     for i in 1..=4 {
         let session_id = format!("password_change_session_{}", i);
-        let session_data = crate::services::session::SessionData {
+        let session_data = workbench_server::services::session::SessionData {
             user_id,
             created_at: chrono::Utc::now(),
             last_accessed: chrono::Utc::now(),
@@ -391,7 +390,7 @@ async fn test_session_performance() {
     // Create many sessions
     for i in 0..num_sessions {
         let session_id = format!("perf_session_{}", i);
-        let session_data = crate::services::session::SessionData {
+        let session_data = workbench_server::services::session::SessionData {
             user_id,
             created_at: chrono::Utc::now(),
             last_accessed: chrono::Utc::now(),

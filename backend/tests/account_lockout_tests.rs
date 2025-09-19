@@ -48,10 +48,12 @@ fn setup_auth_service(
     user_repo: UserRepository,
     refresh_token_repo: RefreshTokenRepository,
 ) -> AuthService {
+    use std::collections::HashMap;
+
     let jwt_config = JwtConfig {
         current_secret: "test_secret_for_account_lockout_tests_12345678901234567890".to_string(),
         current_version: 1,
-        previous_secrets: vec![],
+        previous_secrets: HashMap::new(),
     };
 
     AuthService::new(user_repo, refresh_token_repo, jwt_config)

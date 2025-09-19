@@ -19,6 +19,7 @@ const mockConversations: Conversation[] = [
     provider: 'anthropic',
     created_at: '2024-01-01T10:00:00Z',
     updated_at: '2024-01-01T12:00:00Z',
+    metadata: {},
   },
   {
     id: 'conv-2',
@@ -28,6 +29,7 @@ const mockConversations: Conversation[] = [
     provider: 'openai',
     created_at: '2024-01-01T09:00:00Z',
     updated_at: '2024-01-01T11:00:00Z',
+    metadata: {},
   },
 ];
 
@@ -262,7 +264,8 @@ describe('ConversationSidebar', () => {
         <ConversationSidebar isOpen={true} onToggle={mockOnToggle} />
       );
 
-      const activeConversation = screen.getByText('Test Conversation 1').closest('div');
+      // Find the conversation item container (the outermost div that gets the background color)
+      const activeConversation = screen.getByText('Test Conversation 1').closest('.group');
       expect(activeConversation).toHaveClass('bg-blue-100');
     });
 
@@ -278,7 +281,7 @@ describe('ConversationSidebar', () => {
         <ConversationSidebar isOpen={true} onToggle={mockOnToggle} />
       );
 
-      const conversation = screen.getByText('Test Conversation 1').closest('div');
+      const conversation = screen.getByText('Test Conversation 1').closest('.group');
       if (conversation) {
         fireEvent.click(conversation);
         expect(mockSetCurrentConversation).toHaveBeenCalledWith('conv-1');
@@ -298,7 +301,7 @@ describe('ConversationSidebar', () => {
         <ConversationSidebar isOpen={true} onToggle={mockOnToggle} />
       );
 
-      const conversation2 = screen.getByText('Test Conversation 2').closest('div');
+      const conversation2 = screen.getByText('Test Conversation 2').closest('.group');
       if (conversation2) {
         fireEvent.mouseEnter(conversation2);
 
@@ -322,7 +325,7 @@ describe('ConversationSidebar', () => {
         <ConversationSidebar isOpen={true} onToggle={mockOnToggle} />
       );
 
-      const activeConversation = screen.getByText('Test Conversation 1').closest('div');
+      const activeConversation = screen.getByText('Test Conversation 1').closest('.group');
       if (activeConversation) {
         fireEvent.mouseEnter(activeConversation);
 
@@ -337,14 +340,14 @@ describe('ConversationSidebar', () => {
       mockUseConversationStore.mockReturnValue({
         ...defaultStoreState,
         conversations: mockConversations,
-        currentConversationId: 'conv-1',
+        currentConversationId: 'conv-1', // Different from conv-2, so conv-2 is not active
       });
 
       render(
         <ConversationSidebar isOpen={true} onToggle={mockOnToggle} />
       );
 
-      const conversation2 = screen.getByText('Test Conversation 2').closest('div');
+      const conversation2 = screen.getByText('Test Conversation 2').closest('.group');
       if (conversation2) {
         fireEvent.mouseEnter(conversation2);
 
@@ -354,8 +357,10 @@ describe('ConversationSidebar', () => {
         });
 
         // Should show input field
-        expect(within(conversation2).getByRole('textbox')).toBeInTheDocument();
-        expect(within(conversation2).getByDisplayValue('Test Conversation 2')).toBeInTheDocument();
+        await waitFor(() => {
+          expect(within(conversation2).getByRole('textbox')).toBeInTheDocument();
+          expect(within(conversation2).getByDisplayValue('Test Conversation 2')).toBeInTheDocument();
+        });
       }
     });
 
@@ -364,7 +369,7 @@ describe('ConversationSidebar', () => {
       mockUseConversationStore.mockReturnValue({
         ...defaultStoreState,
         conversations: mockConversations,
-        currentConversationId: 'conv-1',
+        currentConversationId: 'conv-1', // Different from conv-2
         updateConversationTitle: mockUpdateConversationTitle,
       });
 
@@ -372,14 +377,16 @@ describe('ConversationSidebar', () => {
         <ConversationSidebar isOpen={true} onToggle={mockOnToggle} />
       );
 
-      const conversation2 = screen.getByText('Test Conversation 2').closest('div');
+      const conversation2 = screen.getByText('Test Conversation 2').closest('.group');
       if (conversation2) {
         fireEvent.mouseEnter(conversation2);
 
-        await waitFor(async () => {
+        await waitFor(() => {
           const editButton = within(conversation2).getByTitle('Rename conversation');
           fireEvent.click(editButton);
+        });
 
+        await waitFor(() => {
           const input = within(conversation2).getByRole('textbox');
           fireEvent.change(input, { target: { value: 'Updated Title' } });
           fireEvent.keyDown(input, { key: 'Enter' });
@@ -395,29 +402,33 @@ describe('ConversationSidebar', () => {
       mockUseConversationStore.mockReturnValue({
         ...defaultStoreState,
         conversations: mockConversations,
-        currentConversationId: 'conv-1',
+        currentConversationId: 'conv-1', // Different from conv-2
       });
 
       render(
         <ConversationSidebar isOpen={true} onToggle={mockOnToggle} />
       );
 
-      const conversation2 = screen.getByText('Test Conversation 2').closest('div');
+      const conversation2 = screen.getByText('Test Conversation 2').closest('.group');
       if (conversation2) {
         fireEvent.mouseEnter(conversation2);
 
-        await waitFor(async () => {
+        await waitFor(() => {
           const editButton = within(conversation2).getByTitle('Rename conversation');
           fireEvent.click(editButton);
+        });
 
+        await waitFor(() => {
           const input = within(conversation2).getByRole('textbox');
           fireEvent.change(input, { target: { value: 'Should be cancelled' } });
           fireEvent.keyDown(input, { key: 'Escape' });
         });
 
         // Should exit edit mode and restore original title
-        expect(within(conversation2).queryByRole('textbox')).not.toBeInTheDocument();
-        expect(within(conversation2).getByText('Test Conversation 2')).toBeInTheDocument();
+        await waitFor(() => {
+          expect(within(conversation2).queryByRole('textbox')).not.toBeInTheDocument();
+          expect(within(conversation2).getByText('Test Conversation 2')).toBeInTheDocument();
+        });
       }
     });
 
@@ -426,7 +437,7 @@ describe('ConversationSidebar', () => {
       mockUseConversationStore.mockReturnValue({
         ...defaultStoreState,
         conversations: mockConversations,
-        currentConversationId: 'conv-1',
+        currentConversationId: 'conv-1', // Different from conv-2
         updateConversationTitle: mockUpdateConversationTitle,
       });
 
@@ -434,14 +445,16 @@ describe('ConversationSidebar', () => {
         <ConversationSidebar isOpen={true} onToggle={mockOnToggle} />
       );
 
-      const conversation2 = screen.getByText('Test Conversation 2').closest('div');
+      const conversation2 = screen.getByText('Test Conversation 2').closest('.group');
       if (conversation2) {
         fireEvent.mouseEnter(conversation2);
 
-        await waitFor(async () => {
+        await waitFor(() => {
           const editButton = within(conversation2).getByTitle('Rename conversation');
           fireEvent.click(editButton);
+        });
 
+        await waitFor(() => {
           const input = within(conversation2).getByRole('textbox');
           fireEvent.change(input, { target: { value: 'Blurred Title' } });
           fireEvent.blur(input);
@@ -459,14 +472,14 @@ describe('ConversationSidebar', () => {
       mockUseConversationStore.mockReturnValue({
         ...defaultStoreState,
         conversations: mockConversations,
-        currentConversationId: 'conv-1',
+        currentConversationId: 'conv-1', // Different from conv-2
       });
 
       render(
         <ConversationSidebar isOpen={true} onToggle={mockOnToggle} />
       );
 
-      const conversation2 = screen.getByText('Test Conversation 2').closest('div');
+      const conversation2 = screen.getByText('Test Conversation 2').closest('.group');
       if (conversation2) {
         fireEvent.mouseEnter(conversation2);
 
@@ -486,7 +499,7 @@ describe('ConversationSidebar', () => {
       mockUseConversationStore.mockReturnValue({
         ...defaultStoreState,
         conversations: mockConversations,
-        currentConversationId: 'conv-1',
+        currentConversationId: 'conv-1', // Different from conv-2
         deleteConversation: mockDeleteConversation,
       });
 
@@ -494,7 +507,7 @@ describe('ConversationSidebar', () => {
         <ConversationSidebar isOpen={true} onToggle={mockOnToggle} />
       );
 
-      const conversation2 = screen.getByText('Test Conversation 2').closest('div');
+      const conversation2 = screen.getByText('Test Conversation 2').closest('.group');
       if (conversation2) {
         fireEvent.mouseEnter(conversation2);
 
@@ -515,7 +528,7 @@ describe('ConversationSidebar', () => {
       mockUseConversationStore.mockReturnValue({
         ...defaultStoreState,
         conversations: mockConversations,
-        currentConversationId: 'conv-1',
+        currentConversationId: 'conv-1', // Different from conv-2
         deleteConversation: mockDeleteConversation,
       });
 
@@ -523,7 +536,7 @@ describe('ConversationSidebar', () => {
         <ConversationSidebar isOpen={true} onToggle={mockOnToggle} />
       );
 
-      const conversation2 = screen.getByText('Test Conversation 2').closest('div');
+      const conversation2 = screen.getByText('Test Conversation 2').closest('.group');
       if (conversation2) {
         fireEvent.mouseEnter(conversation2);
 
@@ -645,21 +658,23 @@ describe('ConversationSidebar', () => {
       mockUseConversationStore.mockReturnValue({
         ...defaultStoreState,
         conversations: mockConversations,
-        currentConversationId: 'conv-1',
+        currentConversationId: 'conv-1', // Different from conv-2
       });
 
       render(
         <ConversationSidebar isOpen={true} onToggle={mockOnToggle} />
       );
 
-      const conversation2 = screen.getByText('Test Conversation 2').closest('div');
+      const conversation2 = screen.getByText('Test Conversation 2').closest('.group');
       if (conversation2) {
         fireEvent.mouseEnter(conversation2);
 
-        await waitFor(async () => {
+        await waitFor(() => {
           const editButton = within(conversation2).getByTitle('Rename conversation');
           fireEvent.click(editButton);
+        });
 
+        await waitFor(() => {
           const input = within(conversation2).getByRole('textbox');
           expect(input).toHaveFocus();
         });

@@ -125,12 +125,11 @@ pub fn create_conversation_service(dal: DataAccessLayer) -> ConversationService 
 mod tests {
     use super::*;
     use crate::app_state::AppState;
-    use crate::config::{Config, CookieConfig, JwtConfig};
+    use crate::config::{AppConfig, JwtConfig};
     use crate::models::{CreateConversationRequest, UserResponse};
     use crate::services::DataAccessLayer;
     use axum::extract::{Path, State};
     use axum::response::Json;
-    use serde_json::json;
     use sqlx::PgPool;
     use uuid::Uuid;
 
@@ -142,12 +141,13 @@ mod tests {
             .await
             .expect("Failed to connect to test database");
 
-        let dal = DataAccessLayer::new(pool);
+        let database = crate::database::Database { pool };
+        let dal = DataAccessLayer::new(database);
 
         let jwt_config = JwtConfig {
             current_secret: "test_secret_key_123".to_string(),
             current_version: 1,
-            previous_secrets: vec![],
+            previous_secrets: std::collections::HashMap::new(),
         };
 
         let auth_service = crate::services::auth::AuthService::new(
@@ -156,21 +156,13 @@ mod tests {
             jwt_config.clone(),
         );
 
-        let config = Config {
-            cookie_security: CookieConfig {
-                secure: false,
-                same_site: "Lax".to_string(),
-            },
-            jwt: jwt_config,
-        };
+        let mut config = AppConfig::default();
+        config.jwt_config = jwt_config;
 
         AppState {
             dal: dal.clone(),
             auth_service,
-            chat_service: crate::services::chat::ChatService::new(
-                dal.repositories.conversations.clone(),
-                dal.repositories.messages.clone(),
-            ),
+            chat_service: crate::services::chat::ChatService::new(dal.clone()),
             conversation_service: crate::services::conversation::ConversationService::new(dal),
             session_manager: None,
             config,
@@ -183,7 +175,6 @@ mod tests {
             email: format!("conversation_test_{}@example.com", Uuid::new_v4()),
             username: format!("conversation_user_{}", Uuid::new_v4()),
             created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
         }
     }
 
@@ -195,7 +186,8 @@ mod tests {
         let request = CreateConversationRequest {
             title: Some("Test Conversation".to_string()),
             model: "gpt-4".to_string(),
-            provider: "openai".to_string(),
+            provider: Some("openai".to_string()),
+            metadata: None,
         };
 
         let result = create_conversation(State(app_state), user, Json(request)).await;
@@ -227,7 +219,8 @@ mod tests {
         let request = CreateConversationRequest {
             title: None, // No title provided
             model: "claude-3-sonnet".to_string(),
-            provider: "anthropic".to_string(),
+            provider: Some("anthropic".to_string()),
+            metadata: None,
         };
 
         let result = create_conversation(State(app_state), user, Json(request)).await;
@@ -295,7 +288,8 @@ mod tests {
         let create_request = CreateConversationRequest {
             title: Some("Original Title".to_string()),
             model: "gpt-4".to_string(),
-            provider: "openai".to_string(),
+            provider: Some("openai".to_string()),
+            metadata: None,
         };
 
         let create_result =
@@ -368,7 +362,8 @@ mod tests {
         let create_request = CreateConversationRequest {
             title: Some("To Be Deleted".to_string()),
             model: "gpt-4".to_string(),
-            provider: "openai".to_string(),
+            provider: Some("openai".to_string()),
+            metadata: None,
         };
 
         let create_result =
@@ -428,7 +423,8 @@ mod tests {
         let create_request = CreateConversationRequest {
             title: Some("Stats Test".to_string()),
             model: "gpt-4".to_string(),
-            provider: "openai".to_string(),
+            provider: Some("openai".to_string()),
+            metadata: None,
         };
 
         let create_result =
@@ -486,8 +482,9 @@ mod tests {
             .await
             .expect("Failed to connect to test database");
 
-        let dal = DataAccessLayer::new(pool);
-        let service = create_conversation_service(dal);
+        let database = crate::database::Database { pool };
+        let dal = DataAccessLayer::new(database);
+        let _service = create_conversation_service(dal);
 
         // This is a simple test to verify the service can be created
         // without panicking or errors

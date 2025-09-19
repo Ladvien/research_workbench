@@ -1,11 +1,7 @@
 //! Security Fixes Test Suite
 //! Tests for critical and high severity security issues
 
-use axum::{
-    extract::State,
-    http::{header, request::Parts, HeaderMap, HeaderValue, StatusCode},
-    Json,
-};
+use axum::http::{request::Parts, HeaderMap, HeaderValue};
 use serde_json::json;
 use std::net::{IpAddr, SocketAddr};
 use tower::ServiceExt;
@@ -15,8 +11,8 @@ use workbench_server::{
     app_state::AppState,
     error::AppError,
     handlers::auth,
-    middleware::auth::{AuthUtils, UserResponse},
-    models::{LoginRequest, RegisterRequest},
+    middleware::auth::AuthUtils,
+    models::{LoginRequest, RegisterRequest, UserResponse},
 };
 
 /// Test suite for JWT token validation security fixes

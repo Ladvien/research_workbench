@@ -14,8 +14,7 @@ mod jwt_security_integration_tests {
     };
     use axum::{
         body::Body,
-        http::{HeaderMap, Request, StatusCode},
-        response::Response,
+        http::{Request, StatusCode},
         routing::get,
         Json, Router,
     };
