@@ -7,12 +7,8 @@ use tokio;
 mod test_env {
     use axum::Router;
     use workbench_server::{
-        app_state::AppState,
-        config::AppConfig,
-        database::Database,
-        models::CreateUserRequest,
-        services::DataAccessLayer,
-        seed::TestUser as SeedTestUser,
+        app_state::AppState, config::AppConfig, database::Database, models::CreateUserRequest,
+        seed::TestUser as SeedTestUser, services::DataAccessLayer,
     };
 
     #[derive(Debug, Clone)]
@@ -26,8 +22,9 @@ mod test_env {
     pub async fn setup_test_app() -> (Router, TestUser) {
         let config = AppConfig::from_env().expect("Failed to load test configuration");
 
-        let database_url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgresql://ladvien:postgres@localhost:5432/workbench".to_string());
+        let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgresql://ladvien:postgres@localhost:5432/workbench".to_string()
+        });
 
         let database = Database::new(&database_url)
             .await

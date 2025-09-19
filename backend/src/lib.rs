@@ -8,7 +8,6 @@ pub mod llm;
 pub mod middleware;
 pub mod models;
 pub mod openai;
-pub mod performance;
 pub mod repositories;
 pub mod seed;
 pub mod services;

@@ -224,9 +224,12 @@ pub async fn export_usage_csv(
     }
 
     let mut headers = HeaderMap::new();
-    headers.insert("content-type", "text/csv".parse().map_err(|e| {
-        AppError::InternalServerError(format!("Invalid content-type header: {}", e))
-    })?);
+    headers.insert(
+        "content-type",
+        "text/csv".parse().map_err(|e| {
+            AppError::InternalServerError(format!("Invalid content-type header: {}", e))
+        })?,
+    );
     headers.insert(
         "content-disposition",
         format!(

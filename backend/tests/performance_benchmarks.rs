@@ -8,8 +8,9 @@ mod performance_benchmarks {
 
     async fn setup_test_app() -> AppState {
         let config = AppConfig::from_env().expect("Failed to load config");
-        let database_url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgresql://postgres:postgres@localhost/workbench_test".to_string());
+        let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgresql://postgres:postgres@localhost/workbench_test".to_string()
+        });
         let database = Database::new(&database_url)
             .await
             .expect("Failed to connect to database");

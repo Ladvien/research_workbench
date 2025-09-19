@@ -1,3 +1,4 @@
 // Export the existing Register component
-export { Register } from '../../components/Auth/Register';
+import { Register } from '../../components/Auth/Register';
+export { Register };
 export default Register;

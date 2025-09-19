@@ -867,7 +867,9 @@ mod tests {
             user_agent: Some("Test User Agent".into()),
         };
 
-        let result = session_manager.store_session(session_id.clone(), session_data.clone()).await;
+        let result = session_manager
+            .store_session(session_id.clone(), session_data.clone())
+            .await;
         assert!(result.is_ok(), "Session creation should succeed");
 
         // Verify session can be retrieved
@@ -876,8 +878,14 @@ mod tests {
 
         if let Ok(Some(retrieved_data)) = retrieved {
             assert_eq!(retrieved_data.user_id, user_id, "User ID should match");
-            assert_eq!(retrieved_data.ip_address, session_data.ip_address, "IP address should match");
-            assert_eq!(retrieved_data.user_agent, session_data.user_agent, "User agent should match");
+            assert_eq!(
+                retrieved_data.ip_address, session_data.ip_address,
+                "IP address should match"
+            );
+            assert_eq!(
+                retrieved_data.user_agent, session_data.user_agent,
+                "User agent should match"
+            );
         } else {
             panic!("Session should be found");
         }
@@ -899,15 +907,24 @@ mod tests {
         };
 
         // Create session
-        let _ = session_manager.store_session(session_id.clone(), session_data).await;
+        let _ = session_manager
+            .store_session(session_id.clone(), session_data)
+            .await;
 
         // Update session
         let result = session_manager.update_session_access(&session_id).await;
         assert!(result.is_ok(), "Session update should succeed");
 
         // Verify last_accessed was updated
-        let retrieved = session_manager.get_session(&session_id).await.unwrap().unwrap();
-        assert!(retrieved.last_accessed > initial_time, "Last accessed time should be updated");
+        let retrieved = session_manager
+            .get_session(&session_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            retrieved.last_accessed > initial_time,
+            "Last accessed time should be updated"
+        );
     }
 
     #[tokio::test]
@@ -925,11 +942,16 @@ mod tests {
         };
 
         // Create session
-        let _ = session_manager.store_session(session_id.clone(), session_data).await;
+        let _ = session_manager
+            .store_session(session_id.clone(), session_data)
+            .await;
 
         // Verify session exists
         let retrieved = session_manager.get_session(&session_id).await.unwrap();
-        assert!(retrieved.is_some(), "Session should exist before invalidation");
+        assert!(
+            retrieved.is_some(),
+            "Session should exist before invalidation"
+        );
 
         // Invalidate session
         let result = session_manager.invalidate_session(&session_id).await;
@@ -937,7 +959,10 @@ mod tests {
 
         // Verify session no longer exists
         let retrieved = session_manager.get_session(&session_id).await.unwrap();
-        assert!(retrieved.is_none(), "Session should not exist after invalidation");
+        assert!(
+            retrieved.is_none(),
+            "Session should not exist after invalidation"
+        );
     }
 
     #[tokio::test]
@@ -955,12 +980,17 @@ mod tests {
                 ip_address: Some("127.0.0.1".into()),
                 user_agent: Some("Test User Agent".into()),
             };
-            let _ = session_manager.store_session(session_id, session_data).await;
+            let _ = session_manager
+                .store_session(session_id, session_data)
+                .await;
         }
 
         // Verify sessions exist
         let count_before = session_manager.count_user_sessions(user_id).await.unwrap();
-        assert_eq!(count_before, 3, "Should have 3 sessions before invalidation");
+        assert_eq!(
+            count_before, 3,
+            "Should have 3 sessions before invalidation"
+        );
 
         // Invalidate all user sessions
         let result = session_manager.invalidate_user_sessions(user_id).await;
@@ -992,8 +1022,13 @@ mod tests {
                 ip_address: Some("127.0.0.1".into()),
                 user_agent: Some("Test User Agent".into()),
             };
-            let result = session_manager.store_session(session_id, session_data).await;
-            assert!(result.is_ok(), "Session creation within limit should succeed");
+            let result = session_manager
+                .store_session(session_id, session_data)
+                .await;
+            assert!(
+                result.is_ok(),
+                "Session creation within limit should succeed"
+            );
         }
 
         // Verify we have the expected number of sessions
@@ -1008,12 +1043,20 @@ mod tests {
             ip_address: Some("127.0.0.1".into()),
             user_agent: Some("Test User Agent".into()),
         };
-        let result = session_manager.store_session("limit_session_overflow".to_string(), session_data).await;
-        assert!(result.is_ok(), "Session creation over limit should still succeed");
+        let result = session_manager
+            .store_session("limit_session_overflow".to_string(), session_data)
+            .await;
+        assert!(
+            result.is_ok(),
+            "Session creation over limit should still succeed"
+        );
 
         // Should still have max sessions
         let count_after = session_manager.count_user_sessions(user_id).await.unwrap();
-        assert_eq!(count_after, 2, "Should still have 2 sessions after overflow");
+        assert_eq!(
+            count_after, 2,
+            "Should still have 2 sessions after overflow"
+        );
     }
 
     #[tokio::test]
@@ -1038,11 +1081,16 @@ mod tests {
         };
 
         // Store expired session
-        let _ = session_manager.store_session(session_id.clone(), session_data).await;
+        let _ = session_manager
+            .store_session(session_id.clone(), session_data)
+            .await;
 
         // Try to retrieve - should trigger cleanup and return None
         let retrieved = session_manager.get_session(&session_id).await.unwrap();
-        assert!(retrieved.is_none(), "Expired session should not be retrieved");
+        assert!(
+            retrieved.is_none(),
+            "Expired session should not be retrieved"
+        );
     }
 
     #[tokio::test]
@@ -1068,11 +1116,25 @@ mod tests {
                 user_agent: Some("Test User Agent".into()),
             };
 
-            let result = session_manager.store_session(session_id.clone(), session_data.clone()).await;
-            assert!(result.is_ok(), "Session with IP {:?} should be stored successfully", ip);
+            let result = session_manager
+                .store_session(session_id.clone(), session_data.clone())
+                .await;
+            assert!(
+                result.is_ok(),
+                "Session with IP {:?} should be stored successfully",
+                ip
+            );
 
-            let retrieved = session_manager.get_session(&session_id).await.unwrap().unwrap();
-            assert_eq!(retrieved.ip_address, *ip, "IP address should match for session {}", i);
+            let retrieved = session_manager
+                .get_session(&session_id)
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                retrieved.ip_address, *ip,
+                "IP address should match for session {}",
+                i
+            );
         }
     }
 
@@ -1092,7 +1154,9 @@ mod tests {
                 ip_address: Some("127.0.0.1".into()),
                 user_agent: Some("Test User Agent".into()),
             };
-            let _ = session_manager.store_session(session_id, session_data).await;
+            let _ = session_manager
+                .store_session(session_id, session_data)
+                .await;
         }
 
         // Create sessions for user2
@@ -1105,7 +1169,9 @@ mod tests {
                 ip_address: Some("127.0.0.1".into()),
                 user_agent: Some("Test User Agent".into()),
             };
-            let _ = session_manager.store_session(session_id, session_data).await;
+            let _ = session_manager
+                .store_session(session_id, session_data)
+                .await;
         }
 
         // Verify counts
@@ -1122,7 +1188,10 @@ mod tests {
         let user1_count_after = session_manager.count_user_sessions(user1).await.unwrap();
         let user2_count_after = session_manager.count_user_sessions(user2).await.unwrap();
 
-        assert_eq!(user1_count_after, 0, "User1 should have 0 sessions after invalidation");
+        assert_eq!(
+            user1_count_after, 0,
+            "User1 should have 0 sessions after invalidation"
+        );
         assert_eq!(user2_count_after, 2, "User2 should still have 2 sessions");
     }
 
@@ -1144,7 +1213,9 @@ mod tests {
                     ip_address: Some("127.0.0.1".into()),
                     user_agent: Some("Test User Agent".into()),
                 };
-                session_manager.store_session(session_id, session_data).await
+                session_manager
+                    .store_session(session_id, session_data)
+                    .await
             });
             handles.push(handle);
         }
@@ -1177,16 +1248,36 @@ mod tests {
         };
 
         // Store session
-        let _ = session_manager.store_session(session_id.clone(), session_data.clone()).await;
+        let _ = session_manager
+            .store_session(session_id.clone(), session_data.clone())
+            .await;
 
         // Retrieve and verify all fields
-        let retrieved = session_manager.get_session(&session_id).await.unwrap().unwrap();
+        let retrieved = session_manager
+            .get_session(&session_id)
+            .await
+            .unwrap()
+            .unwrap();
 
         assert_eq!(retrieved.user_id, user_id, "User ID should be preserved");
-        assert_eq!(retrieved.created_at, original_time, "Created time should be preserved");
-        assert_eq!(retrieved.last_accessed, original_time, "Last accessed time should be preserved");
-        assert_eq!(retrieved.ip_address, Some("192.168.1.100".into()), "IP address should be preserved");
-        assert_eq!(retrieved.user_agent, Some("Mozilla/5.0 (Test Browser)".into()), "User agent should be preserved");
+        assert_eq!(
+            retrieved.created_at, original_time,
+            "Created time should be preserved"
+        );
+        assert_eq!(
+            retrieved.last_accessed, original_time,
+            "Last accessed time should be preserved"
+        );
+        assert_eq!(
+            retrieved.ip_address,
+            Some("192.168.1.100".into()),
+            "IP address should be preserved"
+        );
+        assert_eq!(
+            retrieved.user_agent,
+            Some("Mozilla/5.0 (Test Browser)".into()),
+            "User agent should be preserved"
+        );
     }
 
     #[tokio::test]
@@ -1195,14 +1286,23 @@ mod tests {
 
         // Try to retrieve non-existent session
         let result = session_manager.get_session("nonexistent_session").await;
-        assert!(result.is_ok(), "Retrieving non-existent session should not error");
+        assert!(
+            result.is_ok(),
+            "Retrieving non-existent session should not error"
+        );
 
         if let Ok(session_data) = result {
-            assert!(session_data.is_none(), "Non-existent session should return None");
+            assert!(
+                session_data.is_none(),
+                "Non-existent session should return None"
+            );
         }
 
         // Try to count sessions for non-existent user
-        let count = session_manager.count_user_sessions(Uuid::new_v4()).await.unwrap();
+        let count = session_manager
+            .count_user_sessions(Uuid::new_v4())
+            .await
+            .unwrap();
         assert_eq!(count, 0, "Non-existent user should have 0 sessions");
     }
 }

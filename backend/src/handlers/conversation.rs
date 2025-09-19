@@ -198,19 +198,24 @@ mod tests {
             provider: "openai".to_string(),
         };
 
-        let result = create_conversation(
-            State(app_state),
-            user,
-            Json(request),
-        ).await;
+        let result = create_conversation(State(app_state), user, Json(request)).await;
 
         assert!(result.is_ok(), "Conversation creation should succeed");
 
         if let Ok(Json(conversation_data)) = result {
-            assert!(conversation_data.get("id").is_some(), "Response should include conversation ID");
-            assert_eq!(conversation_data["title"], "Test Conversation", "Title should match");
+            assert!(
+                conversation_data.get("id").is_some(),
+                "Response should include conversation ID"
+            );
+            assert_eq!(
+                conversation_data["title"], "Test Conversation",
+                "Title should match"
+            );
             assert_eq!(conversation_data["model"], "gpt-4", "Model should match");
-            assert_eq!(conversation_data["provider"], "openai", "Provider should match");
+            assert_eq!(
+                conversation_data["provider"], "openai",
+                "Provider should match"
+            );
         }
     }
 
@@ -225,19 +230,27 @@ mod tests {
             provider: "anthropic".to_string(),
         };
 
-        let result = create_conversation(
-            State(app_state),
-            user,
-            Json(request),
-        ).await;
+        let result = create_conversation(State(app_state), user, Json(request)).await;
 
-        assert!(result.is_ok(), "Conversation creation without title should succeed");
+        assert!(
+            result.is_ok(),
+            "Conversation creation without title should succeed"
+        );
 
         if let Ok(Json(conversation_data)) = result {
-            assert!(conversation_data.get("id").is_some(), "Response should include conversation ID");
+            assert!(
+                conversation_data.get("id").is_some(),
+                "Response should include conversation ID"
+            );
             // Title should be null or generated
-            assert_eq!(conversation_data["model"], "claude-3-sonnet", "Model should match");
-            assert_eq!(conversation_data["provider"], "anthropic", "Provider should match");
+            assert_eq!(
+                conversation_data["model"], "claude-3-sonnet",
+                "Model should match"
+            );
+            assert_eq!(
+                conversation_data["provider"], "anthropic",
+                "Provider should match"
+            );
         }
     }
 
@@ -246,10 +259,7 @@ mod tests {
         let app_state = create_test_app_state().await;
         let user = create_test_user();
 
-        let result = get_user_conversations(
-            State(app_state),
-            user,
-        ).await;
+        let result = get_user_conversations(State(app_state), user).await;
 
         assert!(result.is_ok(), "Getting user conversations should succeed");
 
@@ -265,13 +275,12 @@ mod tests {
         let user = create_test_user();
         let nonexistent_id = Uuid::new_v4();
 
-        let result = get_conversation(
-            State(app_state),
-            Path(nonexistent_id),
-            user,
-        ).await;
+        let result = get_conversation(State(app_state), Path(nonexistent_id), user).await;
 
-        assert!(result.is_err(), "Getting nonexistent conversation should fail");
+        assert!(
+            result.is_err(),
+            "Getting nonexistent conversation should fail"
+        );
         if let Err(error) = result {
             assert!(matches!(error, AppError::NotFound(_)));
         }
@@ -289,16 +298,17 @@ mod tests {
             provider: "openai".to_string(),
         };
 
-        let create_result = create_conversation(
-            State(app_state.clone()),
-            user.clone(),
-            Json(create_request),
-        ).await;
+        let create_result =
+            create_conversation(State(app_state.clone()), user.clone(), Json(create_request)).await;
 
-        assert!(create_result.is_ok(), "Conversation creation should succeed");
+        assert!(
+            create_result.is_ok(),
+            "Conversation creation should succeed"
+        );
 
         if let Ok(Json(conversation_data)) = create_result {
-            let conversation_id = conversation_data["id"].as_str()
+            let conversation_id = conversation_data["id"]
+                .as_str()
                 .and_then(|s| Uuid::parse_str(s).ok())
                 .expect("Should have valid conversation ID");
 
@@ -311,7 +321,8 @@ mod tests {
                 Path(conversation_id),
                 user,
                 Json(update_request),
-            ).await;
+            )
+            .await;
 
             assert!(update_result.is_ok(), "Title update should succeed");
 
@@ -336,9 +347,13 @@ mod tests {
             Path(nonexistent_id),
             user,
             Json(update_request),
-        ).await;
+        )
+        .await;
 
-        assert!(result.is_err(), "Updating nonexistent conversation should fail");
+        assert!(
+            result.is_err(),
+            "Updating nonexistent conversation should fail"
+        );
         if let Err(error) = result {
             assert!(matches!(error, AppError::NotFound(_)));
         }
@@ -356,28 +371,33 @@ mod tests {
             provider: "openai".to_string(),
         };
 
-        let create_result = create_conversation(
-            State(app_state.clone()),
-            user.clone(),
-            Json(create_request),
-        ).await;
+        let create_result =
+            create_conversation(State(app_state.clone()), user.clone(), Json(create_request)).await;
 
-        assert!(create_result.is_ok(), "Conversation creation should succeed");
+        assert!(
+            create_result.is_ok(),
+            "Conversation creation should succeed"
+        );
 
         if let Ok(Json(conversation_data)) = create_result {
-            let conversation_id = conversation_data["id"].as_str()
+            let conversation_id = conversation_data["id"]
+                .as_str()
                 .and_then(|s| Uuid::parse_str(s).ok())
                 .expect("Should have valid conversation ID");
 
-            let delete_result = delete_conversation(
-                State(app_state),
-                Path(conversation_id),
-                user,
-            ).await;
+            let delete_result =
+                delete_conversation(State(app_state), Path(conversation_id), user).await;
 
-            assert!(delete_result.is_ok(), "Conversation deletion should succeed");
+            assert!(
+                delete_result.is_ok(),
+                "Conversation deletion should succeed"
+            );
             if let Ok(status_code) = delete_result {
-                assert_eq!(status_code, StatusCode::NO_CONTENT, "Should return 204 No Content");
+                assert_eq!(
+                    status_code,
+                    StatusCode::NO_CONTENT,
+                    "Should return 204 No Content"
+                );
             }
         }
     }
@@ -388,13 +408,12 @@ mod tests {
         let user = create_test_user();
         let nonexistent_id = Uuid::new_v4();
 
-        let result = delete_conversation(
-            State(app_state),
-            Path(nonexistent_id),
-            user,
-        ).await;
+        let result = delete_conversation(State(app_state), Path(nonexistent_id), user).await;
 
-        assert!(result.is_err(), "Deleting nonexistent conversation should fail");
+        assert!(
+            result.is_err(),
+            "Deleting nonexistent conversation should fail"
+        );
         if let Err(error) = result {
             assert!(matches!(error, AppError::NotFound(_)));
         }
@@ -412,26 +431,27 @@ mod tests {
             provider: "openai".to_string(),
         };
 
-        let create_result = create_conversation(
-            State(app_state.clone()),
-            user.clone(),
-            Json(create_request),
-        ).await;
+        let create_result =
+            create_conversation(State(app_state.clone()), user.clone(), Json(create_request)).await;
 
-        assert!(create_result.is_ok(), "Conversation creation should succeed");
+        assert!(
+            create_result.is_ok(),
+            "Conversation creation should succeed"
+        );
 
         if let Ok(Json(conversation_data)) = create_result {
-            let conversation_id = conversation_data["id"].as_str()
+            let conversation_id = conversation_data["id"]
+                .as_str()
                 .and_then(|s| Uuid::parse_str(s).ok())
                 .expect("Should have valid conversation ID");
 
-            let stats_result = get_conversation_stats(
-                State(app_state),
-                Path(conversation_id),
-                user,
-            ).await;
+            let stats_result =
+                get_conversation_stats(State(app_state), Path(conversation_id), user).await;
 
-            assert!(stats_result.is_ok(), "Getting conversation stats should succeed");
+            assert!(
+                stats_result.is_ok(),
+                "Getting conversation stats should succeed"
+            );
 
             if let Ok(Json(stats_data)) = stats_result {
                 // Stats should include message count, token count, etc.
@@ -446,11 +466,7 @@ mod tests {
         let user = create_test_user();
         let nonexistent_id = Uuid::new_v4();
 
-        let result = get_conversation_stats(
-            State(app_state),
-            Path(nonexistent_id),
-            user,
-        ).await;
+        let result = get_conversation_stats(State(app_state), Path(nonexistent_id), user).await;
 
         // Stats for nonexistent conversation might return empty stats or error
         // depending on implementation

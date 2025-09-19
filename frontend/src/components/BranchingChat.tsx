@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { BranchVisualizer } from './BranchVisualizer';
 import { ChatInput } from './ChatInput';
 import { ErrorAlert } from './ErrorAlert';
-import { ChatHeader, WelcomeScreen, MessageList } from './BranchingChat';
+import { Message } from './Message';
+import { LoadingSpinner } from './LoadingSpinner';
 import { useConversationStore } from '../hooks/useConversationStore';
 import { useBranching } from '../hooks/useBranching';
 import { categorizeError, retryOperation, isTemporaryError } from '../utils/errorHandling';
+import type { Message as MessageType, TreeNode } from '../types';
 
 export const BranchingChat: React.FC = () => {
   const [showBranchView, setShowBranchView] = useState(false);
@@ -196,6 +198,118 @@ export const BranchingChat: React.FC = () => {
           }
         />
       </div>
+    </div>
+  );
+};
+
+// Sub-components
+const ChatHeader: React.FC<{
+  currentConversationId: string | null;
+  showBranchView: boolean;
+  treeData: any;
+  isBranchLoading: boolean;
+  onToggleBranchView: () => void;
+}> = ({ currentConversationId, showBranchView, treeData, isBranchLoading, onToggleBranchView }) => {
+  return (
+    <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+      <div className="flex justify-between items-center">
+        <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+          {currentConversationId ? 'Chat Session' : 'New Conversation'}
+        </h1>
+        {currentConversationId && (
+          <button
+            onClick={onToggleBranchView}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+            disabled={isBranchLoading}
+          >
+            {showBranchView ? 'Hide' : 'Show'} Branches
+            {treeData?.branches && treeData.branches.length > 0 && (
+              <span className="bg-blue-600 px-2 py-0.5 rounded-full text-xs">
+                {treeData.branches.length}
+              </span>
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const WelcomeScreen: React.FC = () => {
+  return (
+    <div className="text-center py-12">
+      <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
+        Welcome to Workbench Chat
+      </h2>
+      <p className="text-gray-600 dark:text-gray-400">
+        Start a conversation by typing a message below
+      </p>
+    </div>
+  );
+};
+
+const MessageList: React.FC<{
+  currentMessages: MessageType[];
+  streamingMessage: string | null;
+  isLoading: boolean;
+  isStreaming: boolean;
+  isBranchLoading: boolean;
+  branches?: any[];
+  showBranchView: boolean;
+  onEditMessage: (id: string, content: string) => void;
+  onDeleteMessage: (id: string) => void;
+  onBranchSwitch: (branchId: string) => void;
+  onStopStreaming: () => void;
+}> = ({
+  currentMessages,
+  streamingMessage,
+  isLoading,
+  isStreaming,
+  isBranchLoading,
+  branches,
+  showBranchView,
+  onEditMessage,
+  onDeleteMessage,
+  onBranchSwitch,
+  onStopStreaming,
+}) => {
+  return (
+    <div className="space-y-4">
+      {currentMessages.map((message, index) => (
+        <Message
+          key={message.id}
+          message={message}
+          onEdit={(content) => onEditMessage(message.id, content)}
+          onDelete={() => onDeleteMessage(message.id)}
+          isStreaming={false}
+        />
+      ))}
+
+      {streamingMessage && (
+        <Message
+          message={{
+            id: 'streaming',
+            content: streamingMessage,
+            role: 'assistant',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            conversation_id: '',
+            user_id: '',
+            parent_id: null,
+            branch_id: null,
+            tokens_used: null,
+            model: null
+          }}
+          isStreaming={true}
+          onStopStreaming={onStopStreaming}
+        />
+      )}
+
+      {(isLoading || isBranchLoading) && !isStreaming && (
+        <div className="flex justify-center">
+          <LoadingSpinner />
+        </div>
+      )}
     </div>
   );
 };

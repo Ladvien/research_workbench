@@ -67,7 +67,7 @@ fn check_auth_rate_limit(key: &str) -> Result<(), AppError> {
 pub async fn register(
     State(app_state): State<AppState>,
     session: Session,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    addr: Option<ConnectInfo<SocketAddr>>,
     parts: Parts,
     Json(payload): Json<RegisterRequest>,
 ) -> Result<Response, AppError> {
@@ -98,8 +98,10 @@ pub async fn register(
             user_id: response.user.id,
             created_at: chrono::Utc::now(),
             last_accessed: chrono::Utc::now(),
-            ip_address: AuthUtils::extract_client_ip(&parts)
-                .or_else(|| Some(Arc::from(addr.ip().to_string().as_str()))), // Fallback to connection IP
+            ip_address: AuthUtils::extract_client_ip(&parts).or_else(|| {
+                addr.as_ref()
+                    .map(|ConnectInfo(a)| Arc::from(a.ip().to_string().as_str()))
+            }), // Fallback to connection IP
             user_agent: AuthUtils::extract_user_agent(&parts),
         };
 
@@ -158,7 +160,7 @@ pub async fn register(
 pub async fn login(
     State(app_state): State<AppState>,
     session: Session,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    addr: Option<ConnectInfo<SocketAddr>>,
     parts: Parts,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Response, AppError> {
@@ -189,8 +191,10 @@ pub async fn login(
             user_id: response.user.id,
             created_at: chrono::Utc::now(),
             last_accessed: chrono::Utc::now(),
-            ip_address: AuthUtils::extract_client_ip(&parts)
-                .or_else(|| Some(Arc::from(addr.ip().to_string().as_str()))), // Fallback to connection IP
+            ip_address: AuthUtils::extract_client_ip(&parts).or_else(|| {
+                addr.as_ref()
+                    .map(|ConnectInfo(a)| Arc::from(a.ip().to_string().as_str()))
+            }), // Fallback to connection IP
             user_agent: AuthUtils::extract_user_agent(&parts),
         };
 
