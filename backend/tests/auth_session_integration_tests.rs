@@ -94,8 +94,9 @@ async fn test_session_invalidation_on_logout() {
 /// Test concurrent session limits enforcement
 #[tokio::test]
 async fn test_concurrent_session_limits_enforcement() {
+    let redis_url = std::env::var("REDIS_URL").ok();
     let session_manager = SessionManager::new(
-        None, None, 3, 24, // Limit to 3 sessions for testing
+        redis_url, None, 3, 24, // Limit to 3 sessions for testing
     );
 
     let user_id = Uuid::new_v4();
@@ -253,7 +254,8 @@ async fn test_session_security_validation() {
 /// Test user isolation - sessions from different users don't interfere
 #[tokio::test]
 async fn test_user_session_isolation() {
-    let session_manager = SessionManager::new(None, None, 5, 24);
+    let redis_url = std::env::var("REDIS_URL").ok();
+    let session_manager = SessionManager::new(redis_url, None, 5, 24);
 
     let user1_id = Uuid::new_v4();
     let user2_id = Uuid::new_v4();
@@ -325,7 +327,8 @@ async fn test_user_session_isolation() {
 /// Test password change invalidates all sessions
 #[tokio::test]
 async fn test_password_change_session_invalidation() {
-    let session_manager = SessionManager::new(None, None, 5, 24);
+    let redis_url = std::env::var("REDIS_URL").ok();
+    let session_manager = SessionManager::new(redis_url, None, 5, 24);
 
     let user_id = Uuid::new_v4();
 
@@ -378,8 +381,9 @@ async fn test_password_change_session_invalidation() {
 /// Performance test for session operations
 #[tokio::test]
 async fn test_session_performance() {
+    let redis_url = std::env::var("REDIS_URL").ok();
     let session_manager = SessionManager::new(
-        None, None, 50, 24, // Higher limit for performance testing
+        redis_url, None, 50, 24, // Higher limit for performance testing
     );
 
     let user_id = Uuid::new_v4();

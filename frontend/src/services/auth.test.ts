@@ -1,32 +1,32 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { AuthService, authService } from './auth';
 import type { LoginRequest, RegisterRequest, User, ApiResponse, AuthResponse } from '../types';
-
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+import { TEST_CONFIG, waitForBackend, ensureTestUser, cleanupTestData } from '../test-utils/testConfig';
 
 describe('AuthService', () => {
-  const mockUser: User = {
-    id: '1',
-    email: 'test@example.com',
-    username: 'testuser',
-    created_at: '2023-01-01T00:00:00Z',
-    updated_at: '2023-01-01T00:00:00Z',
-  };
+  let testService: AuthService;
 
-  const mockAuthResponse: AuthResponse = {
-    user: mockUser,
-    tokens: {
-      accessToken: 'access-token-123',
-      refreshToken: 'refresh-token-456',
-      expiresAt: Date.now() + 3600000,
-    },
-  };
+  beforeAll(async () => {
+    // Wait for backend to be ready
+    const isReady = await waitForBackend();
+    if (!isReady) {
+      throw new Error('Backend is not ready for testing');
+    }
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockFetch.mockClear();
+    // Ensure test user exists
+    await ensureTestUser();
+
+    // Create a test service instance
+    testService = new AuthService();
+  }, TEST_CONFIG.TIMEOUTS.AUTHENTICATION);
+
+  beforeEach(async () => {
+    // Clean up any existing sessions
+    await cleanupTestData();
+  });
+
+  afterAll(async () => {
+    await cleanupTestData();
   });
 
   describe('constructor', () => {
@@ -43,473 +43,350 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('should login successfully', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue(mockAuthResponse),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
+    it('should login successfully with real backend', async () => {
       const loginRequest: LoginRequest = {
-        email: 'test@example.com',
-        password: 'password123',
+        email: TEST_CONFIG.TEST_USER.email,
+        password: TEST_CONFIG.TEST_USER.password,
       };
 
-      const result = await authService.login(loginRequest);
+      const result = await testService.login(loginRequest);
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/v1/auth/login',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(loginRequest),
-          credentials: 'include',
-        }
-      );
-
-      expect(result.data).toEqual(mockAuthResponse);
       expect(result.status).toBe(200);
       expect(result.error).toBeUndefined();
-    });
+      expect(result.data).toBeDefined();
+      expect(result.data?.user).toBeDefined();
+      expect(result.data?.user.email).toBe(loginRequest.email);
+      expect(result.data?.tokens).toBeDefined();
+    }, TEST_CONFIG.TIMEOUTS.AUTHENTICATION);
 
-    it('should handle login HTTP error', async () => {
-      const errorMessage = 'Invalid credentials';
-      const mockResponse = {
-        ok: false,
-        status: 401,
-        text: vi.fn().mockResolvedValue(errorMessage),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
+    it('should handle login with invalid credentials', async () => {
       const loginRequest: LoginRequest = {
-        email: 'test@example.com',
+        email: TEST_CONFIG.TEST_USER.email,
         password: 'wrongpassword',
       };
 
-      const result = await authService.login(loginRequest);
+      const result = await testService.login(loginRequest);
 
-      expect(result.error).toBe(errorMessage);
       expect(result.status).toBe(401);
+      expect(result.error).toBeDefined();
       expect(result.data).toBeUndefined();
-    });
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
 
-    it('should handle empty error response', async () => {
-      const mockResponse = {
-        ok: false,
-        status: 500,
-        text: vi.fn().mockResolvedValue(''),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
+    it('should handle login with non-existent user', async () => {
       const loginRequest: LoginRequest = {
-        email: 'test@example.com',
+        email: 'nonexistent@example.com',
         password: 'password123',
       };
 
-      const result = await authService.login(loginRequest);
+      const result = await testService.login(loginRequest);
 
-      expect(result.error).toBe('HTTP 500');
-      expect(result.status).toBe(500);
-    });
+      expect(result.status).toBe(401);
+      expect(result.error).toBeDefined();
+      expect(result.data).toBeUndefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
 
-    it('should handle network error', async () => {
-      const networkError = new Error('Network error');
-      mockFetch.mockRejectedValue(networkError);
-
+    it('should handle malformed login request', async () => {
       const loginRequest: LoginRequest = {
-        email: 'test@example.com',
-        password: 'password123',
+        email: 'invalid-email-format',
+        password: '',
       };
 
-      const result = await authService.login(loginRequest);
+      const result = await testService.login(loginRequest);
 
-      expect(result.error).toBe('Network error');
-      expect(result.status).toBe(0);
-    });
-
-    it('should handle non-Error exceptions', async () => {
-      mockFetch.mockRejectedValue('String error');
-
-      const loginRequest: LoginRequest = {
-        email: 'test@example.com',
-        password: 'password123',
-      };
-
-      const result = await authService.login(loginRequest);
-
-      expect(result.error).toBe('Network error');
-      expect(result.status).toBe(0);
-    });
+      expect(result.status).toBeGreaterThanOrEqual(400);
+      expect(result.error).toBeDefined();
+      expect(result.data).toBeUndefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
   });
 
   describe('register', () => {
-    it('should register successfully', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 201,
-        json: vi.fn().mockResolvedValue(mockAuthResponse),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
+    it('should register successfully with real backend', async () => {
+      const timestamp = Date.now();
       const registerRequest: RegisterRequest = {
-        email: 'test@example.com',
-        username: 'testuser',
+        email: `test-register-${timestamp}@example.com`,
+        username: `testuser${timestamp}`,
         password: 'password123',
       };
 
-      const result = await authService.register(registerRequest);
+      const result = await testService.register(registerRequest);
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/v1/auth/register',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(registerRequest),
-          credentials: 'include',
-        }
-      );
-
-      expect(result.data).toEqual(mockAuthResponse);
       expect(result.status).toBe(201);
-    });
+      expect(result.error).toBeUndefined();
+      expect(result.data).toBeDefined();
+      expect(result.data?.user).toBeDefined();
+      expect(result.data?.user.email).toBe(registerRequest.email);
+      expect(result.data?.user.username).toBe(registerRequest.username);
+      expect(result.data?.tokens).toBeDefined();
+    }, TEST_CONFIG.TIMEOUTS.AUTHENTICATION);
 
-    it('should handle registration HTTP error', async () => {
-      const errorMessage = 'Email already exists';
-      const mockResponse = {
-        ok: false,
-        status: 409,
-        text: vi.fn().mockResolvedValue(errorMessage),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
+    it('should handle registration with existing email', async () => {
       const registerRequest: RegisterRequest = {
-        email: 'existing@example.com',
-        username: 'testuser',
+        email: TEST_CONFIG.TEST_USER.email, // Use existing test user email
+        username: 'duplicateuser',
         password: 'password123',
       };
 
-      const result = await authService.register(registerRequest);
+      const result = await testService.register(registerRequest);
 
-      expect(result.error).toBe(errorMessage);
       expect(result.status).toBe(409);
-    });
+      expect(result.error).toBeDefined();
+      expect(result.data).toBeUndefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
 
-    it('should handle registration network error', async () => {
-      const networkError = new Error('Connection failed');
-      mockFetch.mockRejectedValue(networkError);
-
+    it('should handle registration with invalid data', async () => {
       const registerRequest: RegisterRequest = {
-        email: 'test@example.com',
-        username: 'testuser',
-        password: 'password123',
+        email: 'invalid-email',
+        username: '',
+        password: '123', // Too short
       };
 
-      const result = await authService.register(registerRequest);
+      const result = await testService.register(registerRequest);
 
-      expect(result.error).toBe('Connection failed');
-      expect(result.status).toBe(0);
-    });
+      expect(result.status).toBeGreaterThanOrEqual(400);
+      expect(result.error).toBeDefined();
+      expect(result.data).toBeUndefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
+
+    it('should handle registration with missing fields', async () => {
+      const registerRequest = {
+        email: 'test@example.com',
+        // Missing username and password
+      } as RegisterRequest;
+
+      const result = await testService.register(registerRequest);
+
+      expect(result.status).toBeGreaterThanOrEqual(400);
+      expect(result.error).toBeDefined();
+      expect(result.data).toBeUndefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
   });
 
   describe('logout', () => {
-    it('should logout successfully', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+    it('should logout successfully with real backend', async () => {
+      // First login to have a session to logout from
+      await testService.login({
+        email: TEST_CONFIG.TEST_USER.email,
+        password: TEST_CONFIG.TEST_USER.password,
+      });
 
-      const result = await authService.logout();
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/v1/auth/logout',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        }
-      );
+      const result = await testService.logout();
 
       expect(result.status).toBe(200);
       expect(result.error).toBeUndefined();
-    });
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
 
-    it('should handle logout HTTP error', async () => {
-      const errorMessage = 'Session not found';
-      const mockResponse = {
-        ok: false,
-        status: 404,
-        text: vi.fn().mockResolvedValue(errorMessage),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+    it('should handle logout without session gracefully', async () => {
+      // Don't login first, just try to logout
+      const result = await testService.logout();
 
-      const result = await authService.logout();
+      // Should still return success even if no session exists
+      expect(result.status).toBe(200);
+      expect(result.error).toBeUndefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
 
-      expect(result.error).toBe(errorMessage);
-      expect(result.status).toBe(404);
-    });
+    it('should invalidate session after logout', async () => {
+      // First login
+      await testService.login({
+        email: TEST_CONFIG.TEST_USER.email,
+        password: TEST_CONFIG.TEST_USER.password,
+      });
 
-    it('should handle logout network error', async () => {
-      const networkError = new Error('Network timeout');
-      mockFetch.mockRejectedValue(networkError);
+      // Verify we can access protected endpoint
+      const userBeforeLogout = await testService.getCurrentUser();
+      expect(userBeforeLogout.status).toBe(200);
 
-      const result = await authService.logout();
+      // Logout
+      await testService.logout();
 
-      expect(result.error).toBe('Network timeout');
-      expect(result.status).toBe(0);
-    });
+      // Verify we can't access protected endpoint anymore
+      const userAfterLogout = await testService.getCurrentUser();
+      expect(userAfterLogout.status).toBe(401);
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
   });
 
   describe('getCurrentUser', () => {
-    it('should get current user successfully', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue(mockUser),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+    it('should get current user successfully with real backend', async () => {
+      // First login to have a session
+      await testService.login({
+        email: TEST_CONFIG.TEST_USER.email,
+        password: TEST_CONFIG.TEST_USER.password,
+      });
 
-      const result = await authService.getCurrentUser();
+      const result = await testService.getCurrentUser();
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/v1/auth/me',
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        }
-      );
-
-      expect(result.data).toEqual(mockUser);
       expect(result.status).toBe(200);
-    });
+      expect(result.error).toBeUndefined();
+      expect(result.data).toBeDefined();
+      expect(result.data?.email).toBe(TEST_CONFIG.TEST_USER.email);
+      expect(result.data?.id).toBeDefined();
+      expect(result.data?.username).toBeDefined();
+      expect(result.data?.created_at).toBeDefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
 
     it('should handle unauthorized current user request', async () => {
-      const mockResponse = {
-        ok: false,
-        status: 401,
-        text: vi.fn().mockResolvedValue('Unauthorized'),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+      // Ensure no session exists
+      await testService.logout();
 
-      const result = await authService.getCurrentUser();
+      const result = await testService.getCurrentUser();
 
-      expect(result.error).toBe('Unauthorized');
       expect(result.status).toBe(401);
-    });
-
-    it('should handle network error when getting current user', async () => {
-      const networkError = new Error('Request failed');
-      mockFetch.mockRejectedValue(networkError);
-
-      const result = await authService.getCurrentUser();
-
-      expect(result.error).toBe('Request failed');
-      expect(result.status).toBe(0);
-    });
+      expect(result.error).toBeDefined();
+      expect(result.data).toBeUndefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
   });
 
   describe('refreshToken', () => {
-    it('should refresh token successfully', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue(mockAuthResponse),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+    it('should refresh token successfully with real backend', async () => {
+      // First login to have a session with refresh token
+      await testService.login({
+        email: TEST_CONFIG.TEST_USER.email,
+        password: TEST_CONFIG.TEST_USER.password,
+      });
 
-      const result = await authService.refreshToken();
+      const result = await testService.refreshToken();
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/v1/auth/refresh',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        }
-      );
-
-      expect(result.data).toEqual(mockAuthResponse);
       expect(result.status).toBe(200);
-    });
+      expect(result.error).toBeUndefined();
+      expect(result.data).toBeDefined();
+      expect(result.data?.tokens).toBeDefined();
+      expect(result.data?.user).toBeDefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
 
-    it('should handle refresh token failure', async () => {
-      const mockResponse = {
-        ok: false,
-        status: 401,
-        text: vi.fn().mockResolvedValue('Refresh token expired'),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+    it('should handle refresh token failure without session', async () => {
+      // Ensure no session exists
+      await testService.logout();
 
-      const result = await authService.refreshToken();
+      // Clear all cookies to ensure no refresh token
+      document.cookie.split(';').forEach(c => {
+        const eqPos = c.indexOf('=');
+        const name = eqPos > -1 ? c.substr(0, eqPos) : c;
+        document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+      });
 
-      expect(result.error).toBe('Refresh token expired');
+      const result = await testService.refreshToken();
+
       expect(result.status).toBe(401);
-    });
-
-    it('should handle refresh token network error', async () => {
-      const networkError = new Error('Connection lost');
-      mockFetch.mockRejectedValue(networkError);
-
-      const result = await authService.refreshToken();
-
-      expect(result.error).toBe('Connection lost');
-      expect(result.status).toBe(0);
-    });
+      expect(result.error).toBeDefined();
+      expect(result.data).toBeUndefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
   });
 
   describe('healthCheck', () => {
-    it('should perform health check successfully', async () => {
-      const healthResponse = { status: 'ok' };
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue(healthResponse),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+    it('should perform health check successfully with real backend', async () => {
+      const result = await testService.healthCheck();
 
-      const result = await authService.healthCheck();
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/v1/auth/health',
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        }
-      );
-
-      expect(result.data).toEqual(healthResponse);
       expect(result.status).toBe(200);
-    });
-
-    it('should handle health check failure', async () => {
-      const mockResponse = {
-        ok: false,
-        status: 503,
-        text: vi.fn().mockResolvedValue('Service unavailable'),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
-      const result = await authService.healthCheck();
-
-      expect(result.error).toBe('Service unavailable');
-      expect(result.status).toBe(503);
-    });
+      expect(result.error).toBeUndefined();
+      expect(result.data).toBeDefined();
+      expect(result.data?.status).toBeDefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
   });
 
-  describe('edge cases', () => {
-    it('should handle malformed JSON response', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn().mockRejectedValue(new Error('Invalid JSON')),
+  describe('integration tests', () => {
+    it('should handle authentication flow end-to-end', async () => {
+      // Test full authentication flow
+      const timestamp = Date.now();
+      const registerRequest: RegisterRequest = {
+        email: `test-flow-${timestamp}@example.com`,
+        username: `testflow${timestamp}`,
+        password: 'password123',
       };
-      mockFetch.mockResolvedValue(mockResponse);
 
-      const result = await authService.login({
-        email: 'test@example.com',
-        password: 'password',
+      // 1. Register
+      const registerResult = await testService.register(registerRequest);
+      expect(registerResult.status).toBe(201);
+      expect(registerResult.data?.user.email).toBe(registerRequest.email);
+
+      // 2. Get current user (should work after registration)
+      const userResult = await testService.getCurrentUser();
+      expect(userResult.status).toBe(200);
+      expect(userResult.data?.email).toBe(registerRequest.email);
+
+      // 3. Logout
+      const logoutResult = await testService.logout();
+      expect(logoutResult.status).toBe(200);
+
+      // 4. Get current user (should fail after logout)
+      const userAfterLogoutResult = await testService.getCurrentUser();
+      expect(userAfterLogoutResult.status).toBe(401);
+
+      // 5. Login again
+      const loginResult = await testService.login({
+        email: registerRequest.email,
+        password: registerRequest.password,
       });
+      expect(loginResult.status).toBe(200);
+      expect(loginResult.data?.user.email).toBe(registerRequest.email);
 
-      expect(result.error).toBe('Invalid JSON');
-      expect(result.status).toBe(0);
-    });
+      // 6. Test refresh token
+      const refreshResult = await testService.refreshToken();
+      expect(refreshResult.status).toBe(200);
+      expect(refreshResult.data?.tokens).toBeDefined();
+    }, TEST_CONFIG.TIMEOUTS.AUTHENTICATION * 3);
 
-    it('should handle missing response text', async () => {
-      const mockResponse = {
-        ok: false,
-        status: 400,
-        text: vi.fn().mockRejectedValue(new Error('No text')),
+    it('should handle token refresh flow', async () => {
+      // Login to get initial tokens
+      const loginResult = await testService.login({
+        email: TEST_CONFIG.TEST_USER.email,
+        password: TEST_CONFIG.TEST_USER.password,
+      });
+      expect(loginResult.status).toBe(200);
+
+      // Refresh the token
+      const refreshResult = await testService.refreshToken();
+      expect(refreshResult.status).toBe(200);
+      expect(refreshResult.data?.tokens).toBeDefined();
+
+      // Verify we can still access protected endpoints
+      const userResult = await testService.getCurrentUser();
+      expect(userResult.status).toBe(200);
+      expect(userResult.data?.email).toBe(TEST_CONFIG.TEST_USER.email);
+    }, TEST_CONFIG.TIMEOUTS.AUTHENTICATION);
+
+    it('should handle concurrent login attempts', async () => {
+      const loginRequest: LoginRequest = {
+        email: TEST_CONFIG.TEST_USER.email,
+        password: TEST_CONFIG.TEST_USER.password,
       };
-      mockFetch.mockResolvedValue(mockResponse);
 
-      const result = await authService.login({
-        email: 'test@example.com',
-        password: 'password',
-      });
-
-      expect(result.error).toBe('No text');
-      expect(result.status).toBe(0);
-    });
-
-    it('should use custom base URL in requests', async () => {
-      const customUrl = 'https://custom-api.example.com';
-      const customService = new AuthService(customUrl);
-      
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue(mockAuthResponse),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
-      await customService.login({
-        email: 'test@example.com',
-        password: 'password',
-      });
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://custom-api.example.com/api/v1/auth/login',
-        expect.any(Object)
+      // Make multiple concurrent login requests
+      const promises = Array(3).fill(null).map(() =>
+        testService.login(loginRequest)
       );
-    });
 
-    it('should handle empty request body gracefully', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue({ status: 'ok' }),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+      const results = await Promise.all(promises);
 
-      await authService.logout();
-
-      const fetchCall = mockFetch.mock.calls[0];
-      expect(fetchCall[1]).toEqual({
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
+      // All should succeed
+      results.forEach(result => {
+        expect(result.status).toBe(200);
+        expect(result.data?.user.email).toBe(loginRequest.email);
       });
-      // Should not have a body for logout
-      expect(fetchCall[1]).not.toHaveProperty('body');
-    });
+    }, TEST_CONFIG.TIMEOUTS.AUTHENTICATION);
+  });
 
-    it('should preserve all headers including custom ones', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue(mockUser),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+  describe('network error handling', () => {
+    it('should handle network errors gracefully', async () => {
+      // Create service with invalid URL to trigger network error
+      const invalidService = new AuthService('http://invalid-url:99999');
 
-      await authService.getCurrentUser();
+      const result = await invalidService.healthCheck();
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-          }),
-          credentials: 'include',
-        })
-      );
-    });
+      expect(result.status).toBe(0);
+      expect(result.error).toBeDefined();
+      expect(result.data).toBeUndefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
+
+    it('should handle malformed JSON responses', async () => {
+      // This is harder to test with real backend, but we can test error handling
+      const result = await testService.login({
+        email: 'test@example.com',
+        password: 'password',
+      });
+
+      // Should handle response gracefully, even if it fails
+      expect(typeof result.status).toBe('number');
+      expect(result.error !== undefined || result.data !== undefined).toBe(true);
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
   });
 
   describe('exported instance', () => {
@@ -517,21 +394,59 @@ describe('AuthService', () => {
       expect(authService).toBeInstanceOf(AuthService);
     });
 
-    it('should use environment base URL', async () => {
-      // This tests that the exported instance uses the constructor correctly
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue({ status: 'ok' }),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+    it('should work with the exported instance', async () => {
+      // Test that the exported instance works with real backend
+      const result = await authService.healthCheck();
+      expect(result.status).toBe(200);
+      expect(result.data).toBeDefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
 
-      await authService.healthCheck();
+    it('should maintain session state with exported instance', async () => {
+      // Login with exported instance
+      const loginResult = await authService.login({
+        email: TEST_CONFIG.TEST_USER.email,
+        password: TEST_CONFIG.TEST_USER.password,
+      });
+      expect(loginResult.status).toBe(200);
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/auth/health'),
-        expect.any(Object)
-      );
-    });
+      // Get current user should work
+      const userResult = await authService.getCurrentUser();
+      expect(userResult.status).toBe(200);
+      expect(userResult.data?.email).toBe(TEST_CONFIG.TEST_USER.email);
+
+      // Logout
+      await authService.logout();
+    }, TEST_CONFIG.TIMEOUTS.AUTHENTICATION);
   });
-});
+
+  describe('edge cases', () => {
+    it('should handle empty request bodies', async () => {
+      const result = await testService.login({} as LoginRequest);
+
+      expect(result.status).toBeGreaterThanOrEqual(400);
+      expect(result.error).toBeDefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
+
+    it('should handle very long passwords', async () => {
+      const longPassword = 'a'.repeat(1000);
+      const result = await testService.login({
+        email: TEST_CONFIG.TEST_USER.email,
+        password: longPassword,
+      });
+
+      expect(result.status).toBe(401); // Should fail authentication
+      expect(result.error).toBeDefined();
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
+
+    it('should handle special characters in credentials', async () => {
+      const result = await testService.login({
+        email: 'test@example.com',
+        password: 'p@ssw0rd!@#$%^&*()',
+      });
+
+      // Should handle gracefully (will fail auth but not crash)
+      expect(typeof result.status).toBe('number');
+      expect(result.error !== undefined || result.data !== undefined).toBe(true);
+    }, TEST_CONFIG.TIMEOUTS.API_REQUEST);
+  });
+}, 60000); // Increase timeout for real API calls

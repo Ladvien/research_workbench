@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/ladvien/research_workbench/backend/**)",
+      "Read(//Users/ladvien/research_workbench/frontend/src/test-utils/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

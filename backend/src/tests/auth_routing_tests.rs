@@ -15,6 +15,7 @@ use crate::{
         DataAccessLayer,
     },
     database::Database,
+    create_app,
 };
 use tower_sessions::{Expiry, SessionManagerLayer};
 use time::Duration;
@@ -32,7 +33,7 @@ async fn test_auth_endpoints_exist() {
         .with_same_site(tower_sessions::cookie::SameSite::Lax)
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
-    let auth_service = AuthService::new(dal.users().clone(), config.jwt_config.clone())
+    let auth_service = AuthService::new(dal.users().clone(), dal.refresh_tokens().clone(), config.jwt_config.clone())
         .with_session_manager(session_manager);
 
     let conversation_service = crate::handlers::conversation::create_conversation_service(dal.clone());
@@ -113,7 +114,7 @@ async fn test_refresh_endpoint_exists() {
         .with_same_site(tower_sessions::cookie::SameSite::Lax)
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
-    let auth_service = AuthService::new(dal.users().clone(), config.jwt_config.clone())
+    let auth_service = AuthService::new(dal.users().clone(), dal.refresh_tokens().clone(), config.jwt_config.clone())
         .with_session_manager(session_manager);
 
     let conversation_service = crate::handlers::conversation::create_conversation_service(dal.clone());
@@ -159,7 +160,7 @@ async fn test_analytics_endpoints_exist() {
         .with_same_site(tower_sessions::cookie::SameSite::Lax)
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
-    let auth_service = AuthService::new(dal.users().clone(), config.jwt_config.clone())
+    let auth_service = AuthService::new(dal.users().clone(), dal.refresh_tokens().clone(), config.jwt_config.clone())
         .with_session_manager(session_manager);
 
     let conversation_service = crate::handlers::conversation::create_conversation_service(dal.clone());

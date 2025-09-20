@@ -22,9 +22,8 @@ mod test_env {
     pub async fn setup_test_app() -> (Router, TestUser) {
         let config = AppConfig::from_env().expect("Failed to load test configuration");
 
-        let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-            "postgresql://ladvien:postgres@localhost:5432/workbench".to_string()
-        });
+        let database_url = std::env::var("DATABASE_URL")
+            .expect("DATABASE_URL must be set for integration tests");
 
         let database = Database::new(&database_url)
             .await
@@ -40,10 +39,16 @@ mod test_env {
     }
 
     async fn create_test_user(app_state: &AppState) -> TestUser {
+        // Use test credentials from environment
+        let test_email = std::env::var("TEST_USER_EMAIL")
+            .unwrap_or_else(|_| "integration_test@workbench.com".to_string());
+        let test_password = std::env::var("TEST_USER_PASSWORD")
+            .unwrap_or_else(|_| "testpassword123".to_string());
+
         let create_user_request = CreateUserRequest {
-            email: "integration_test@workbench.com".to_string(),
+            email: test_email,
             username: "integration_test_user".to_string(),
-            password: "testpassword123".to_string(),
+            password: test_password,
         };
 
         let base_user = app_state

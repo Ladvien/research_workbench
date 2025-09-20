@@ -19,74 +19,22 @@ use workbench_server::{
     services::session::{SessionData, SessionManager},
 };
 
-/// Mock Redis client that can simulate failures
-#[derive(Debug, Clone)]
-struct MockRedisClient {
-    should_fail: Arc<Mutex<bool>>,
-    failure_count: Arc<Mutex<u32>>,
-    max_failures: Arc<Mutex<u32>>,
-}
-
-impl MockRedisClient {
-    fn new() -> Self {
-        Self {
-            should_fail: Arc::new(Mutex::new(false)),
-            failure_count: Arc::new(Mutex::new(0)),
-            max_failures: Arc::new(Mutex::new(3)),
-        }
-    }
-
-    fn set_failure_mode(&self, should_fail: bool) {
-        *self.should_fail.lock().unwrap() = should_fail;
-    }
-
-    fn set_max_failures(&self, max_failures: u32) {
-        *self.max_failures.lock().unwrap() = max_failures;
-    }
-
-    fn get_failure_count(&self) -> u32 {
-        *self.failure_count.lock().unwrap()
-    }
-
-    fn reset_failure_count(&self) {
-        *self.failure_count.lock().unwrap() = 0;
-    }
-
-    fn simulate_operation(&self) -> Result<(), AppError> {
-        let mut should_fail = self.should_fail.lock().unwrap();
-        let mut failure_count = self.failure_count.lock().unwrap();
-        let max_failures = *self.max_failures.lock().unwrap();
-
-        if *should_fail {
-            *failure_count += 1;
-
-            // After max failures, start working again
-            if *failure_count >= max_failures {
-                *should_fail = false;
-            }
-
-            return Err(AppError::InternalServerError(
-                "Redis connection failed".to_string(),
-            ));
-        }
-
-        Ok(())
-    }
-}
-
-/// Helper function to create session manager for testing Redis fallback
-fn create_session_manager_with_mock_redis() -> SessionManager {
+/// Helper function to create session manager for testing Redis fallback behavior
+/// Uses real Redis from environment if available, otherwise uses in-memory fallback
+fn create_session_manager_with_redis_fallback() -> SessionManager {
+    // Try to use Redis from environment, but allow fallback to in-memory
+    let redis_url = std::env::var("REDIS_URL").ok();
     SessionManager::new(
-        None, // No real Redis
-        None, // No PostgreSQL for these tests
-        5,    // max 5 sessions per user
-        24,   // 24 hour timeout
+        redis_url, // Use real Redis from environment if available
+        None,      // No PostgreSQL for these tests
+        5,         // max 5 sessions per user
+        24,        // 24 hour timeout
     )
 }
 
 #[tokio::test]
 async fn test_redis_connection_failure_on_store() {
-    let session_manager = create_session_manager_with_mock_redis();
+    let session_manager = create_session_manager_with_redis_fallback();
     let user_id = Uuid::new_v4();
     let session_id = "test_redis_fail_store";
 
@@ -116,7 +64,7 @@ async fn test_redis_connection_failure_on_store() {
 
 #[tokio::test]
 async fn test_redis_timeout_during_get() {
-    let session_manager = create_session_manager_with_mock_redis();
+    let session_manager = create_session_manager_with_redis_fallback();
     let user_id = Uuid::new_v4();
     let session_id = "test_redis_timeout_get";
 
@@ -149,7 +97,7 @@ async fn test_redis_timeout_during_get() {
 
 #[tokio::test]
 async fn test_redis_failure_during_delete() {
-    let session_manager = create_session_manager_with_mock_redis();
+    let session_manager = create_session_manager_with_redis_fallback();
     let user_id = Uuid::new_v4();
     let session_id = "test_redis_fail_delete";
 
@@ -182,7 +130,7 @@ async fn test_redis_failure_during_delete() {
 
 #[tokio::test]
 async fn test_redis_failure_during_user_session_invalidation() {
-    let session_manager = create_session_manager_with_mock_redis();
+    let session_manager = create_session_manager_with_redis_fallback();
     let user_id = Uuid::new_v4();
     let other_user_id = Uuid::new_v4();
 
@@ -249,7 +197,7 @@ async fn test_redis_failure_during_user_session_invalidation() {
 
 #[tokio::test]
 async fn test_redis_intermittent_failures() {
-    let session_manager = create_session_manager_with_mock_redis();
+    let session_manager = create_session_manager_with_redis_fallback();
     let user_id = Uuid::new_v4();
 
     // Test multiple operations with intermittent Redis failures
@@ -288,7 +236,7 @@ async fn test_redis_intermittent_failures() {
 
 #[tokio::test]
 async fn test_redis_recovery_after_failure() {
-    let session_manager = create_session_manager_with_mock_redis();
+    let session_manager = create_session_manager_with_redis_fallback();
     let user_id = Uuid::new_v4();
 
     // Test 1: Operations during "Redis failure" (actually using in-memory)
@@ -352,7 +300,7 @@ async fn test_redis_recovery_after_failure() {
 
 #[tokio::test]
 async fn test_concurrent_operations_during_redis_failure() {
-    let session_manager = Arc::new(create_session_manager_with_mock_redis());
+    let session_manager = Arc::new(create_session_manager_with_redis_fallback());
     let user_id = Uuid::new_v4();
     let num_concurrent_ops = 20;
 
@@ -415,7 +363,7 @@ async fn test_concurrent_operations_during_redis_failure() {
 
 #[tokio::test]
 async fn test_session_cleanup_during_redis_failure() {
-    let session_manager = create_session_manager_with_mock_redis();
+    let session_manager = create_session_manager_with_redis_fallback();
     let user_id = Uuid::new_v4();
 
     // Create sessions with different timestamps
@@ -463,7 +411,7 @@ async fn test_session_cleanup_during_redis_failure() {
 
 #[tokio::test]
 async fn test_atomic_operations_during_redis_failure() {
-    let session_manager = create_session_manager_with_mock_redis();
+    let session_manager = create_session_manager_with_redis_fallback();
     let user_id = Uuid::new_v4();
 
     // Test atomic session limit enforcement during Redis failure
@@ -521,7 +469,7 @@ async fn test_atomic_operations_during_redis_failure() {
 
 #[tokio::test]
 async fn test_redis_failure_error_handling() {
-    let session_manager = create_session_manager_with_mock_redis();
+    let session_manager = create_session_manager_with_redis_fallback();
 
     // Test error handling for non-existent session
     let get_result = session_manager.get_session("nonexistent").await;
@@ -545,7 +493,7 @@ async fn test_redis_failure_error_handling() {
 
 #[tokio::test]
 async fn test_partial_redis_failure_scenarios() {
-    let session_manager = create_session_manager_with_mock_redis();
+    let session_manager = create_session_manager_with_redis_fallback();
     let user_id = Uuid::new_v4();
 
     // Scenario 1: Store succeeds, get fails, then recovers

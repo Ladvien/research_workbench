@@ -1,8 +1,6 @@
-// Import vi for mocking
-import { vi, beforeAll, afterEach, afterAll } from 'vitest';
+import { beforeAll, afterEach, afterAll } from 'vitest';
 import '@testing-library/jest-dom';
 import { configure, cleanup } from '@testing-library/react';
-import { server } from './mocks/server';
 
 // Configure React 18+ test environment
 declare global {
@@ -32,146 +30,56 @@ configure({
 });
 
 // Mock scrollIntoView method
-Element.prototype.scrollIntoView = vi.fn();
+Element.prototype.scrollIntoView = () => {};
 
-// AGENT-5 Optimized localStorage mock with persistent cache for performance
-const createOptimizedStorageMock = () => {
-  const store = new Map<string, string>();
+// Real localStorage and sessionStorage (available in jsdom)
+// No mocking needed for integration tests
 
-  return {
-    getItem: vi.fn((key: string) => store.get(key) ?? null),
-    setItem: vi.fn((key: string, value: string) => { store.set(key, value); }),
-    removeItem: vi.fn((key: string) => { store.delete(key); }),
-    clear: vi.fn(() => { store.clear(); }),
-    get length() { return store.size; },
-    key: vi.fn((index: number) => {
-      const keys = Array.from(store.keys());
-      return keys[index] ?? null;
-    })
-  };
-};
+// Use real fetch for integration tests with backend
+// Fetch is available globally in Node.js 18+ and in browsers
 
-// Use optimized storage mocks
-const localStorageMock = createOptimizedStorageMock();
-const sessionStorageMock = createOptimizedStorageMock();
-
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock,
-  configurable: true
-});
-
-Object.defineProperty(window, 'sessionStorage', {
-  value: sessionStorageMock,
-  configurable: true
-});
-
-// Optimized fetch mock with response caching
-interface MockResponse {
-  ok: boolean;
-  status: number;
-  statusText: string;
-  headers: Headers;
-  json: ReturnType<typeof vi.fn>;
-  text: ReturnType<typeof vi.fn>;
-  blob: ReturnType<typeof vi.fn>;
-  arrayBuffer: ReturnType<typeof vi.fn>;
-  clone: ReturnType<typeof vi.fn>;
-}
-
-const createOptimizedFetchMock = () => {
-  const responseCache = new Map<string, MockResponse>();
-
-  return vi.fn().mockImplementation(async (url: string, options?: RequestInit) => {
-    // Cache GET requests for performance
-    const cacheKey = options?.method === 'GET' || !options?.method ? url : null;
-
-    if (cacheKey && responseCache.has(cacheKey)) {
-      return Promise.resolve(responseCache.get(cacheKey));
-    }
-
-    const mockResponse = {
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      headers: new Headers(),
-      json: vi.fn().mockResolvedValue({}),
-      text: vi.fn().mockResolvedValue(''),
-      blob: vi.fn().mockResolvedValue(new Blob()),
-      arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
-      clone: vi.fn().mockReturnThis()
-    };
-
-    if (cacheKey) {
-      responseCache.set(cacheKey, mockResponse);
-    }
-
-    return Promise.resolve(mockResponse);
-  });
-};
-
-global.fetch = global.fetch || createOptimizedFetchMock();
-
-// Mock window.matchMedia
+// Mock window.matchMedia (required for React components)
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation(query => ({
+  value: (query: string) => ({
     matches: false,
     media: query,
     onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => {},
+  }),
 });
 
-// Mock IntersectionObserver
-global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+// Mock IntersectionObserver and ResizeObserver (required for some components)
+global.IntersectionObserver = class IntersectionObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
 
-// Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
 
-// AGENT-5 Enhanced cleanup with performance optimizations
+// Clean up after each test
 afterEach(async () => {
-  // Reset MSW handlers
-  server.resetHandlers();
-
   // Use microtask queue for faster cleanup
   await new Promise(resolve => queueMicrotask(resolve));
 
   cleanup();
 
-  // Batch mock clears for better performance
-  vi.clearAllMocks();
-
-  // Clear storage mocks without individual mock clears for speed
-  localStorageMock.clear();
-  sessionStorageMock.clear();
-
-  // Reset fetch cache for next test
-  if (global.fetch && typeof global.fetch === 'function' && 'mockReset' in global.fetch) {
-    (global.fetch as ReturnType<typeof vi.fn>).mockReset();
-  }
+  // Clear storage for fresh test state
+  localStorage.clear();
+  sessionStorage.clear();
 });
 
-// AGENT-5 Performance monitoring and optimization
+// Clean up after all tests
 afterAll(() => {
-  // Stop MSW server
-  server.close();
-
-  // Clean up any remaining resources
-  vi.clearAllTimers();
-  vi.restoreAllMocks();
-
   // Force garbage collection if available (Node.js)
   if (global.gc) {
     global.gc();
@@ -180,9 +88,6 @@ afterAll(() => {
 
 // Configure React 18+ test environment before all tests
 beforeAll(async () => {
-  // Start MSW server
-  server.listen({ onUnhandledRequest: 'error' });
-
   // Import and configure React's act() for testing
   const { act } = await import('@testing-library/react');
 

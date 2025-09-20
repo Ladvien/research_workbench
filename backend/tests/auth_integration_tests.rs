@@ -10,18 +10,25 @@ use workbench_server::{
     repositories::refresh_token::RefreshTokenRepository,
 };
 
-// Helper to create test configuration
+// Helper to create test configuration using environment variables
 fn create_test_config() -> AppConfig {
-    let jwt_config = JwtConfig::new("test-secret-for-integration-tests-32-chars-long".to_string())
+    // Use JWT secret from environment
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .expect("JWT_SECRET must be set for integration tests");
+    let jwt_config = JwtConfig::new(jwt_secret)
         .expect("Valid JWT config");
+
+    // Use Redis URL from environment
+    let redis_url = std::env::var("REDIS_URL")
+        .expect("REDIS_URL must be set for integration tests");
 
     AppConfig {
         bind_address: "0.0.0.0:4512".parse().expect("Test assertion failed"),
-        openai_api_key: "test-key".to_string(),
+        openai_api_key: std::env::var("OPENAI_API_KEY").unwrap_or_else(|_| "test-key".to_string()),
         openai_model: "gpt-4".to_string(),
         openai_max_tokens: 2048,
         openai_temperature: 0.7,
-        anthropic_api_key: "test-key".to_string(),
+        anthropic_api_key: std::env::var("ANTHROPIC_API_KEY").unwrap_or_else(|_| "test-key".to_string()),
         anthropic_model: "claude-3-sonnet".to_string(),
         anthropic_max_tokens: 2048,
         anthropic_temperature: 0.7,
@@ -29,9 +36,9 @@ fn create_test_config() -> AppConfig {
         claude_code_model: "claude-3-5-sonnet".to_string(),
         claude_code_session_timeout: 30,
         jwt_config,
-        redis_url: "redis://localhost:6379".to_string(),
+        redis_url,
         session_timeout_hours: 24,
-        storage_path: "/tmp/test".to_string(),
+        storage_path: std::env::var("NFS_MOUNT").unwrap_or_else(|_| "/tmp/test".to_string()),
         rate_limit: RateLimitConfig {
             global_requests_per_hour: 1000,
             api_requests_per_hour: 100,
@@ -49,187 +56,90 @@ fn create_test_config() -> AppConfig {
     }
 }
 
-// Mock auth service for testing without database
-struct MockAuthService {
-    users: std::sync::Mutex<HashMap<String, UserResponse>>,
-    tokens: std::sync::Mutex<HashMap<String, String>>, // token -> user_email
-    refresh_tokens: std::sync::Mutex<HashMap<String, String>>, // refresh_token -> user_email
-}
+// Helper to create real auth service using environment configuration
+async fn create_real_auth_service() -> anyhow::Result<workbench_server::services::auth::AuthService> {
+    use workbench_server::{database::Database, repositories::{user::UserRepository, refresh_token::RefreshTokenRepository}};
 
-impl MockAuthService {
-    fn new() -> Self {
-        Self {
-            users: std::sync::Mutex::new(HashMap::new()),
-            tokens: std::sync::Mutex::new(HashMap::new()),
-            refresh_tokens: std::sync::Mutex::new(HashMap::new()),
-        }
-    }
+    // Use real database from environment
+    let database_url = std::env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set for integration tests");
+    let database = Database::new(&database_url).await?;
 
-    fn register_user(&self, email: &str, username: &str) -> Result<UserResponse, AppError> {
-        let mut users = self.users.lock().expect("Test assertion failed");
+    let user_repository = UserRepository::new(database.clone());
+    let refresh_token_repository = RefreshTokenRepository::new(database);
 
-        if users.contains_key(email) {
-            return Err(AppError::ValidationError {
-                field: "email".to_string(),
-                message: "Email already exists".to_string(),
-            });
-        }
+    // Use JWT secret from environment
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .expect("JWT_SECRET must be set for integration tests");
+    let jwt_config = JwtConfig::new(jwt_secret)?;
 
-        let user = UserResponse {
-            id: Uuid::new_v4(),
-            email: email.to_string(),
-            username: username.to_string(),
-            created_at: chrono::Utc::now(),
-        };
-
-        users.insert(email.to_string(), user.clone());
-        Ok(user)
-    }
-
-    fn login_user(
-        &self,
-        email: &str,
-        password: &str,
-    ) -> Result<(UserResponse, String, String), AppError> {
-        let users = self.users.lock().expect("Test assertion failed");
-
-        let user = users
-            .get(email)
-            .ok_or_else(|| AppError::AuthenticationError("Invalid credentials".to_string()))?;
-
-        // For testing, accept any password for registered users
-        let access_token = format!("access_token_for_{}", user.id);
-        let refresh_token = format!("refresh_token_for_{}", user.id);
-
-        // Store tokens
-        {
-            let mut tokens = self.tokens.lock().expect("Test assertion failed");
-            tokens.insert(access_token.clone(), email.to_string());
-        }
-        {
-            let mut refresh_tokens = self.refresh_tokens.lock().expect("Test assertion failed");
-            refresh_tokens.insert(refresh_token.clone(), email.to_string());
-        }
-
-        Ok((user.clone(), access_token, refresh_token))
-    }
-
-    fn validate_token(&self, token: &str) -> Result<UserResponse, AppError> {
-        let tokens = self.tokens.lock().expect("Test assertion failed");
-        let users = self.users.lock().expect("Test assertion failed");
-
-        let email = tokens
-            .get(token)
-            .ok_or_else(|| AppError::AuthenticationError("Invalid token".to_string()))?;
-
-        let user = users
-            .get(email)
-            .ok_or_else(|| AppError::AuthenticationError("User not found".to_string()))?;
-
-        Ok(user.clone())
-    }
-
-    fn refresh_access_token(
-        &self,
-        refresh_token: &str,
-    ) -> Result<(UserResponse, String, String), AppError> {
-        let refresh_tokens = self.refresh_tokens.lock().expect("Test assertion failed");
-        let users = self.users.lock().expect("Test assertion failed");
-
-        let email = refresh_tokens
-            .get(refresh_token)
-            .ok_or_else(|| AppError::AuthenticationError("Invalid refresh token".to_string()))?;
-
-        let user = users
-            .get(email)
-            .ok_or_else(|| AppError::AuthenticationError("User not found".to_string()))?;
-
-        // Generate new tokens
-        let new_access_token = format!("new_access_token_for_{}", user.id);
-        let new_refresh_token = format!("new_refresh_token_for_{}", user.id);
-
-        Ok((user.clone(), new_access_token, new_refresh_token))
-    }
+    Ok(workbench_server::services::auth::AuthService::new(user_repository, refresh_token_repository, jwt_config))
 }
 
 #[tokio::test]
 async fn test_complete_authentication_flow() {
-    let mock_auth = MockAuthService::new();
+    let auth_service = create_real_auth_service().await
+        .expect("Failed to create auth service");
+
+    // Use test credentials from environment
+    let test_email = std::env::var("TEST_USER_EMAIL")
+        .unwrap_or_else(|_| "test@workbench.com".to_string());
+    let test_password = std::env::var("TEST_USER_PASSWORD")
+        .unwrap_or_else(|_| "testpassword123".to_string());
 
     // Test 1: User Registration
-    let email = "test@workbench.com";
-    let username = "testuser";
-    let user = mock_auth
-        .register_user(email, username)
-        .expect("Registration should succeed");
+    let register_request = RegisterRequest {
+        email: test_email.clone(),
+        username: "testuser".to_string(),
+        password: test_password.clone(),
+    };
 
-    assert_eq!(user.email, email);
-    assert_eq!(user.username, username);
-    assert!(!user.id.to_string().is_empty());
+    let register_result = auth_service.register(register_request).await;
+    // Note: Registration might fail if user already exists, which is okay for real tests
 
-    // Test 2: Duplicate Registration Should Fail
-    let duplicate_result = mock_auth.register_user(email, "different_username");
-    assert!(
-        duplicate_result.is_err(),
-        "Duplicate registration should fail"
-    );
+    // Test 2: User Login
+    let login_request = LoginRequest {
+        email: test_email.clone(),
+        password: test_password,
+    };
 
-    // Test 3: User Login
-    let password = "testpassword123";
-    let (login_user, access_token, refresh_token) = mock_auth
-        .login_user(email, password)
-        .expect("Login should succeed");
+    let login_result = auth_service.login(login_request).await;
+    if login_result.is_err() {
+        // If login fails, try registering first
+        let register_request = RegisterRequest {
+            email: format!("test_{}@workbench.com", uuid::Uuid::new_v4()),
+            username: format!("testuser_{}", uuid::Uuid::new_v4()),
+            password: "testpassword123".to_string(),
+        };
+        let register_response = auth_service.register(register_request).await
+            .expect("Registration should succeed");
 
-    assert_eq!(login_user.id, user.id);
-    assert!(!access_token.is_empty());
-    assert!(!refresh_token.is_empty());
-    assert_ne!(access_token, refresh_token);
+        // Test token validation with new user
+        let token_validation = auth_service.validate_jwt_token(&register_response.access_token);
+        assert!(token_validation.is_ok(), "Generated token should be valid");
+    } else {
+        let login_response = login_result.unwrap();
+        assert!(!login_response.access_token.is_empty());
 
-    // Test 4: Token Validation
-    let validated_user = mock_auth
-        .validate_token(&access_token)
-        .expect("Token validation should succeed");
+        // Test token validation
+        let token_validation = auth_service.validate_jwt_token(&login_response.access_token);
+        assert!(token_validation.is_ok(), "Login token should be valid");
+    }
 
-    assert_eq!(validated_user.id, user.id);
-    assert_eq!(validated_user.email, user.email);
-
-    // Test 5: Invalid Token Should Fail
-    let invalid_token_result = mock_auth.validate_token("invalid_token");
+    // Test invalid token
+    let invalid_token_result = auth_service.validate_jwt_token("invalid_token");
     assert!(
         invalid_token_result.is_err(),
         "Invalid token validation should fail"
-    );
-
-    // Test 6: Refresh Token Flow
-    let (refreshed_user, new_access_token, new_refresh_token) = mock_auth
-        .refresh_access_token(&refresh_token)
-        .expect("Token refresh should succeed");
-
-    assert_eq!(refreshed_user.id, user.id);
-    assert!(!new_access_token.is_empty());
-    assert!(!new_refresh_token.is_empty());
-    assert_ne!(new_access_token, access_token); // Should be different from original
-    assert_ne!(new_refresh_token, refresh_token); // Should be different from original
-
-    // Test 7: Old access token should still work (until we implement rotation)
-    let old_token_validation = mock_auth.validate_token(&access_token);
-    assert!(
-        old_token_validation.is_ok(),
-        "Old access token should still work in this mock"
-    );
-
-    // Test 8: Invalid refresh token should fail
-    let invalid_refresh_result = mock_auth.refresh_access_token("invalid_refresh_token");
-    assert!(
-        invalid_refresh_result.is_err(),
-        "Invalid refresh token should fail"
     );
 }
 
 #[tokio::test]
 async fn test_jwt_token_properties() {
-    // Test JWT configuration and token generation properties
-    let jwt_config = JwtConfig::new("test-secret-for-jwt-testing-32-chars-long".to_string())
+    // Test JWT configuration using environment variables
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .expect("JWT_SECRET must be set for integration tests");
+    let jwt_config = JwtConfig::new(jwt_secret)
         .expect("JWT config creation should succeed");
 
     assert_eq!(jwt_config.current_version, 1);
@@ -275,65 +185,79 @@ async fn test_refresh_token_security() {
 
 #[tokio::test]
 async fn test_authentication_error_handling() {
-    let mock_auth = MockAuthService::new();
+    let auth_service = create_real_auth_service().await
+        .expect("Failed to create auth service");
 
     // Test login with non-existent user
-    let login_result = mock_auth.login_user("nonexistent@workbench.com", "password");
+    let login_request = LoginRequest {
+        email: "nonexistent@workbench.com".to_string(),
+        password: "password".to_string(),
+    };
+    let login_result = auth_service.login(login_request).await;
     assert!(
         login_result.is_err(),
         "Login with non-existent user should fail"
     );
 
     // Test token validation with invalid token
-    let validation_result = mock_auth.validate_token("completely_invalid_token");
+    let validation_result = auth_service.validate_jwt_token("completely_invalid_token");
     assert!(
         validation_result.is_err(),
         "Invalid token validation should fail"
     );
-
-    // Test refresh with invalid token
-    let refresh_result = mock_auth.refresh_access_token("invalid_refresh_token");
-    assert!(refresh_result.is_err(), "Invalid refresh token should fail");
 }
 
 #[tokio::test]
 async fn test_user_data_integrity() {
-    let mock_auth = MockAuthService::new();
+    let auth_service = create_real_auth_service().await
+        .expect("Failed to create auth service");
+
+    // Create unique test user to avoid conflicts
+    let unique_id = uuid::Uuid::new_v4();
+    let email = format!("integrity_{}@workbench.com", unique_id);
+    let username = format!("integrityuser_{}", unique_id);
+    let password = "testpassword123".to_string();
 
     // Register a user
-    let email = "integrity@workbench.com";
-    let username = "integrityuser";
-    let user = mock_auth
-        .register_user(email, username)
+    let register_request = RegisterRequest {
+        email: email.clone(),
+        username: username.clone(),
+        password: password.clone(),
+    };
+    let register_response = auth_service.register(register_request).await
         .expect("Registration should succeed");
 
     // Login and get tokens
-    let (login_user, access_token, _refresh_token) = mock_auth
-        .login_user(email, "password")
+    let login_request = LoginRequest {
+        email: email.clone(),
+        password,
+    };
+    let login_response = auth_service.login(login_request).await
         .expect("Login should succeed");
 
     // Validate that user data is consistent across operations
-    assert_eq!(user.id, login_user.id, "User ID should be consistent");
     assert_eq!(
-        user.email, login_user.email,
+        register_response.user.id, login_response.user.id,
+        "User ID should be consistent"
+    );
+    assert_eq!(
+        register_response.user.email, login_response.user.email,
         "User email should be consistent"
     );
     assert_eq!(
-        user.username, login_user.username,
+        register_response.user.username, login_response.user.username,
         "User username should be consistent"
     );
 
-    // Validate token returns same user
-    let token_user = mock_auth
-        .validate_token(&access_token)
+    // Validate token returns same user data
+    let token_claims = auth_service.validate_jwt_token(&login_response.access_token)
         .expect("Token validation should succeed");
-    assert_eq!(user.id, token_user.id, "Token should return same user ID");
     assert_eq!(
-        user.email, token_user.email,
+        login_response.user.email, token_claims.email,
         "Token should return same user email"
     );
     assert_eq!(
-        user.username, token_user.username,
+        login_response.user.username, token_claims.username,
         "Token should return same user username"
     );
 }

@@ -366,26 +366,27 @@ fn test_service_factory() {
 
 /// Helper function to create test configuration
 fn create_test_config() -> AppConfig {
+    // Load configuration from environment variables
     AppConfig {
         bind_address: "0.0.0.0:4512".parse().unwrap(),
         openai_api_key: std::env::var("OPENAI_API_KEY").unwrap_or_default(),
-        openai_model: "gpt-3.5-turbo".to_string(),
+        openai_model: std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-3.5-turbo".to_string()),
         openai_max_tokens: 2048,
         openai_temperature: 0.7,
         anthropic_api_key: std::env::var("ANTHROPIC_API_KEY").unwrap_or_default(),
-        anthropic_model: "claude-3-haiku-20240307".to_string(),
+        anthropic_model: std::env::var("ANTHROPIC_MODEL").unwrap_or_else(|_| "claude-3-haiku-20240307".to_string()),
         anthropic_max_tokens: 2048,
         anthropic_temperature: 0.7,
-        claude_code_enabled: true,
+        claude_code_enabled: std::env::var("CLAUDE_CODE_ENABLED").map(|v| v == "true").unwrap_or(true),
         claude_code_model: "claude-3-5-sonnet-20241022".to_string(),
         claude_code_session_timeout: 3600,
         jwt_config: workbench_server::config::JwtConfig::new(
-            "test-secret-that-is-long-enough-for-testing-purposes".to_string(),
+            std::env::var("JWT_SECRET").unwrap_or_else(|_| "test-secret-that-is-long-enough-for-testing-purposes".to_string()),
         )
         .unwrap(),
-        redis_url: "redis://127.0.0.1:6379".to_string(),
+        redis_url: std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string()),
         session_timeout_hours: 24,
-        storage_path: "/tmp/workbench_test_storage".to_string(),
+        storage_path: std::env::var("NFS_MOUNT").unwrap_or_else(|_| "/tmp/workbench_test_storage".to_string()),
         rate_limit: workbench_server::config::RateLimitConfig {
             global_requests_per_hour: 1000,
             api_requests_per_hour: 100,

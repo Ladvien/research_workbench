@@ -15,50 +15,27 @@ use workbench_server::{
     services::{auth::AuthService, DataAccessLayer},
 };
 
-// Test helper to create a test app state with in-memory database
+// Test helper to create a test app state with real database from environment
 async fn create_test_app_state() -> anyhow::Result<AppState> {
-    // Use in-memory SQLite for testing
-    let database_url = "sqlite::memory:";
-    let database = Database::new(database_url).await?;
+    // Use real database from environment
+    let database_url = std::env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set for integration tests");
+    let database = Database::new(&database_url).await?;
 
-    // Run basic schema creation
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
-            email TEXT UNIQUE NOT NULL,
-            username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            failed_attempts INTEGER DEFAULT 0,
-            locked_until TIMESTAMP NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS refresh_tokens (
-            id TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            token_hash TEXT UNIQUE NOT NULL,
-            expires_at TIMESTAMP NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-        "#,
-    )
-    .execute(&database.pool)
-    .await?;
+    // Database schema should already exist in the real database
 
     let user_repository = UserRepository::new(database.clone());
     let refresh_token_repository = RefreshTokenRepository::new(database.clone());
 
-    // Create JWT config with a test secret
-    let jwt_config =
-        JwtConfig::new("test-secret-that-is-long-enough-for-validation-12345".to_string())?;
+    // Create JWT config using environment secret
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "test-secret-that-is-long-enough-for-validation-12345".to_string());
+    let jwt_config = JwtConfig::new(jwt_secret)?;
 
     let auth_service = AuthService::new(user_repository, refresh_token_repository, jwt_config);
 
-    // Create basic config for testing
-    let config = AppConfig::from_env().unwrap_or_else(|_| AppConfig::default());
+    // Create config from environment
+    let config = AppConfig::from_env().expect("Failed to load configuration from environment");
 
     // Create data access layer
     let dal = DataAccessLayer::new(database);
@@ -81,10 +58,16 @@ async fn create_test_app_state() -> anyhow::Result<AppState> {
 async fn test_registration_flow_complete() {
     let app_state = create_test_app_state().await.unwrap();
 
+    // Use test credentials from environment
+    let test_email = std::env::var("TEST_USER_EMAIL")
+        .unwrap_or_else(|_| "test@workbench.com".to_string());
+    let test_password = std::env::var("TEST_USER_PASSWORD")
+        .unwrap_or_else(|_| "ValidPassword123!".to_string());
+
     let register_request = RegisterRequest {
-        email: "test@workbench.com".to_string(),
+        email: test_email,
         username: "testuser".to_string(),
-        password: "ValidPassword123!".to_string(),
+        password: test_password,
     };
 
     // Create session store for the request

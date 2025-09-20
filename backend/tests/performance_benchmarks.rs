@@ -3,7 +3,8 @@ mod performance_benchmarks {
     use std::time::{Duration, Instant};
     use uuid::Uuid;
     use workbench_server::{
-        app_state::AppState, config::AppConfig, database::Database, models::*, repositories::Repository, services::*,
+        app_state::AppState, config::AppConfig, database::Database, models::*, repositories::Repository,
+        services::{auth::AuthService, conversation::ConversationService, chat::ChatService, DataAccessLayer},
     };
 
     async fn setup_test_app() -> AppState {
@@ -16,7 +17,11 @@ mod performance_benchmarks {
             .expect("Failed to connect to database");
         let dal = DataAccessLayer::new(database.clone());
 
-        let auth_service = AuthService::new(dal.clone());
+        let auth_service = AuthService::new(
+            dal.users().clone(),
+            dal.refresh_tokens().clone(),
+            config.jwt_config.clone(),
+        );
         let conversation_service = ConversationService::new(dal.clone());
         let chat_service = ChatService::new(dal.clone());
 

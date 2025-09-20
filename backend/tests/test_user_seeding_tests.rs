@@ -12,17 +12,23 @@ mod test_user_seeding_tests {
 
     #[test]
     fn test_user_struct_creation() {
+        // Use test credentials from environment
+        let test_email = env::var("TEST_USER_EMAIL")
+            .unwrap_or_else(|_| "test@workbench.com".to_string());
+        let test_password = env::var("TEST_USER_PASSWORD")
+            .unwrap_or_else(|_| "testpassword123".to_string());
+
         // Test that TestUser struct can be created with the expected format
         let test_user = TestUser::new(
             "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-            "test@workbench.com",
+            &test_email,
             "testuser",
-            "testpassword123",
+            &test_password,
         );
 
-        assert_eq!(test_user.email, "test@workbench.com");
+        assert_eq!(test_user.email, test_email);
         assert_eq!(test_user.username, "testuser");
-        assert_eq!(test_user.password, "testpassword123");
+        assert_eq!(test_user.password, test_password);
         assert_eq!(
             test_user.id.to_string(),
             "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
@@ -31,17 +37,23 @@ mod test_user_seeding_tests {
 
     #[test]
     fn test_admin_user_struct_creation() {
+        // Use admin credentials from environment
+        let admin_email = env::var("ADMIN_EMAIL")
+            .unwrap_or_else(|_| "admin@workbench.com".to_string());
+        let admin_password = env::var("ADMIN_PASSWORD")
+            .unwrap_or_else(|_| "adminpassword123".to_string());
+
         // Test that admin user struct can be created with the expected format
         let admin_user = TestUser::new(
             "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
-            "admin@workbench.com",
+            &admin_email,
             "adminuser",
-            "adminpassword123",
+            &admin_password,
         );
 
-        assert_eq!(admin_user.email, "admin@workbench.com");
+        assert_eq!(admin_user.email, admin_email);
         assert_eq!(admin_user.username, "adminuser");
-        assert_eq!(admin_user.password, "adminpassword123");
+        assert_eq!(admin_user.password, admin_password);
         assert_eq!(
             admin_user.id.to_string(),
             "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12"

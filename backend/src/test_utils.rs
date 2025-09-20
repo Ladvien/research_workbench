@@ -9,12 +9,11 @@ use tower::ServiceExt;
 
 use crate::{app_state::AppState, database::Database};
 
-/// Setup test database connection
+/// Setup test database connection using real environment configuration
 pub async fn setup_test_database() -> Result<Database> {
-    // Try to use test database URL, fallback to main if not available
-    let database_url = std::env::var("TEST_DATABASE_URL")
-        .or_else(|_| std::env::var("DATABASE_URL"))
-        .map_err(|_| anyhow::anyhow!("No database URL found in environment"))?;
+    // Use DATABASE_URL from environment (required for real tests)
+    let database_url = std::env::var("DATABASE_URL")
+        .map_err(|_| anyhow::anyhow!("DATABASE_URL must be set for integration tests"))?;
 
     Database::new(&database_url).await
 }
@@ -25,16 +24,16 @@ pub async fn setup_test_app() -> Result<(Router, AppState)> {
     let app_state = AppState::new_with_database(database);
 
     // Create a simple app for testing - just basic routes without full middleware
-    let app = setup_mock_app();
+    let app = setup_minimal_app();
     Ok((app, app_state))
 }
 
-/// Setup test app without database (for unit tests)
-pub fn setup_mock_app() -> Router {
+/// Setup minimal app for basic health checks (no database required)
+pub fn setup_minimal_app() -> Router {
     use axum::{routing::get, Json};
     use serde_json::json;
 
-    // Create a minimal app for testing endpoints that don't need database
+    // Create a minimal app for testing basic endpoints only
     Router::new()
         .route("/health", get(|| async { Json(json!({"status": "ok"})) }))
         .route(
@@ -94,12 +93,17 @@ pub async fn make_json_request(
     Ok((status, json_response))
 }
 
-/// Create test user data
+/// Create test user data using environment credentials
 pub fn create_test_user_data() -> serde_json::Value {
+    let test_email = std::env::var("TEST_USER_EMAIL")
+        .unwrap_or_else(|_| "test@workbench.com".to_string());
+    let test_password = std::env::var("TEST_USER_PASSWORD")
+        .unwrap_or_else(|_| "testpassword123".to_string());
+
     serde_json::json!({
-        "email": "test@example.com",
+        "email": test_email,
         "username": "testuser",
-        "password": "SecurePassword123!"
+        "password": test_password
     })
 }
 
@@ -145,7 +149,7 @@ mod tests {
     #[tokio::test]
     async fn test_setup_functions() {
         // Test that setup functions don't panic
-        let _mock_app = setup_mock_app();
+        let _mock_app = setup_minimal_app();
 
         // Test data creation functions
         let _user_data = create_test_user_data();

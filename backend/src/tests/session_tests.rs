@@ -10,11 +10,13 @@ use uuid::Uuid;
 
 #[tokio::test]
 async fn test_session_storage_and_retrieval() {
+    // Use real Redis from environment if available
+    let redis_url = std::env::var("REDIS_URL").ok();
     let session_manager = SessionManager::new(
-        None, // No Redis for testing
-        None, // No PostgreSQL for testing
-        5,    // max 5 sessions per user
-        24,   // 24 hour timeout
+        redis_url, // Use real Redis from environment
+        None,      // No PostgreSQL for this test
+        5,         // max 5 sessions per user
+        24,        // 24 hour timeout
     );
 
     let session_id = "test_session_123";
@@ -51,7 +53,8 @@ async fn test_session_storage_and_retrieval() {
 
 #[tokio::test]
 async fn test_session_deletion() {
-    let session_manager = SessionManager::new(None, None, 5, 24);
+    let redis_url = std::env::var("REDIS_URL").ok();
+    let session_manager = SessionManager::new(redis_url, None, 5, 24);
 
     let session_id = "test_session_delete";
     let user_id = Uuid::new_v4();
@@ -84,7 +87,8 @@ async fn test_session_deletion() {
 
 #[tokio::test]
 async fn test_user_session_invalidation() {
-    let session_manager = SessionManager::new(None, None, 5, 24);
+    let redis_url = std::env::var("REDIS_URL").ok();
+    let session_manager = SessionManager::new(redis_url, None, 5, 24);
     let user_id = Uuid::new_v4();
     let other_user_id = Uuid::new_v4();
 
@@ -173,7 +177,8 @@ async fn test_user_session_invalidation() {
 
 #[tokio::test]
 async fn test_session_cleanup() {
-    let session_manager = SessionManager::new(None, None, 5, 1); // 1 hour timeout
+    let redis_url = std::env::var("REDIS_URL").ok();
+    let session_manager = SessionManager::new(redis_url, None, 5, 1); // 1 hour timeout
     let user_id = Uuid::new_v4();
 
     // Create an "old" session by manipulating the last_accessed time
@@ -232,7 +237,8 @@ async fn test_session_cleanup() {
 
 #[tokio::test]
 async fn test_session_count_tracking() {
-    let session_manager = SessionManager::new(None, None, 5, 24);
+    let redis_url = std::env::var("REDIS_URL").ok();
+    let session_manager = SessionManager::new(redis_url, None, 5, 24);
     let user_id = Uuid::new_v4();
 
     // Start with zero sessions
@@ -278,7 +284,8 @@ async fn test_session_count_tracking() {
 
 #[tokio::test]
 async fn test_nonexistent_session_operations() {
-    let session_manager = SessionManager::new(None, None, 5, 24);
+    let redis_url = std::env::var("REDIS_URL").ok();
+    let session_manager = SessionManager::new(redis_url, None, 5, 24);
 
     // Try to get a session that doesn't exist
     let result = session_manager.get_session("nonexistent_session").await;

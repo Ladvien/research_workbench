@@ -43,7 +43,7 @@ pub struct Message {
     pub metadata: serde_json::Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq)]
 #[sqlx(type_name = "varchar")]
 #[serde(rename_all = "lowercase")]
 pub enum MessageRole {
